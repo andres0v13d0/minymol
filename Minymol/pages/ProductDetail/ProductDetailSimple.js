@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Carousel from 'react-native-reanimated-carousel';
 import Product from '../../components/Product/Product';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -33,7 +35,6 @@ const ProductDetail = ({ route, navigation }) => {
   const [quantity, setQuantity] = useState(1);
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
-  const [mainImage, setMainImage] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedColor, setSelectedColor] = useState('');
   const [selectedSize, setSelectedSize] = useState('');
@@ -45,7 +46,7 @@ const ProductDetail = ({ route, navigation }) => {
   
   // Estados para el carrusel de imágenes
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const flatListRef = useRef(null);
+  const carouselRef = useRef(null);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -98,13 +99,7 @@ const ProductDetail = ({ route, navigation }) => {
         console.log('ProductDetail: Imágenes cargadas:', imagesData);
         const imagesArray = Array.isArray(imagesData) ? imagesData : [];
         setImages(imagesArray);
-        setMainImage(imagesArray.length > 0 ? imagesArray[0]?.imageUrl : null);
         setCurrentImageIndex(0);
-        
-        // Precargar dimensiones de las imágenes
-        if (imagesArray.length > 0) {
-          loadImageDimensions(imagesArray);
-        }
 
         // Cargar precios
         const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
@@ -205,7 +200,6 @@ const ProductDetail = ({ route, navigation }) => {
           ];
           
           setImages(productImages);
-          setMainImage(productData.image || 'https://via.placeholder.com/400x400/ff7e17/ffffff?text=Sin+Imagen');
           setRelatedProducts([]);
         } else {
           // Último fallback si no hay nada
@@ -233,7 +227,6 @@ const ProductDetail = ({ route, navigation }) => {
             { imageUrl: 'https://via.placeholder.com/400x400/ff7e17/ffffff?text=Sin+Datos' }
           ]);
           
-          setMainImage('https://via.placeholder.com/400x400/ff7e17/ffffff?text=Sin+Datos');
           setRelatedProducts([]);
         }
         
@@ -332,9 +325,11 @@ const ProductDetail = ({ route, navigation }) => {
       cantidad: quantity,
       precio: applicablePrice.price,
       productPrices: prices,
-      image: mainImage,
+      image: images[currentImageIndex]?.imageUrl, // Usa la imagen actual
     };
 
+    console.log('ProductDetail: Índice actual de imagen:', currentImageIndex);
+    console.log('ProductDetail: URL de imagen seleccionada:', images[currentImageIndex]?.imageUrl);
     console.log('ProductDetail: Producto agregado al carrito:', item);
     RNAlert.alert('Éxito', 'Producto agregado al carrito');
   };
@@ -375,106 +370,91 @@ const ProductDetail = ({ route, navigation }) => {
     return columns;
   };
 
-  // Función para cargar dimensiones de las imágenes
-  const loadImageDimensions = (imagesList) => {
-    const dimensions = {};
-    
-    imagesList.forEach((img, index) => {
-      if (img.imageUrl) {
-        Image.getSize(
-          img.imageUrl,
-          (width, height) => {
-            const aspectRatio = height / width;
-            const calculatedHeight = screenWidth * aspectRatio;
-            // Limitar altura mínima y máxima para casos extremos
-            const finalHeight = Math.max(
-              Math.min(calculatedHeight, screenWidth * 1.5), // máximo 1.5x el ancho
-              screenWidth * 0.6 // mínimo 0.6x el ancho
-            );
-            
-            dimensions[index] = {
-              width,
-              height,
-              aspectRatio,
-              calculatedHeight: finalHeight
-            };
-            
-            setImageDimensions(prev => ({
-              ...prev,
-              [index]: dimensions[index]
-            }));
-            
-            // Si es la primera imagen, establecer la altura inicial
-            if (index === 0) {
-              setImageHeight(finalHeight);
-            }
-          },
-          (error) => {
-            console.log(`Error obteniendo dimensiones de imagen ${index}:`, error);
-            // Usar altura por defecto en caso de error
-            dimensions[index] = {
-              calculatedHeight: screenWidth * 0.8
-            };
-            setImageDimensions(prev => ({
-              ...prev,
-              [index]: dimensions[index]
-            }));
-          }
-        );
-      }
-    });
-  };
-
-  // Función para actualizar altura cuando cambia la imagen
-  const updateImageHeight = (index) => {
-    if (imageDimensions[index]) {
-      setImageHeight(imageDimensions[index].calculatedHeight);
-    }
-  };
-
-  // Función para cambiar imagen por índice
+  // Función para cambiar imagen por índice (miniaturas)
   const goToImage = (index) => {
     if (images.length <= 1 || index === currentImageIndex) return;
     
     setCurrentImageIndex(index);
-    setMainImage(images[index]?.imageUrl);
-    updateImageHeight(index);
-    
-    // Hacer scroll al índice correcto
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: index * screenWidth,
-        animated: true,
-      });
-    }
+    carouselRef.current?.scrollTo({
+      index: index,
+      animated: true,
+    });
   };
 
-  // Efecto para mantener sincronización del estado
-  useEffect(() => {
-    if (images.length > 0 && currentImageIndex < images.length) {
-      setMainImage(images[currentImageIndex]?.imageUrl);
-      updateImageHeight(currentImageIndex);
-    }
-  }, [currentImageIndex, images, imageDimensions]);
-
-  // Manejar el cambio de página del carrusel
-  const handleScrollEnd = (event) => {
-    const contentOffset = event.nativeEvent.contentOffset;
-    const viewSize = event.nativeEvent.layoutMeasurement;
-    const pageNum = Math.round(contentOffset.x / viewSize.width);
+  // Componente para cada item del carrusel
+  const ParallaxItem = ({ item, index, animationValue }) => {
+    const [imageHeight, setImageHeight] = useState(300); // altura por defecto
     
-    if (pageNum !== currentImageIndex && pageNum >= 0 && pageNum < images.length) {
-      setCurrentImageIndex(pageNum);
-      setMainImage(images[pageNum]?.imageUrl);
-      updateImageHeight(pageNum);
-    }
+    const animatedStyle = useAnimatedStyle(() => {
+      const scale = interpolate(
+        animationValue.value,
+        [-1, 0, 1],
+        [0.9, 1, 0.9]
+      );
+      return {
+        transform: [{ scale }]
+      };
+    });
+
+    // Obtener las dimensiones de la imagen para mantener el aspect ratio
+    const handleImageLoad = (event) => {
+      const { width, height } = event.nativeEvent.source;
+      const screenWidth = Dimensions.get('window').width;
+      const calculatedHeight = (height * (screenWidth - 32)) / width; // 32 para padding
+      setImageHeight(calculatedHeight);
+    };
+
+    return (
+      <View style={[styles.parallaxItemContainer, { height: imageHeight }]}>
+        <Animated.Image
+          source={{ uri: item.imageUrl }}
+          style={[styles.parallaxImage, animatedStyle]}
+          resizeMode="contain"
+          onLoad={handleImageLoad}
+        />
+      </View>
+    );
   };
 
-  // Componente del carrusel de imágenes
+  // Componente para los puntos indicadores animados
+  const PaginationItem = ({ index, length, progressValue, onPress }) => {
+    const animatedStyle = useAnimatedStyle(() => {
+      const inputRange = [(index - 1), index, (index + 1)];
+      return {
+        opacity: interpolate(
+          progressValue.value % length,
+          inputRange,
+          [0.6, 1, 0.6],
+          'clamp'
+        ),
+        transform: [
+          {
+            scale: interpolate(
+              progressValue.value % length,
+              inputRange,
+              [0.8, 1.2, 0.8],
+              'clamp'
+            )
+          }
+        ],
+        backgroundColor: progressValue.value % length === index ? '#fa7e17' : 'rgba(255,255,255,0.6)'
+      };
+    });
+    return (
+      <TouchableOpacity onPress={onPress} style={styles.paginationItemContainer}>
+        <Animated.View style={[styles.paginationDot, animatedStyle]} />
+      </TouchableOpacity>
+    );
+  };
+
+  // Nuevo ImageCarousel con parallax
   const ImageCarousel = () => {
+    const progressValue = useSharedValue(0);
+    const [carouselHeight, setCarouselHeight] = useState(300);
+    
     if (!images || images.length === 0) {
       return (
-        <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
+        <View style={styles.mainImageWrapper}>
           <Image 
             source={{ uri: 'https://via.placeholder.com/400x400' }}
             style={styles.mainImage}
@@ -483,55 +463,69 @@ const ProductDetail = ({ route, navigation }) => {
         </View>
       );
     }
-
-    // Si solo hay una imagen
+    
     if (images.length === 1) {
       return (
-        <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
-          <Image
+        <View style={styles.mainImageWrapper}>
+          <Image 
             source={{ uri: images[0].imageUrl }}
             style={styles.mainImage}
             resizeMode="contain"
+            onLoad={(event) => {
+              const { width, height } = event.nativeEvent.source;
+              const screenWidth = Dimensions.get('window').width;
+              const calculatedHeight = (height * (screenWidth - 32)) / width;
+              setCarouselHeight(calculatedHeight);
+            }}
           />
         </View>
       );
     }
-
-    // Múltiples imágenes - usar ScrollView
+    
     return (
-      <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
+      <View style={[styles.mainImageWrapper, { height: carouselHeight }]}>
+        <Carousel
+          ref={carouselRef}
+          width={screenWidth}
+          height={carouselHeight}
+          data={images}
+          loop
           pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleScrollEnd}
-          style={styles.carouselScrollView}
-          contentContainerStyle={styles.carouselContent}
-        >
-          {images.map((img, index) => (
-            <View key={index} style={styles.carouselImageWrapper}>
-              <Image
-                source={{ uri: img.imageUrl }}
-                style={styles.carouselImage}
-                resizeMode="contain"
+          onSnapToItem={(index) => {
+            console.log('Carrusel: Cambio de imagen a índice:', index);
+            setCurrentImageIndex(index);
+          }}
+          onProgressChange={(offsetProgress, absoluteProgress) => {
+            progressValue.value = absoluteProgress;
+          }}
+          mode="parallax"
+          modeConfig={{
+            parallaxScrollingScale: 0.9,
+            parallaxScrollingOffset: 50,
+          }}
+          renderItem={({ item, index, animationValue }) => {
+            return (
+              <ParallaxItem 
+                item={item} 
+                index={index} 
+                animationValue={animationValue} 
               />
-            </View>
-          ))}
-        </ScrollView>
-        
+            );
+          }}
+        />
         {/* Indicadores de puntos */}
         <View style={styles.dotsContainer}>
-          {images.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={() => goToImage(index)}
-              style={[
-                styles.dot,
-                currentImageIndex === index && styles.activeDot,
-              ]}
-            />
-          ))}
+          {images.map((_, index) => {
+            return (
+              <PaginationItem
+                key={index}
+                index={index}
+                length={images.length}
+                progressValue={progressValue}
+                onPress={() => goToImage(index)}
+              />
+            );
+          })}
         </View>
       </View>
     );
@@ -591,10 +585,11 @@ const ProductDetail = ({ route, navigation }) => {
         {/* Título del producto */}
         <Text style={styles.productTitle}>{product.name}</Text>
 
-        {/* Sección de imagen principal */}
-        <View style={styles.imageSection}>
-          <ImageCarousel />
+        {/* Carrusel de imágenes - sin padding para ocupar todo el ancho */}
+        <ImageCarousel />
 
+        {/* Sección de miniaturas */}
+        <View style={styles.imageSection}>
           {/* Miniaturas */}
           {Array.isArray(images) && images.length > 1 && (
             <ScrollView 
@@ -986,31 +981,27 @@ const styles = StyleSheet.create({
   },
   mainImageWrapper: {
     width: '100%',
-    borderRadius: 10,
-    overflow: 'hidden',
     backgroundColor: '#f5f5f5',
     marginBottom: 16,
+    position: 'relative',
+    minHeight: 200, // altura mínima para evitar colapso
   },
   mainImage: {
     width: '100%',
     height: '100%',
   },
-  // Estilos para el carrusel
+  // Estilos para el carrusel con ScrollView
   carouselScrollView: {
     flex: 1,
   },
   carouselContent: {
-    alignItems: 'center',
+    flexDirection: 'row',
   },
-  carouselImageWrapper: {
-    width: screenWidth,
-    flex: 1,
+  imageSlide: {
+    width: screenWidth, // Ancho completo de la pantalla para paging correcto
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  carouselImage: {
-    width: '100%',
-    height: '100%',
+    paddingHorizontal: 16, // Padding interno en lugar de reducir el ancho
   },
   dotsContainer: {
     position: 'absolute',
@@ -1020,6 +1011,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  parallaxItemContainer: {
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  parallaxImage: {
+    width: '100%',
+    height: '100%',
+    maxWidth: screenWidth - 32, // Ancho máximo menos padding
+  },
+  paginationItemContainer: {
+    margin: 4,
+  },
+  paginationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   dot: {
     width: 10,
@@ -1374,6 +1386,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: getUbuntuFont('medium'),
     color: '#333',
+  },
+  // Nuevos estilos para el carrusel y parallax
+  parallaxItemContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  parallaxImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  paginationItemContainer: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginHorizontal: 4,
+  },
+  paginationDot: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

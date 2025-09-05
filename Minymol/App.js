@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import 'react-native-gesture-handler';
 import NavInf from './components/NavInf/NavInf';
 import { useFonts } from './hooks/useFonts';
 import Home from './pages/Home/Home';
