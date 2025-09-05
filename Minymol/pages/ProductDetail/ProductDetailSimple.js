@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -9,9 +9,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  PanResponder,
-  Animated
+  View
 } from 'react-native';
 import Product from '../../components/Product/Product';
 import { getUbuntuFont } from '../../utils/fonts';
@@ -47,8 +45,7 @@ const ProductDetail = ({ route, navigation }) => {
   
   // Estados para el carrusel de imágenes
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const translateX = useRef(new Animated.Value(0)).current;
-  const imageHeight = useRef(new Animated.Value(screenWidth * 0.8)).current;
+  const flatListRef = useRef(null);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -99,8 +96,15 @@ const ProductDetail = ({ route, navigation }) => {
         const imagesRes = await fetch(`https://api.minymol.com/images/by-product/${productId}`);
         const imagesData = await imagesRes.json();
         console.log('ProductDetail: Imágenes cargadas:', imagesData);
-        setImages(Array.isArray(imagesData) ? imagesData : []);
-        setMainImage(Array.isArray(imagesData) && imagesData.length > 0 ? imagesData[0]?.imageUrl : null);
+        const imagesArray = Array.isArray(imagesData) ? imagesData : [];
+        setImages(imagesArray);
+        setMainImage(imagesArray.length > 0 ? imagesArray[0]?.imageUrl : null);
+        setCurrentImageIndex(0);
+        
+        // Precargar dimensiones de las imágenes
+        if (imagesArray.length > 0) {
+          loadImageDimensions(imagesArray);
+        }
 
         // Cargar precios
         const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
@@ -371,6 +375,168 @@ const ProductDetail = ({ route, navigation }) => {
     return columns;
   };
 
+  // Función para cargar dimensiones de las imágenes
+  const loadImageDimensions = (imagesList) => {
+    const dimensions = {};
+    
+    imagesList.forEach((img, index) => {
+      if (img.imageUrl) {
+        Image.getSize(
+          img.imageUrl,
+          (width, height) => {
+            const aspectRatio = height / width;
+            const calculatedHeight = screenWidth * aspectRatio;
+            // Limitar altura mínima y máxima para casos extremos
+            const finalHeight = Math.max(
+              Math.min(calculatedHeight, screenWidth * 1.5), // máximo 1.5x el ancho
+              screenWidth * 0.6 // mínimo 0.6x el ancho
+            );
+            
+            dimensions[index] = {
+              width,
+              height,
+              aspectRatio,
+              calculatedHeight: finalHeight
+            };
+            
+            setImageDimensions(prev => ({
+              ...prev,
+              [index]: dimensions[index]
+            }));
+            
+            // Si es la primera imagen, establecer la altura inicial
+            if (index === 0) {
+              setImageHeight(finalHeight);
+            }
+          },
+          (error) => {
+            console.log(`Error obteniendo dimensiones de imagen ${index}:`, error);
+            // Usar altura por defecto en caso de error
+            dimensions[index] = {
+              calculatedHeight: screenWidth * 0.8
+            };
+            setImageDimensions(prev => ({
+              ...prev,
+              [index]: dimensions[index]
+            }));
+          }
+        );
+      }
+    });
+  };
+
+  // Función para actualizar altura cuando cambia la imagen
+  const updateImageHeight = (index) => {
+    if (imageDimensions[index]) {
+      setImageHeight(imageDimensions[index].calculatedHeight);
+    }
+  };
+
+  // Función para cambiar imagen por índice
+  const goToImage = (index) => {
+    if (images.length <= 1 || index === currentImageIndex) return;
+    
+    setCurrentImageIndex(index);
+    setMainImage(images[index]?.imageUrl);
+    updateImageHeight(index);
+    
+    // Hacer scroll al índice correcto
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        x: index * screenWidth,
+        animated: true,
+      });
+    }
+  };
+
+  // Efecto para mantener sincronización del estado
+  useEffect(() => {
+    if (images.length > 0 && currentImageIndex < images.length) {
+      setMainImage(images[currentImageIndex]?.imageUrl);
+      updateImageHeight(currentImageIndex);
+    }
+  }, [currentImageIndex, images, imageDimensions]);
+
+  // Manejar el cambio de página del carrusel
+  const handleScrollEnd = (event) => {
+    const contentOffset = event.nativeEvent.contentOffset;
+    const viewSize = event.nativeEvent.layoutMeasurement;
+    const pageNum = Math.round(contentOffset.x / viewSize.width);
+    
+    if (pageNum !== currentImageIndex && pageNum >= 0 && pageNum < images.length) {
+      setCurrentImageIndex(pageNum);
+      setMainImage(images[pageNum]?.imageUrl);
+      updateImageHeight(pageNum);
+    }
+  };
+
+  // Componente del carrusel de imágenes
+  const ImageCarousel = () => {
+    if (!images || images.length === 0) {
+      return (
+        <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
+          <Image 
+            source={{ uri: 'https://via.placeholder.com/400x400' }}
+            style={styles.mainImage}
+            resizeMode="contain"
+          />
+        </View>
+      );
+    }
+
+    // Si solo hay una imagen
+    if (images.length === 1) {
+      return (
+        <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
+          <Image
+            source={{ uri: images[0].imageUrl }}
+            style={styles.mainImage}
+            resizeMode="contain"
+          />
+        </View>
+      );
+    }
+
+    // Múltiples imágenes - usar ScrollView
+    return (
+      <View style={[styles.mainImageWrapper, { height: imageHeight }]}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          style={styles.carouselScrollView}
+          contentContainerStyle={styles.carouselContent}
+        >
+          {images.map((img, index) => (
+            <View key={index} style={styles.carouselImageWrapper}>
+              <Image
+                source={{ uri: img.imageUrl }}
+                style={styles.carouselImage}
+                resizeMode="contain"
+              />
+            </View>
+          ))}
+        </ScrollView>
+        
+        {/* Indicadores de puntos */}
+        <View style={styles.dotsContainer}>
+          {images.map((_, index) => (
+            <TouchableOpacity
+              key={index}
+              onPress={() => goToImage(index)}
+              style={[
+                styles.dot,
+                currentImageIndex === index && styles.activeDot,
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   // Componente Header personalizado para ProductDetail
   const CustomHeader = ({ provider, onBack }) => (
     <View style={styles.customHeader}>
@@ -427,16 +593,10 @@ const ProductDetail = ({ route, navigation }) => {
 
         {/* Sección de imagen principal */}
         <View style={styles.imageSection}>
-          <View style={styles.mainImageWrapper}>
-            <Image 
-              source={{ uri: mainImage || 'https://via.placeholder.com/400x400' }}
-              style={styles.mainImage}
-              resizeMode="cover"
-            />
-          </View>
+          <ImageCarousel />
 
           {/* Miniaturas */}
-          {Array.isArray(images) && images.length > 0 && (
+          {Array.isArray(images) && images.length > 1 && (
             <ScrollView 
               horizontal 
               showsHorizontalScrollIndicator={false}
@@ -446,14 +606,14 @@ const ProductDetail = ({ route, navigation }) => {
               {images.map((img, index) => (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => setMainImage(img.imageUrl)}
+                  onPress={() => goToImage(index)}
                   style={styles.thumbnailWrapper}
                 >
                   <Image
                     source={{ uri: img.imageUrl }}
                     style={[
                       styles.thumbnail,
-                      mainImage === img.imageUrl && styles.selectedThumbnail
+                      currentImageIndex === index && styles.selectedThumbnail
                     ]}
                     resizeMode="cover"
                   />
@@ -826,7 +986,6 @@ const styles = StyleSheet.create({
   },
   mainImageWrapper: {
     width: '100%',
-    height: screenWidth * 0.8,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#f5f5f5',
@@ -835,6 +994,46 @@ const styles = StyleSheet.create({
   mainImage: {
     width: '100%',
     height: '100%',
+  },
+  // Estilos para el carrusel
+  carouselScrollView: {
+    flex: 1,
+  },
+  carouselContent: {
+    alignItems: 'center',
+  },
+  carouselImageWrapper: {
+    width: screenWidth,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselImage: {
+    width: '100%',
+    height: '100%',
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    marginHorizontal: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  activeDot: {
+    backgroundColor: '#fa7e17',
+    borderColor: '#fa7e17',
+    transform: [{ scale: 1.2 }],
   },
   thumbnailScroll: {
     marginTop: 8,
