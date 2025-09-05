@@ -1,9 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Image,
+  PanResponder,
   Alert as RNAlert,
   ScrollView,
   StyleSheet,
@@ -11,8 +13,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
-import Carousel from 'react-native-reanimated-carousel';
 import Product from '../../components/Product/Product';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -44,9 +44,12 @@ const ProductDetail = ({ route, navigation }) => {
   const [subCategories, setSubCategories] = useState([]);
   const [quantityDropdownOpen, setQuantityDropdownOpen] = useState(false);
   
-  // Estados para el carrusel de imágenes
+  // Estados para el carrusel de imágenes - SIMPLIFICADO
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const carouselRef = useRef(null);
+  
+  // Referencias para el carrusel sin parpadeo
+  const translateX = useRef(new Animated.Value(0)).current;
+  const currentIndexRef = useRef(0);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -100,6 +103,11 @@ const ProductDetail = ({ route, navigation }) => {
         const imagesArray = Array.isArray(imagesData) ? imagesData : [];
         setImages(imagesArray);
         setCurrentImageIndex(0);
+        currentIndexRef.current = 0;
+        
+        // Asegurar que translateX esté en la posición correcta
+        translateX.setValue(0);
+        console.log('ProductDetail: Carrusel inicializado en posición 0');
 
         // Cargar precios
         const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
@@ -241,6 +249,18 @@ const ProductDetail = ({ route, navigation }) => {
     fetchData();
   }, [productId]);
 
+  // useEffect para debuggear el carrusel
+  useEffect(() => {
+    console.log('ProductDetail: Estado de imágenes actualizado:');
+    console.log('- Cantidad de imágenes:', images.length);
+    console.log('- Índice actual:', currentImageIndex);
+    console.log('- currentIndexRef:', currentIndexRef.current);
+    
+    if (images.length > 0) {
+      console.log('- URLs de imágenes:', images.map(img => img.imageUrl));
+    }
+  }, [images, currentImageIndex]);
+
   // Cantidades disponibles
   const availableQuantities = useMemo(() => {
     const set = new Set();
@@ -370,89 +390,90 @@ const ProductDetail = ({ route, navigation }) => {
     return columns;
   };
 
-  // Función para cambiar imagen por índice (miniaturas)
-  const goToImage = (index) => {
-    if (images.length <= 1 || index === currentImageIndex) return;
+  // Componente memo para miniaturas - evita re-renders
+  const ThumbnailItem = React.memo(({ img, index, isSelected, onPress }) => {
+    const thumbnailStyle = [
+      styles.thumbnail,
+      isSelected && styles.selectedThumbnail
+    ];
     
-    setCurrentImageIndex(index);
-    carouselRef.current?.scrollTo({
-      index: index,
-      animated: true,
-    });
-  };
-
-  // Componente para cada item del carrusel
-  const ParallaxItem = ({ item, index, animationValue }) => {
-    const [imageHeight, setImageHeight] = useState(300); // altura por defecto
-    
-    const animatedStyle = useAnimatedStyle(() => {
-      const scale = interpolate(
-        animationValue.value,
-        [-1, 0, 1],
-        [0.9, 1, 0.9]
-      );
-      return {
-        transform: [{ scale }]
-      };
-    });
-
-    // Obtener las dimensiones de la imagen para mantener el aspect ratio
-    const handleImageLoad = (event) => {
-      const { width, height } = event.nativeEvent.source;
-      const screenWidth = Dimensions.get('window').width;
-      const calculatedHeight = (height * (screenWidth - 32)) / width; // 32 para padding
-      setImageHeight(calculatedHeight);
-    };
-
     return (
-      <View style={[styles.parallaxItemContainer, { height: imageHeight }]}>
-        <Animated.Image
-          source={{ uri: item.imageUrl }}
-          style={[styles.parallaxImage, animatedStyle]}
-          resizeMode="contain"
-          onLoad={handleImageLoad}
+      <TouchableOpacity
+        style={styles.thumbnailWrapper}
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <Image
+          source={{ uri: img.imageUrl }}
+          style={thumbnailStyle}
+          resizeMode="cover"
+          cache="default"
+          fadeDuration={0}
         />
-      </View>
-    );
-  };
-
-  // Componente para los puntos indicadores animados
-  const PaginationItem = ({ index, length, progressValue, onPress }) => {
-    const animatedStyle = useAnimatedStyle(() => {
-      const inputRange = [(index - 1), index, (index + 1)];
-      return {
-        opacity: interpolate(
-          progressValue.value % length,
-          inputRange,
-          [0.6, 1, 0.6],
-          'clamp'
-        ),
-        transform: [
-          {
-            scale: interpolate(
-              progressValue.value % length,
-              inputRange,
-              [0.8, 1.2, 0.8],
-              'clamp'
-            )
-          }
-        ],
-        backgroundColor: progressValue.value % length === index ? '#fa7e17' : 'rgba(255,255,255,0.6)'
-      };
-    });
-    return (
-      <TouchableOpacity onPress={onPress} style={styles.paginationItemContainer}>
-        <Animated.View style={[styles.paginationDot, animatedStyle]} />
       </TouchableOpacity>
     );
+  });
+
+  // Función para ir a una imagen específica SIN PARPADEO
+  const goToImage = (index) => {
+    if (index < 0 || index >= images.length) {
+      index = currentIndexRef.current; // Mantener el índice actual si está fuera de rango
+    }
+    
+    console.log('goToImage: Animando a índice', index);
+    currentIndexRef.current = index;
+    
+    Animated.timing(translateX, {
+      toValue: -index * screenWidth,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setCurrentImageIndex(index);
+    });
   };
 
-  // Nuevo ImageCarousel con parallax
+  // Nuevo ImageCarousel con Animated.View y PanResponder - SIN PARPADEO
   const ImageCarousel = () => {
-    const progressValue = useSharedValue(0);
-    const [carouselHeight, setCarouselHeight] = useState(300);
+    const panResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true, // Siempre capturar el toque
+        onMoveShouldSetPanResponder: () => true,  // Siempre capturar el movimiento
+        onPanResponderGrant: () => {
+          console.log('PanResponder: Toque iniciado');
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          // Mover la imagen en tiempo real
+          const newValue = -currentIndexRef.current * screenWidth + gestureState.dx;
+          translateX.setValue(newValue);
+          console.log('PanResponder: Moviendo, dx:', gestureState.dx);
+        },
+        onPanResponderRelease: (evt, gestureState) => {
+          console.log('PanResponder: Soltado, dx:', gestureState.dx, 'vx:', gestureState.vx);
+          
+          const threshold = screenWidth * 0.2; // 20% del ancho
+          const velocity = 0.3; // Velocidad mínima para cambiar
+          let newIndex = currentIndexRef.current;
+          
+          // Usar velocidad o distancia para decidir
+          if (gestureState.vx < -velocity || gestureState.dx < -threshold) {
+            // Deslizar a la izquierda - siguiente imagen
+            if (currentIndexRef.current < images.length - 1) {
+              newIndex = currentIndexRef.current + 1;
+            }
+          } else if (gestureState.vx > velocity || gestureState.dx > threshold) {
+            // Deslizar a la derecha - imagen anterior
+            if (currentIndexRef.current > 0) {
+              newIndex = currentIndexRef.current - 1;
+            }
+          }
+          
+          console.log('PanResponder: Cambiando de', currentIndexRef.current, 'a', newIndex);
+          goToImage(newIndex);
+        },
+      })
+    ).current;
     
-    if (!images || images.length === 0) {
+    if (!Array.isArray(images) || images.length === 0) {
       return (
         <View style={styles.mainImageWrapper}>
           <Image 
@@ -471,61 +492,58 @@ const ProductDetail = ({ route, navigation }) => {
             source={{ uri: images[0].imageUrl }}
             style={styles.mainImage}
             resizeMode="contain"
-            onLoad={(event) => {
-              const { width, height } = event.nativeEvent.source;
-              const screenWidth = Dimensions.get('window').width;
-              const calculatedHeight = (height * (screenWidth - 32)) / width;
-              setCarouselHeight(calculatedHeight);
-            }}
           />
         </View>
       );
     }
     
+    console.log('ImageCarousel: Renderizando carrusel con', images.length, 'imágenes');
+    console.log('ImageCarousel: Índice actual:', currentIndexRef.current);
+    
     return (
-      <View style={[styles.mainImageWrapper, { height: carouselHeight }]}>
-        <Carousel
-          ref={carouselRef}
-          width={screenWidth}
-          height={carouselHeight}
-          data={images}
-          loop
-          pagingEnabled
-          onSnapToItem={(index) => {
-            console.log('Carrusel: Cambio de imagen a índice:', index);
-            setCurrentImageIndex(index);
-          }}
-          onProgressChange={(offsetProgress, absoluteProgress) => {
-            progressValue.value = absoluteProgress;
-          }}
-          mode="parallax"
-          modeConfig={{
-            parallaxScrollingScale: 0.9,
-            parallaxScrollingOffset: 50,
-          }}
-          renderItem={({ item, index, animationValue }) => {
-            return (
-              <ParallaxItem 
-                item={item} 
-                index={index} 
-                animationValue={animationValue} 
-              />
-            );
-          }}
-        />
+      <View style={styles.mainImageWrapper}>
+        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
+          <Animated.View
+            style={[
+              styles.carouselContainer,
+              {
+                transform: [{ translateX }],
+                width: screenWidth * images.length,
+              }
+            ]}
+          >
+            {images.map((image, index) => (
+              <View key={`img-${index}`} style={styles.imageSlide}>
+                <Image
+                  source={{ uri: image.imageUrl }}
+                  style={styles.mainImage}
+                  resizeMode="contain"
+                  onLoad={() => console.log(`Imagen ${index} cargada`)}
+                  onError={(error) => console.log(`Error cargando imagen ${index}:`, error.nativeEvent.error)}
+                />
+              </View>
+            ))}
+          </Animated.View>
+        </View>
+        
         {/* Indicadores de puntos */}
-        <View style={styles.dotsContainer}>
-          {images.map((_, index) => {
-            return (
-              <PaginationItem
-                key={index}
-                index={index}
-                length={images.length}
-                progressValue={progressValue}
-                onPress={() => goToImage(index)}
-              />
-            );
-          })}
+        <View style={styles.dotsContainer} pointerEvents="box-none">
+          {images.map((_, index) => (
+            <TouchableOpacity 
+              key={`dot-${index}`}
+              onPress={() => {
+                console.log('Dot presionado:', index);
+                goToImage(index);
+              }}
+              style={styles.dotContainer}
+              activeOpacity={0.7}
+            >
+              <View style={[
+                styles.dot,
+                currentImageIndex === index && styles.activeDot
+              ]} />
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
     );
@@ -590,7 +608,6 @@ const ProductDetail = ({ route, navigation }) => {
 
         {/* Sección de miniaturas */}
         <View style={styles.imageSection}>
-          {/* Miniaturas */}
           {Array.isArray(images) && images.length > 1 && (
             <ScrollView 
               horizontal 
@@ -600,7 +617,7 @@ const ProductDetail = ({ route, navigation }) => {
             >
               {images.map((img, index) => (
                 <TouchableOpacity
-                  key={index}
+                  key={`thumb-${index}`}
                   onPress={() => goToImage(index)}
                   style={styles.thumbnailWrapper}
                 >
@@ -979,29 +996,31 @@ const styles = StyleSheet.create({
   imageSection: {
     padding: 16,
   },
+  // Estilos del carrusel SIN PARPADEO
   mainImageWrapper: {
     width: '100%',
+    height: 400,
     backgroundColor: '#f5f5f5',
     marginBottom: 16,
     position: 'relative',
-    minHeight: 200, // altura mínima para evitar colapso
+    overflow: 'hidden',
+  },
+  carouselContainer: {
+    flexDirection: 'row',
+    height: '100%',
+    // Sin pointerEvents para permitir interacciones
+  },
+  imageSlide: {
+    width: screenWidth,
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16, // Padding para que las imágenes no toquen los bordes
   },
   mainImage: {
     width: '100%',
     height: '100%',
-  },
-  // Estilos para el carrusel con ScrollView
-  carouselScrollView: {
-    flex: 1,
-  },
-  carouselContent: {
-    flexDirection: 'row',
-  },
-  imageSlide: {
-    width: screenWidth, // Ancho completo de la pantalla para paging correcto
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16, // Padding interno en lugar de reducir el ancho
+    resizeMode: 'contain',
   },
   dotsContainer: {
     position: 'absolute',
@@ -1011,41 +1030,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    pointerEvents: 'box-none', // Permitir que los TouchableOpacity dentro respondan
   },
-  parallaxItemContainer: {
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  parallaxImage: {
-    width: '100%',
-    height: '100%',
-    maxWidth: screenWidth - 32, // Ancho máximo menos padding
-  },
-  paginationItemContainer: {
-    margin: 4,
-  },
-  paginationDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+  dotContainer: {
+    padding: 8, // Área de toque más grande
+    pointerEvents: 'auto', // Asegurar que los dots respondan
   },
   dot: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    marginHorizontal: 6,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   activeDot: {
     backgroundColor: '#fa7e17',
     borderColor: '#fa7e17',
-    transform: [{ scale: 1.2 }],
+    transform: [{ scale: 1.3 }],
+  },
+  // Estilos para el carrusel con ScrollView (legacy - mantener por compatibilidad)
+  carouselScrollView: {
+    flex: 1,
+  },
+  carouselContent: {
+    flexDirection: 'row',
   },
   thumbnailScroll: {
     marginTop: 8,
