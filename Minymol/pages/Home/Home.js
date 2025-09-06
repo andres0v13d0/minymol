@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AutoCarousel from '../../components/AutoCarousel';
 import Header from '../../components/Header/Header';
+import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -22,7 +23,7 @@ const IS_DEV_MODE = false; // Ponlo en true para desactivar el cache temporalmen
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Home = ({ onProductPress }) => {
+const Home = ({ onProductPress, selectedTab = 'home', onTabPress }) => {
   const [products, setProducts] = useState([]);
   const [visibleProducts, setVisibleProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -271,6 +272,7 @@ const Home = ({ onProductPress }) => {
       />
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
         scrollEventThrottle={200}
         showsVerticalScrollIndicator={false}
@@ -301,6 +303,7 @@ const Home = ({ onProductPress }) => {
           </View>
         )}
       </ScrollView>
+      <NavInf selected={selectedTab} onPress={onTabPress} />
     </View>
   );
 };
@@ -312,6 +315,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 90, // Espacio para NavInf + safe area de iOS
   },
   masonryContainer: {
     flexDirection: 'row',

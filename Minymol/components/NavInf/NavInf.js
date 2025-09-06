@@ -1,9 +1,11 @@
-import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Cart from '../Cart/Cart';
 
-const NavInf = ({ selected, onPress }) => {
+const NavInf = ({ selected, onPress, isProductInfo = false }) => {
+  // Si estamos en ProductInfo, no mostrar ningún tab como seleccionado
+  const activeTab = isProductInfo ? null : selected;
+  
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -14,10 +16,10 @@ const NavInf = ({ selected, onPress }) => {
           <Ionicons 
             name="home" 
             size={20} 
-            color={selected === 'home' ? '#fa7e17' : 'white'} 
+            color={activeTab === 'home' ? '#fa7e17' : 'white'} 
           />
         </View>
-        <Text style={[styles.navText, selected === 'home' && styles.selectedText]}>
+        <Text style={[styles.navText, activeTab === 'home' && styles.selectedText]}>
           Inicio
         </Text>
       </TouchableOpacity>
@@ -30,10 +32,10 @@ const NavInf = ({ selected, onPress }) => {
           <Ionicons 
             name="list" 
             size={20} 
-            color={selected === 'categories' ? '#fa7e17' : 'white'} 
+            color={activeTab === 'categories' ? '#fa7e17' : 'white'} 
           />
         </View>
-        <Text style={[styles.navText, selected === 'categories' && styles.selectedText]}>
+        <Text style={[styles.navText, activeTab === 'categories' && styles.selectedText]}>
           Categorías
         </Text>
       </TouchableOpacity>
@@ -46,10 +48,10 @@ const NavInf = ({ selected, onPress }) => {
           <Ionicons 
             name="person" 
             size={20} 
-            color={selected === 'profile' ? '#fa7e17' : 'white'} 
+            color={activeTab === 'profile' ? '#fa7e17' : 'white'} 
           />
         </View>
-        <Text style={[styles.navText, selected === 'profile' && styles.selectedText]}>
+        <Text style={[styles.navText, activeTab === 'profile' && styles.selectedText]}>
           Perfil
         </Text>
       </TouchableOpacity>
@@ -61,7 +63,7 @@ const NavInf = ({ selected, onPress }) => {
         <View style={styles.iconContainer}>
           <Cart />
         </View>
-        <Text style={[styles.navText, selected === 'cart' && styles.selectedText]}>
+        <Text style={[styles.navText, activeTab === 'cart' && styles.selectedText]}>
           Carrito
         </Text>
       </TouchableOpacity>

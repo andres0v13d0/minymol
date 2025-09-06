@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
-import NavInf from './components/NavInf/NavInf';
 import { useFonts } from './hooks/useFonts';
 import Home from './pages/Home/Home';
 import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
@@ -53,28 +52,56 @@ export default function App() {
           <ProductDetail 
             route={{ params: { product: selectedProduct } }}
             navigation={{ goBack: handleBackToHome }}
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+          />
+        );
+      case 'home':
+        return (
+          <Home 
+            onProductPress={handleProductPress} 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
           />
         );
       case 'categories':
         return (
           <View style={styles.placeholderScreen}>
-            <Home onProductPress={handleProductPress} />
+            <Home 
+              onProductPress={handleProductPress} 
+              selectedTab={selectedTab}
+              onTabPress={handleTabPress}
+            />
           </View>
         );
       case 'profile':
         return (
           <View style={styles.placeholderScreen}>
-            <Home onProductPress={handleProductPress} />
+            <Home 
+              onProductPress={handleProductPress} 
+              selectedTab={selectedTab}
+              onTabPress={handleTabPress}
+            />
           </View>
         );
       case 'cart':
         return (
           <View style={styles.placeholderScreen}>
-            <Home onProductPress={handleProductPress} />
+            <Home 
+              onProductPress={handleProductPress} 
+              selectedTab={selectedTab}
+              onTabPress={handleTabPress}
+            />
           </View>
         );
       default:
-        return <Home onProductPress={handleProductPress} />;
+        return (
+          <Home 
+            onProductPress={handleProductPress} 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+          />
+        );
     }
   };
 
@@ -82,9 +109,6 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor="#14144b" barStyle="light-content" />
       {renderScreen()}
-      {currentScreen !== 'productDetail' && (
-        <NavInf selected={selectedTab} onPress={handleTabPress} />
-      )}
     </SafeAreaView>
   );
 }

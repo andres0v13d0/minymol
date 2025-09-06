@@ -1,11 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  FlatList,
   Image,
-  PanResponder,
   Alert as RNAlert,
   ScrollView,
   StyleSheet,
@@ -13,20 +13,190 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const ProductDetail = ({ route, navigation }) => {
-  console.log('ProductDetail: Componente iniciado');
-  console.log('ProductDetail: route.params:', route?.params);
+// CARRUSEL INDEPENDIENTE CON MEMO - NO SE RECREA EN CADA RENDER
+const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [imageMode, setImageMode] = useState('contain'); // modo de redimensionamiento dinámico
+  const animatedHeight = useRef(new Animated.Value(400)).current; // altura animada
+  const flatListRef = useRef(null);
+  
+  // Función para animar el cambio de altura
+  const animateHeight = useCallback((newHeight) => {
+    Animated.timing(animatedHeight, {
+      toValue: newHeight,
+      duration: 300, // 300ms de duración
+      useNativeDriver: false, // No se puede usar native driver para height
+    }).start();
+  }, [animatedHeight]);
+  
+  // Pre-cargar TODAS las imágenes y calcular dimensiones
+  useEffect(() => {
+    if (images && images.length > 0) {
+      images.forEach((img, index) => {
+        if (img?.imageUrl) {
+          Image.prefetch(img.imageUrl).catch(() => {});
+          
+          // Obtener dimensiones de la imagen
+          Image.getSize(
+            img.imageUrl,
+            (width, height) => {
+              // Calcular altura proporcional manteniendo el ancho de pantalla
+              const aspectRatio = height / width;
+              const newHeight = screenWidth * aspectRatio;
+              
+              // Determinar el modo de redimensionamiento según las proporciones
+              const newMode = aspectRatio > 1.2 ? 'cover' : 'contain'; // Si es muy alta, usar cover
+              
+              // Si es la primera imagen o la imagen actual, actualizar altura del contenedor
+              if (index === 0 || index === currentIndex) {
+                const finalHeight = Math.min(newHeight, screenWidth * 1.5); // máximo 150% del ancho
+                animateHeight(finalHeight);
+                setImageMode(newMode);
+              }
+            },
+            () => {
+              // En caso de error, mantener altura por defecto
+              console.warn('Error obteniendo dimensiones de imagen:', img.imageUrl);
+            }
+          );
+        }
+      });
+    }
+  }, [images, currentIndex, animateHeight]);
+
+  const handleMomentumScrollEnd = useCallback((event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(offsetX / screenWidth);
+    
+    if (newIndex >= 0 && newIndex < images.length) {
+      setCurrentIndex(newIndex);
+      
+      // Actualizar altura del contenedor para la nueva imagen con animación
+      const currentImage = images[newIndex];
+      if (currentImage?.imageUrl) {
+        Image.getSize(
+          currentImage.imageUrl,
+          (width, height) => {
+            const aspectRatio = height / width;
+            const newHeight = screenWidth * aspectRatio;
+            const newMode = aspectRatio > 1.2 ? 'cover' : 'contain'; // Si es muy alta, usar cover
+            
+            const finalHeight = Math.min(newHeight, screenWidth * 1.5); // máximo 150% del ancho
+            animateHeight(finalHeight);
+            setImageMode(newMode);
+          },
+          () => {
+            // En caso de error, mantener altura actual
+          }
+        );
+      }
+    }
+  }, [images, animateHeight]);
+
+  const navigateToImage = useCallback((index) => {
+    if (flatListRef.current && index >= 0 && index < images.length) {
+      flatListRef.current.scrollToIndex({
+        index,
+        animated: true
+      });
+      setCurrentIndex(index);
+    }
+  }, [images.length]);
+
+  const renderImageItem = useCallback(({ item }) => (
+    <Animated.View style={[styles.instagramSlide, { height: animatedHeight }]}>
+      <Image
+        source={{ uri: item.imageUrl }}
+        style={[styles.instagramImage, { height: '100%' }]}
+        resizeMode={imageMode}
+      />
+    </Animated.View>
+  ), [animatedHeight, imageMode]);
+
+  const keyExtractor = useCallback((item, index) => `img-${index}-${item.imageUrl}`, []);
+
+  // Si no hay imágenes
+  if (!images || images.length === 0) {
+    return (
+      <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
+        <Image 
+          source={{ uri: 'https://cdn.minymol.com/uploads/logoblanco.webp' }}
+          style={[styles.instagramImage, { height: '100%' }]}
+          resizeMode={imageMode}
+        />
+      </Animated.View>
+    );
+  }
+  
+  // Si solo hay una imagen
+  if (images.length === 1) {
+    return (
+      <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
+        <Image 
+          source={{ uri: images[0].imageUrl }}
+          style={[styles.instagramImage, { height: '100%' }]}
+          resizeMode={imageMode}
+        />
+      </Animated.View>
+    );
+  }
+  
+  // Carrusel múltiple optimizado
+  return (
+    <>
+      <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
+        <FlatList
+          ref={flatListRef}
+          data={images}
+          renderItem={renderImageItem}
+          keyExtractor={keyExtractor}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          bounces={false}
+          initialScrollIndex={0}
+          initialNumToRender={images.length}
+          maxToRenderPerBatch={images.length}
+          windowSize={images.length}
+          removeClippedSubviews={false}
+          updateCellsBatchingPeriod={10}
+        />
+      </Animated.View>
+      
+      {/* Dots fuera del carrusel */}
+      <View style={styles.dotsContainer}>
+        {images.map((_, index) => (
+          <TouchableOpacity 
+            key={`dot-${index}`}
+            onPress={() => navigateToImage(index)}
+            style={styles.dotButton}
+            activeOpacity={0.8}
+          >
+            <View style={[
+              styles.dot,
+              currentIndex === index && styles.activeDot
+            ]} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </>
+  );
+});
+
+const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   
   // Recibir el producto completo desde los parámetros
   const productData = route?.params?.product;
   const productId = productData?.uuid || productData?.id || '1';
-  console.log('ProductDetail: productData recibido:', productData);
-  console.log('ProductDetail: productId:', productId);
   
   const [product, setProduct] = useState(null);
   const [images, setImages] = useState([]);
@@ -43,13 +213,6 @@ const ProductDetail = ({ route, navigation }) => {
   const [displayedProductsCount, setDisplayedProductsCount] = useState(5);
   const [subCategories, setSubCategories] = useState([]);
   const [quantityDropdownOpen, setQuantityDropdownOpen] = useState(false);
-  
-  // Estados para el carrusel de imágenes - SIMPLIFICADO
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Referencias para el carrusel sin parpadeo
-  const translateX = useRef(new Animated.Value(0)).current;
-  const currentIndexRef = useRef(0);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -81,17 +244,14 @@ const ProductDetail = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    console.log('ProductDetail: useEffect ejecutado con productId:', productId);
     
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log('ProductDetail: Cargando datos reales del producto');
 
         // Cargar datos del producto
         const productRes = await fetch(`https://api.minymol.com/products/${productId}`);
         const productApiData = await productRes.json();
-        console.log('ProductDetail: Producto cargado desde API:', productApiData);
         setProduct(productApiData);
         setColors(productApiData.colors || []);
         setSizes(sortSizes(productApiData.sizes || []));
@@ -99,20 +259,12 @@ const ProductDetail = ({ route, navigation }) => {
         // Cargar imágenes
         const imagesRes = await fetch(`https://api.minymol.com/images/by-product/${productId}`);
         const imagesData = await imagesRes.json();
-        console.log('ProductDetail: Imágenes cargadas:', imagesData);
         const imagesArray = Array.isArray(imagesData) ? imagesData : [];
         setImages(imagesArray);
-        setCurrentImageIndex(0);
-        currentIndexRef.current = 0;
-        
-        // Asegurar que translateX esté en la posición correcta
-        translateX.setValue(0);
-        console.log('ProductDetail: Carrusel inicializado en posición 0');
 
         // Cargar precios
         const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
         const pricesData = await pricesRes.json();
-        console.log('ProductDetail: Precios cargados:', pricesData);
         setPrices(Array.isArray(pricesData) ? pricesData : []);
 
         // Establecer cantidad inicial
@@ -124,13 +276,11 @@ const ProductDetail = ({ route, navigation }) => {
         // Cargar proveedor
         const providerRes = await fetch(`https://api.minymol.com/providers/public/${productApiData.providerId}`);
         const providerData = await providerRes.json();
-        console.log('ProductDetail: Proveedor cargado:', providerData);
         setProvider(providerData);
 
         // Cargar productos relacionados
         const relatedRes = await fetch(`https://api.minymol.com/products/by-provider/${productApiData.providerId}`);
         const resIds = await relatedRes.json();
-        console.log('ProductDetail: IDs de productos relacionados:', resIds);
 
         if (Array.isArray(resIds) && resIds.length > 0) {
           const ids = resIds.map(p => p.product_id).filter(Boolean);
@@ -143,8 +293,6 @@ const ProductDetail = ({ route, navigation }) => {
             });
 
             const previews = await previewsRes.json();
-            console.log('ProductDetail: Productos relacionados cargados:', previews);
-            
             if (Array.isArray(previews)) {
               const activos = previews.filter(prod => !prod.isInactive);
               setRelatedProducts(activos);
@@ -164,11 +312,8 @@ const ProductDetail = ({ route, navigation }) => {
         }
 
         setLoading(false);
-        console.log('ProductDetail: Todos los datos cargados exitosamente');
         
       } catch (err) {
-        console.error('ProductDetail: Error al cargar datos del producto:', err);
-        console.log('ProductDetail: Usando datos de fallback desde productData inicial');
         
         // Fallback usando los datos que vienen desde Home
         if (productData) {
@@ -204,7 +349,7 @@ const ProductDetail = ({ route, navigation }) => {
           const productImages = productData.image ? [
             { imageUrl: productData.image }
           ] : [
-            { imageUrl: 'https://via.placeholder.com/400x400/ff7e17/ffffff?text=Sin+Imagen' }
+            { imageUrl: 'https://cdn.minymol.com/uploads/logoblanco.webp' }
           ];
           
           setImages(productImages);
@@ -232,7 +377,7 @@ const ProductDetail = ({ route, navigation }) => {
           ]);
           
           setImages([
-            { imageUrl: 'https://via.placeholder.com/400x400/ff7e17/ffffff?text=Sin+Datos' }
+            { imageUrl: 'https://cdn.minymol.com/uploads/logoblanco.webp' }
           ]);
           
           setRelatedProducts([]);
@@ -242,24 +387,11 @@ const ProductDetail = ({ route, navigation }) => {
         setSizes([]);
         setLoading(false);
         
-        console.log('ProductDetail: Datos de fallback establecidos');
       }
     };
 
     fetchData();
   }, [productId]);
-
-  // useEffect para debuggear el carrusel
-  useEffect(() => {
-    console.log('ProductDetail: Estado de imágenes actualizado:');
-    console.log('- Cantidad de imágenes:', images.length);
-    console.log('- Índice actual:', currentImageIndex);
-    console.log('- currentIndexRef:', currentIndexRef.current);
-    
-    if (images.length > 0) {
-      console.log('- URLs de imágenes:', images.map(img => img.imageUrl));
-    }
-  }, [images, currentImageIndex]);
 
   // Cantidades disponibles
   const availableQuantities = useMemo(() => {
@@ -345,12 +477,9 @@ const ProductDetail = ({ route, navigation }) => {
       cantidad: quantity,
       precio: applicablePrice.price,
       productPrices: prices,
-      image: images[currentImageIndex]?.imageUrl, // Usa la imagen actual
+      image: images[0]?.imageUrl, // Usar primera imagen
     };
 
-    console.log('ProductDetail: Índice actual de imagen:', currentImageIndex);
-    console.log('ProductDetail: URL de imagen seleccionada:', images[currentImageIndex]?.imageUrl);
-    console.log('ProductDetail: Producto agregado al carrito:', item);
     RNAlert.alert('Éxito', 'Producto agregado al carrito');
   };
 
@@ -358,17 +487,14 @@ const ProductDetail = ({ route, navigation }) => {
     if (navigation) {
       navigation.goBack();
     } else {
-      console.log('ProductDetail: Volver atrás');
     }
   };
 
   const handleProductPress = (product) => {
-    console.log('ProductDetail: Navegando a producto relacionado:', product.name);
     // Aquí se navegaría a otro producto
   };
 
   const addToCart = (product) => {
-    console.log('ProductDetail: Agregando producto relacionado al carrito:', product.name);
     RNAlert.alert('Producto agregado', `${product.name} agregado al carrito`);
   };
 
@@ -388,165 +514,6 @@ const ProductDetail = ({ route, navigation }) => {
     });
     
     return columns;
-  };
-
-  // Componente memo para miniaturas - evita re-renders
-  const ThumbnailItem = React.memo(({ img, index, isSelected, onPress }) => {
-    const thumbnailStyle = [
-      styles.thumbnail,
-      isSelected && styles.selectedThumbnail
-    ];
-    
-    return (
-      <TouchableOpacity
-        style={styles.thumbnailWrapper}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <Image
-          source={{ uri: img.imageUrl }}
-          style={thumbnailStyle}
-          resizeMode="cover"
-          cache="default"
-          fadeDuration={0}
-        />
-      </TouchableOpacity>
-    );
-  });
-
-  // Función para ir a una imagen específica SIN PARPADEO
-  const goToImage = (index) => {
-    if (index < 0 || index >= images.length) {
-      index = currentIndexRef.current; // Mantener el índice actual si está fuera de rango
-    }
-    
-    console.log('goToImage: Animando a índice', index);
-    currentIndexRef.current = index;
-    
-    Animated.timing(translateX, {
-      toValue: -index * screenWidth,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      setCurrentImageIndex(index);
-    });
-  };
-
-  // Nuevo ImageCarousel con Animated.View y PanResponder - SIN PARPADEO
-  const ImageCarousel = () => {
-    const panResponder = useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true, // Siempre capturar el toque
-        onMoveShouldSetPanResponder: () => true,  // Siempre capturar el movimiento
-        onPanResponderGrant: () => {
-          console.log('PanResponder: Toque iniciado');
-        },
-        onPanResponderMove: (evt, gestureState) => {
-          // Mover la imagen en tiempo real
-          const newValue = -currentIndexRef.current * screenWidth + gestureState.dx;
-          translateX.setValue(newValue);
-          console.log('PanResponder: Moviendo, dx:', gestureState.dx);
-        },
-        onPanResponderRelease: (evt, gestureState) => {
-          console.log('PanResponder: Soltado, dx:', gestureState.dx, 'vx:', gestureState.vx);
-          
-          const threshold = screenWidth * 0.2; // 20% del ancho
-          const velocity = 0.3; // Velocidad mínima para cambiar
-          let newIndex = currentIndexRef.current;
-          
-          // Usar velocidad o distancia para decidir
-          if (gestureState.vx < -velocity || gestureState.dx < -threshold) {
-            // Deslizar a la izquierda - siguiente imagen
-            if (currentIndexRef.current < images.length - 1) {
-              newIndex = currentIndexRef.current + 1;
-            }
-          } else if (gestureState.vx > velocity || gestureState.dx > threshold) {
-            // Deslizar a la derecha - imagen anterior
-            if (currentIndexRef.current > 0) {
-              newIndex = currentIndexRef.current - 1;
-            }
-          }
-          
-          console.log('PanResponder: Cambiando de', currentIndexRef.current, 'a', newIndex);
-          goToImage(newIndex);
-        },
-      })
-    ).current;
-    
-    if (!Array.isArray(images) || images.length === 0) {
-      return (
-        <View style={styles.mainImageWrapper}>
-          <Image 
-            source={{ uri: 'https://via.placeholder.com/400x400' }}
-            style={styles.mainImage}
-            resizeMode="contain"
-          />
-        </View>
-      );
-    }
-    
-    if (images.length === 1) {
-      return (
-        <View style={styles.mainImageWrapper}>
-          <Image 
-            source={{ uri: images[0].imageUrl }}
-            style={styles.mainImage}
-            resizeMode="contain"
-          />
-        </View>
-      );
-    }
-    
-    console.log('ImageCarousel: Renderizando carrusel con', images.length, 'imágenes');
-    console.log('ImageCarousel: Índice actual:', currentIndexRef.current);
-    
-    return (
-      <View style={styles.mainImageWrapper}>
-        <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-          <Animated.View
-            style={[
-              styles.carouselContainer,
-              {
-                transform: [{ translateX }],
-                width: screenWidth * images.length,
-              }
-            ]}
-          >
-            {images.map((image, index) => (
-              <View key={`img-${index}`} style={styles.imageSlide}>
-                <Image
-                  source={{ uri: image.imageUrl }}
-                  style={styles.mainImage}
-                  resizeMode="contain"
-                  onLoad={() => console.log(`Imagen ${index} cargada`)}
-                  onError={(error) => console.log(`Error cargando imagen ${index}:`, error.nativeEvent.error)}
-                />
-              </View>
-            ))}
-          </Animated.View>
-        </View>
-        
-        {/* Indicadores de puntos */}
-        <View style={styles.dotsContainer} pointerEvents="box-none">
-          {images.map((_, index) => (
-            <TouchableOpacity 
-              key={`dot-${index}`}
-              onPress={() => {
-                console.log('Dot presionado:', index);
-                goToImage(index);
-              }}
-              style={styles.dotContainer}
-              activeOpacity={0.7}
-            >
-              <View style={[
-                styles.dot,
-                currentImageIndex === index && styles.activeDot
-              ]} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
   };
 
   // Componente Header personalizado para ProductDetail
@@ -603,37 +570,8 @@ const ProductDetail = ({ route, navigation }) => {
         {/* Título del producto */}
         <Text style={styles.productTitle}>{product.name}</Text>
 
-        {/* Carrusel de imágenes - sin padding para ocupar todo el ancho */}
-        <ImageCarousel />
-
-        {/* Sección de miniaturas */}
-        <View style={styles.imageSection}>
-          {Array.isArray(images) && images.length > 1 && (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.thumbnailScroll}
-              contentContainerStyle={styles.thumbnailContainer}
-            >
-              {images.map((img, index) => (
-                <TouchableOpacity
-                  key={`thumb-${index}`}
-                  onPress={() => goToImage(index)}
-                  style={styles.thumbnailWrapper}
-                >
-                  <Image
-                    source={{ uri: img.imageUrl }}
-                    style={[
-                      styles.thumbnail,
-                      currentImageIndex === index && styles.selectedThumbnail
-                    ]}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
+        {/* Carrusel de imágenes */}
+        <ImageCarousel images={images} initialIndex={0} />
 
         {/* Detalles del producto */}
         <View style={styles.productDetails}>
@@ -901,6 +839,13 @@ const ProductDetail = ({ route, navigation }) => {
 
         </View>
       </ScrollView>
+      
+      {/* Navegación inferior */}
+      <NavInf 
+        isProductInfo={true} 
+        selected={selectedTab}
+        onPress={onTabPress}
+      />
     </View>
   );
 };
@@ -989,92 +934,82 @@ const styles = StyleSheet.create({
   productTitle: {
     fontSize: 20,
     fontFamily: getUbuntuFont('bold'),
-    marginBottom: 4,
+    marginBottom: 16,
     paddingHorizontal: 16,
     color: '#333',
   },
-  imageSection: {
-    padding: 16,
-  },
-  // Estilos del carrusel SIN PARPADEO
-  mainImageWrapper: {
-    width: '100%',
-    height: 400,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 16,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  carouselContainer: {
-    flexDirection: 'row',
-    height: '100%',
-    // Sin pointerEvents para permitir interacciones
-  },
-  imageSlide: {
+  // Estilos del carrusel con altura automática - DINAMICO
+  instagramCarousel: {
     width: screenWidth,
-    height: '100%',
+    backgroundColor: '#fff', // Fondo blanco
+    position: 'relative',
+    overflow: 'hidden', // Asegurar que no haya contenido sobresaliendo
+  },
+  instagramSlide: {
+    width: screenWidth,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16, // Padding para que las imágenes no toquen los bordes
+    backgroundColor: '#fff', // Fondo blanco
   },
-  mainImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
+  instagramImage: {
+    width: '100%', // Usar 100% para ocupar todo el ancho disponible
+    flex: 1, // Permitir que la imagen se expanda
   },
+  // Dots externos negros
   dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    backgroundColor: 'white',
+  },
+  dotButton: {
+    padding: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ddd',
+    marginHorizontal: 3,
+  },
+  activeDot: {
+    backgroundColor: '#333',
+  },
+  // Estilos instagram legacy (por si acaso)
+  instagramDots: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 12,
     left: 0,
     right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    pointerEvents: 'box-none', // Permitir que los TouchableOpacity dentro respondan
   },
-  dotContainer: {
-    padding: 8, // Área de toque más grande
-    pointerEvents: 'auto', // Asegurar que los dots respondan
+  instagramDotButton: {
+    padding: 4,
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
+  instagramDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 2,
   },
-  activeDot: {
-    backgroundColor: '#fa7e17',
-    borderColor: '#fa7e17',
-    transform: [{ scale: 1.3 }],
+  instagramDotActive: {
+    backgroundColor: 'rgba(255, 255, 255, 1)',
   },
-  // Estilos para el carrusel con ScrollView (legacy - mantener por compatibilidad)
-  carouselScrollView: {
-    flex: 1,
+  // Wrapper para casos legacy
+  mainImageWrapper: {
+    width: screenWidth,
+    height: screenWidth,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  carouselContent: {
-    flexDirection: 'row',
-  },
-  thumbnailScroll: {
-    marginTop: 8,
-  },
-  thumbnailContainer: {
-    paddingHorizontal: 8,
-  },
-  thumbnailWrapper: {
-    marginRight: 8,
-  },
-  thumbnail: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  selectedThumbnail: {
-    borderColor: '#fa7e17',
-    borderWidth: 2,
+  mainImage: {
+    width: '100%',
+    height: '100%',
   },
   productDetails: {
     paddingHorizontal: 16,
