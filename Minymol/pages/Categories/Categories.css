@@ -1,0 +1,114 @@
+/* Estilos adicionales para la página de categorías */
+/* Este archivo podría ser útil si necesitas estilos web específicos */
+
+.categories-container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 250px;
+  background-color: #1a1a1a;
+  border-right: 1px solid #333;
+  overflow-y: auto;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar li {
+  padding: 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #333;
+  color: white;
+  font-weight: 500;
+  text-align: center;
+}
+
+.sidebar li:hover {
+  background-color: #333;
+}
+
+.sidebar li#selected-cat {
+  background-color: #fa7e17;
+  font-weight: bold;
+}
+
+.categories-main {
+  flex: 1;
+  padding: 20px;
+  background-color: #121212;
+  overflow-y: auto;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 20px;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: white;
+}
+
+.circle-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin-bottom: 10px;
+  background-color: #333;
+}
+
+.circle-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.category-item span {
+  font-size: 12px;
+  text-align: center;
+  max-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .categories-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    height: 200px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  
+  .sidebar ul {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .sidebar li {
+    min-width: 120px;
+    white-space: nowrap;
+  }
+  
+  .category-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 15px;
+  }
+  
+  .circle-image {
+    width: 60px;
+    height: 60px;
+  }
+}

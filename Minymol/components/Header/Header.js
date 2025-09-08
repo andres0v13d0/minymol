@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import BarSup from '../BarSup/BarSup';
 import Search from '../Search/Search';
 
@@ -70,7 +70,7 @@ const Header = ({
     );
   }
 
-  // Header completo (con logo, search, BarSup)
+  // Header completo (con search, sin logo para móvil)
   return (
     <View style={styles.header}>
       <View style={styles.titleHeader}>
@@ -79,10 +79,9 @@ const Header = ({
             <Ionicons name="chevron-back" size={25} color="white" />
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={handleLogoPress}>
-          <Image source={require('../../assets/logo.png')} style={styles.logoMinymol} />
-        </TouchableOpacity>
-        <Search />
+        <View style={styles.searchContainer}>
+          <Search />
+        </View>
       </View>
       {isHome && (
         <BarSup 
@@ -101,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'column',
     justifyContent: 'flex-start',
-    paddingTop: 10, // Reducido de 40 a 10
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10, // Menos padding en iOS
     minHeight: 60, // Reducido de 80 a 60
   },
   headerMinimal: {
@@ -126,8 +125,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 50, // Reducido de 60 a 50
-    paddingHorizontal: 10,
+    paddingHorizontal: 5, // Reducido de 10 a 5 para más ancho
     paddingVertical: 5, // Agregado para control fino
+    width: '100%',
+  },
+  searchContainer: {
+    flex: 1, // Ocupa todo el espacio disponible
+    marginLeft: 5, // Reducido de 10 a 5
+    marginRight: 5, // Agregado para estar casi pegado al borde derecho
   },
   logoMinymol: {
     width: 120,

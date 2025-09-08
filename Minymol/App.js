@@ -2,14 +2,28 @@ import { useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { useFonts } from './hooks/useFonts';
+import Categories from './pages/Categories/Categories';
 import Home from './pages/Home/Home';
 import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
+import Profile from './pages/Profile/Profile';
 
 export default function App() {
   const [selectedTab, setSelectedTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const fontsLoaded = useFonts();
+
+  const handleCategoryPress = (categorySlug) => {
+    console.log('Categoría seleccionada:', categorySlug);
+    // Aquí podrías navegar a una página de productos de esa categoría
+    // o implementar la lógica que necesites
+  };
+
+  const handleNavigate = (action, params = {}) => {
+    console.log('Navegando a:', action, 'con parámetros:', params);
+    // Aquí puedes implementar la lógica de navegación según la acción
+    // Por ejemplo, para login, configuración, etc.
+  };
 
   const handleTabPress = (tab) => {
     setSelectedTab(tab);
@@ -66,23 +80,20 @@ export default function App() {
         );
       case 'categories':
         return (
-          <View style={styles.placeholderScreen}>
-            <Home 
-              onProductPress={handleProductPress} 
-              selectedTab={selectedTab}
-              onTabPress={handleTabPress}
-            />
-          </View>
+          <Categories 
+            onProductPress={handleProductPress} 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onCategoryPress={handleCategoryPress}
+          />
         );
       case 'profile':
         return (
-          <View style={styles.placeholderScreen}>
-            <Home 
-              onProductPress={handleProductPress} 
-              selectedTab={selectedTab}
-              onTabPress={handleTabPress}
-            />
-          </View>
+          <Profile 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onNavigate={handleNavigate}
+          />
         );
       case 'cart':
         return (
