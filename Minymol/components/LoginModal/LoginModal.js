@@ -21,7 +21,7 @@ import { auth } from '../../config/firebase';
 import { getUbuntuFont } from '../../utils/fonts';
 import LogoMinymol from '../LogoMinymol';
 
-const LoginModal = ({ visible, onClose, onLoginSuccess }) => {
+const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -263,14 +263,13 @@ const LoginModal = ({ visible, onClose, onLoginSuccess }) => {
     };
 
     const handleRegister = () => {
-        Alert.alert(
-            'Registro',
-            'Para registrarte, contacta con nuestro equipo de ventas',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Contactar', onPress: () => console.log('Contactar ventas') }
-            ]
-        );
+        if (!loading && onOpenRegister) {
+            // Cerrar el modal de login y notificar al componente padre
+            onClose();
+            setTimeout(() => {
+                onOpenRegister();
+            }, 300); // Pequeño delay para que se complete la animación de cierre
+        }
     };
 
     return (
@@ -450,7 +449,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 50 : 30,
+        paddingTop: 20,
         paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',

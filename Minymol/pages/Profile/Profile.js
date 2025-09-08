@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import AuthManager from '../../components/AuthManager';
 import Header from '../../components/Header/Header';
-import LoginModal from '../../components/LoginModal';
 import NavInf from '../../components/NavInf/NavInf';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -374,11 +374,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
         )}
       </ScrollView>
 
-      {/* Login Modal */}
-      <LoginModal
-        visible={showLoginModal}
+      {/* Auth Manager - Maneja Login y Register */}
+      <AuthManager
+        showLogin={showLoginModal}
+        showRegister={false}
         onClose={() => setShowLoginModal(false)}
-        onLoginSuccess={handleLoginSuccess}
+        onAuthSuccess={handleLoginSuccess}
       />
 
       <NavInf selected="profile" onPress={onTabPress} />
