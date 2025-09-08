@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import BarSup from '../BarSup/BarSup';
 import Search from '../Search/Search';
 
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'column',
     justifyContent: 'flex-start',
-    paddingTop: 10, // Menos padding en iOS
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 5, // Menos padding en iOS
     minHeight: 60, // Reducido de 80 a 60
   },
   headerMinimal: {

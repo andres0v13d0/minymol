@@ -144,8 +144,9 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
         // Remover espacios y caracteres especiales
         const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
         
-        // Validar usando el patrón del país actual
-        return countryInfo.validation.test(cleanPhone);
+        // Validación básica: solo verificar que tenga entre 7 y 15 dígitos
+        // (estándar internacional para números de teléfono)
+        return /^[0-9]{7,15}$/.test(cleanPhone);
     };
 
     const clearFieldsOnError = () => {
@@ -166,7 +167,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
 
         if (!validatePhone(phone)) {
             setErrors({ 
-                phone: `Número de celular inválido. Ejemplo: ${countryInfo.placeholder.replace(/\s/g, '')}` 
+                phone: 'Número de celular inválido. Debe tener entre 7 y 15 dígitos' 
             });
             return;
         }
@@ -308,7 +309,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                     {/* Título */}
                     <Text style={styles.title}>¡Bienvenido!</Text>
                     <Text style={styles.subtitle}>
-                        Ingresa tu número de celular y contraseña para continuar
+                        Ingresa el número con el que te registraste y tu contraseña
                     </Text>
 
                     {/* Formulario */}
@@ -326,7 +327,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                             ]}>
                                 <TextInput
                                     style={[styles.phoneInputClean, loading && styles.inputTextDisabled]}
-                                    placeholder={countryInfo.placeholder}
+                                    placeholder={`Ej: ${countryInfo.placeholder}`}
                                     value={phone}
                                     onChangeText={(text) => {
                                         // Solo permitir números y espacios
@@ -335,7 +336,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                                         if (errors.phone) setErrors({ ...errors, phone: null });
                                     }}
                                     keyboardType="phone-pad"
-                                    maxLength={countryInfo.length + 3} // +3 para espacios
+                                    maxLength={18} // Máximo internacional estándar
                                     editable={!loading}
                                     placeholderTextColor="#aaa"
                                 />

@@ -1,15 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
 import Header from '../../components/Header/Header';
@@ -23,10 +26,51 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [subMenuSAIOpen, setSubMenuSAIOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Animaciones
+  const subMenuAnimation = useRef(new Animated.Value(0)).current;
+  const subMenuSAIAnimation = useRef(new Animated.Value(0)).current;
+  const welcomeAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadUserData();
   }, []);
+
+  useEffect(() => {
+    if (usuario) {
+      Animated.timing(welcomeAnimation, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [usuario]);
+
+  // Animación para submenús
+  const toggleSubMenu = () => {
+    const toValue = subMenuOpen ? 0 : 1;
+    setSubMenuOpen(!subMenuOpen);
+    
+    Animated.timing(subMenuAnimation, {
+      toValue,
+      duration: 300,
+      easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const toggleSubMenuSAI = () => {
+    const toValue = subMenuSAIOpen ? 0 : 1;
+    setSubMenuSAIOpen(!subMenuSAIOpen);
+    
+    Animated.timing(subMenuSAIAnimation, {
+      toValue,
+      duration: 300,
+      easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+      useNativeDriver: false,
+    }).start();
+  };
 
   const loadUserData = async () => {
     try {
@@ -100,33 +144,46 @@ const Profile = ({ onTabPress, onNavigate }) => {
     setRefreshing(false);
   };
 
-  const MenuButton = ({ icon, text, onPress, isSubitem = false, hasSubmenu = false, isOpen = false, isLogout = false }) => (
+  const MenuButton = ({ 
+    icon, 
+    text, 
+    onPress, 
+    isSubitem = false, 
+    hasSubmenu = false, 
+    isOpen = false, 
+    isLogout = false, 
+    isHighlighted = false 
+  }) => (
     <TouchableOpacity
       style={[
         styles.menuButton,
         isSubitem && styles.subMenuItem,
-        isLogout && styles.logoutButton
+        isLogout && styles.logoutButton,
+        isHighlighted && styles.highlightedButton
       ]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       <View style={styles.buttonContent}>
+        {isHighlighted && <View style={styles.highlightIndicator} />}
         <Ionicons
           name={icon}
           size={20}
-          color={isLogout ? '#ff4444' : '#666'}
+          color={isLogout ? '#ff4444' : isHighlighted ? '#fa7e17' : '#666'}
           style={styles.iconLeft}
         />
         <Text style={[
           styles.buttonText,
-          isLogout && styles.logoutText
+          isLogout && styles.logoutText,
+          isHighlighted && styles.highlightedText
         ]}>
           {text}
         </Text>
         <Ionicons
           name={hasSubmenu ? (isOpen ? 'chevron-down' : 'chevron-forward') : 'chevron-forward'}
           size={16}
-          color="#ccc"
-          style={styles.iconRight}
+          color={isHighlighted ? '#fa7e17' : '#ccc'}
+          style={[styles.iconRight, hasSubmenu && isOpen && styles.iconRotated]}
         />
       </View>
     </TouchableOpacity>
@@ -174,112 +231,205 @@ const Profile = ({ onTabPress, onNavigate }) => {
       >
         {usuario ? (
           <View style={styles.userContainer}>
-            {/* Información del usuario */}
-            <View style={styles.userInfo}>
-              <Text style={styles.welcomeText}>Bienvenido,</Text>
-              <Text style={styles.userName}>
-                {usuario.rol === 'proveedor'
-                  ? usuario.proveedorInfo?.nombre_empresa
-                  : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
-                }
-              </Text>
-            </View>
+            {/* Información del usuario con animación */}
+            <Animated.View 
+              style={[
+                styles.userInfo,
+                {
+                  opacity: welcomeAnimation,
+                  transform: [{
+                    translateY: welcomeAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  }],
+                },
+              ]}
+            >
+              <View style={styles.welcomeContainer}>
+                <View style={styles.welcomeIconContainer}>
+                  <Ionicons name="sparkles" size={24} color="#fa7e17" />
+                </View>
+                <View style={styles.welcomeTextContainer}>
+                  <Text style={styles.welcomeText}>¡Hola de nuevo!</Text>
+                  <Text style={styles.userName}>
+                    {usuario.rol === 'proveedor'
+                      ? usuario.proveedorInfo?.nombre_empresa
+                      : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
+                    }
+                  </Text>
+                </View>
+                <View style={styles.userTypeIndicator}>
+                  <Text style={styles.userTypeText}>
+                    {usuario.rol === 'proveedor' ? 'Proveedor' : 
+                     usuario.rol === 'admin' ? 'Admin' : 'Comerciante'}
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
 
-            {/* Botones del menú */}
-            <View style={styles.menuContainer}>
-              {/* Panel de administrador / Mi catálogo */}
+            {/* Sección de acciones principales */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Acciones principales</Text>
+            </View>
+            
+            <View style={styles.highlightedMenuContainer}>
+              {/* Panel de administrador / Mi catálogo (solo para admin y proveedores) */}
               {usuario.rol !== 'comerciante' && (
                 <MenuButton
                   icon={usuario.rol === 'admin' ? 'clipboard-outline' : 'shirt-outline'}
                   text={usuario.rol === 'admin' ? 'Panel de administrador' : 'Mi catálogo'}
+                  isHighlighted={usuario.rol !== 'admin'}
                   onPress={() => handleMenuPress(usuario.rol === 'admin' ? 'admin' : 'catalog', {
                     id: usuario.proveedorInfo?.id
                   })}
                 />
               )}
 
-              {/* Mi inventario / Abonos inteligentes */}
-              {usuario.rol !== 'admin' && (
+              {/* Abonos inteligentes (solo para comerciantes) */}
+              {usuario.rol === 'comerciante' && (
                 <>
                   <MenuButton
-                    icon={usuario.rol === 'proveedor' ? 'cube-outline' : 'trending-up-outline'}
-                    text={usuario.rol === 'proveedor' ? 'Mi inventario' : 'Abonos inteligentes'}
+                    icon="trending-up-outline"
+                    text="Abonos inteligentes"
                     hasSubmenu={true}
                     isOpen={subMenuOpen}
-                    onPress={() => setSubMenuOpen(!subMenuOpen)}
+                    isHighlighted={true}
+                    onPress={toggleSubMenu}
                   />
 
-                  {/* Submenú */}
-                  {subMenuOpen && (
-                    <View style={styles.submenu}>
-                      {usuario.rol === 'comerciante' && (
-                        <MenuButton
-                          icon="people-outline"
-                          text="Proveedores"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('proveedores')}
-                        />
-                      )}
+                  {/* Submenú animado para comerciantes */}
+                  <Animated.View
+                    style={[
+                      styles.submenu,
+                      {
+                        maxHeight: subMenuAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 300],
+                        }),
+                        opacity: subMenuAnimation,
+                        transform: [{
+                          scaleY: subMenuAnimation,
+                        }],
+                      },
+                    ]}
+                  >
+                    <MenuButton
+                      icon="people-outline"
+                      text="Proveedores"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('proveedores')}
+                    />
 
+                    <MenuButton
+                      icon="document-text-outline"
+                      text="Informes"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('informes')}
+                    />
+
+                    <MenuButton
+                      icon="construct-outline"
+                      text="Sistema SAI"
+                      hasSubmenu={true}
+                      isOpen={subMenuSAIOpen}
+                      isSubitem={true}
+                      onPress={toggleSubMenuSAI}
+                    />
+
+                    <Animated.View
+                      style={[
+                        styles.subSubmenu,
+                        {
+                          maxHeight: subMenuSAIAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 120],
+                          }),
+                          opacity: subMenuSAIAnimation,
+                        },
+                      ]}
+                    >
                       <MenuButton
-                        icon={usuario.rol === 'proveedor' ? 'archive-outline' : 'document-text-outline'}
-                        text={usuario.rol === 'proveedor' ? 'Mis productos' : 'Informes'}
+                        icon="settings-outline"
+                        text="Usar estrategia"
                         isSubitem={true}
-                        onPress={() => handleMenuPress(usuario.rol === 'proveedor' ? 'productos' : 'informes')}
+                        onPress={() => handleMenuPress('sai')}
                       />
-
-                      {usuario.rol === 'proveedor' && (
-                        <MenuButton
-                          icon="create-outline"
-                          text="Editar inventario"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('editar-inventario')}
-                        />
-                      )}
-
-                      {usuario.rol === 'comerciante' && (
-                        <>
-                          <MenuButton
-                            icon="construct-outline"
-                            text="Sistema SAI"
-                            hasSubmenu={true}
-                            isOpen={subMenuSAIOpen}
-                            isSubitem={true}
-                            onPress={() => setSubMenuSAIOpen(!subMenuSAIOpen)}
-                          />
-
-                          {subMenuSAIOpen && (
-                            <View style={styles.subSubmenu}>
-                              <MenuButton
-                                icon="settings-outline"
-                                text="Usar estrategia"
-                                isSubitem={true}
-                                onPress={() => handleMenuPress('sai')}
-                              />
-                              <MenuButton
-                                icon="help-circle-outline"
-                                text="Ayuda"
-                                isSubitem={true}
-                                onPress={() => handleMenuPress('sai-help')}
-                              />
-                            </View>
-                          )}
-                        </>
-                      )}
-
                       <MenuButton
-                        icon={usuario.rol === 'proveedor' ? 'eye-outline' : 'car-outline'}
-                        text={usuario.rol === 'proveedor' ? 'Ver inventario' : 'Registrar movimiento'}
+                        icon="help-circle-outline"
+                        text="Ayuda"
                         isSubitem={true}
-                        onPress={() => handleMenuPress(usuario.rol === 'proveedor' ? 'ver-inventario' : 'movimientos')}
+                        onPress={() => handleMenuPress('sai-help')}
                       />
-                    </View>
-                  )}
+                    </Animated.View>
+
+                    <MenuButton
+                      icon="car-outline"
+                      text="Registrar movimiento"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('movimientos')}
+                    />
+                  </Animated.View>
                 </>
               )}
+            </View>
 
-              {/* Separador */}
-              {usuario.rol === 'comerciante' && <View style={styles.separator} />}
+            {/* Sección de opciones adicionales */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Mis opciones</Text>
+            </View>
+            
+            <View style={styles.menuContainer}>
+              {/* Mi inventario (solo para proveedores) */}
+              {usuario.rol === 'proveedor' && (
+                <>
+                  <MenuButton
+                    icon="cube-outline"
+                    text="Mi inventario"
+                    hasSubmenu={true}
+                    isOpen={subMenuOpen}
+                    onPress={toggleSubMenu}
+                  />
+
+                  {/* Submenú animado para proveedores */}
+                  <Animated.View
+                    style={[
+                      styles.submenu,
+                      {
+                        maxHeight: subMenuAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 200],
+                        }),
+                        opacity: subMenuAnimation,
+                        transform: [{
+                          scaleY: subMenuAnimation,
+                        }],
+                      },
+                    ]}
+                  >
+                    <MenuButton
+                      icon="archive-outline"
+                      text="Mis productos"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('productos')}
+                    />
+
+                    <MenuButton
+                      icon="create-outline"
+                      text="Editar inventario"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('editar-inventario')}
+                    />
+
+                    <MenuButton
+                      icon="eye-outline"
+                      text="Ver inventario"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('ver-inventario')}
+                    />
+                  </Animated.View>
+                </>
+              )}
 
               {/* Mis pedidos (solo comerciantes) */}
               {usuario.rol === 'comerciante' && (
@@ -409,46 +559,94 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   userContainer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100, // Espacio adicional para evitar que se recorte con la navegación inferior
     backgroundColor: 'white',
+    minHeight: 'auto',
   },
   userInfo: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    backgroundColor: '#fff',
+    padding: 0,
+    borderRadius: 16,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    overflow: 'hidden',
+  },
+  welcomeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 24,
+    background: 'linear-gradient(135deg, #fa7e17 0%, #ff9940 100%)',
+    backgroundColor: '#fa7e17',
+    position: 'relative',
+  },
+  welcomeIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 20,
+    padding: 12,
+    marginRight: 16,
+  },
+  welcomeTextContainer: {
+    flex: 1,
   },
   welcomeText: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontFamily: getUbuntuFont('regular'),
-    marginBottom: 5,
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 24,
-    color: '#333',
+    fontSize: 22,
+    color: '#fff',
     fontFamily: getUbuntuFont('bold'),
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  userTypeIndicator: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  userTypeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: getUbuntuFont('medium'),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionHeader: {
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: getUbuntuFont('bold'),
+    color: '#333',
+    paddingHorizontal: 4,
+  },
+  highlightedMenuContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(250, 126, 23, 0.15)',
+    marginBottom: 30,
+    // Sutil resplandor para destacar
+    backgroundColor: '#fffef9',
   },
   menuContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    marginBottom: 20,
   },
   menuButton: {
     backgroundColor: 'white',
@@ -462,13 +660,43 @@ const styles = StyleSheet.create({
   logoutButton: {
     borderBottomWidth: 0,
   },
+  highlightedButton: {
+    backgroundColor: '#fff8f4',
+    borderLeftWidth: 4,
+    borderLeftColor: '#fa7e17',
+    position: 'relative',
+    // Asegurar que el borde izquierdo sea visible en ambas plataformas
+    ...Platform.select({
+      ios: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#fa7e17',
+      },
+      android: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#fa7e17',
+      },
+    }),
+  },
+  highlightIndicator: {
+    position: 'absolute',
+    left: -1, // Ajuste para mejor alineación
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#fa7e17',
+    // Asegurar visibilidad en ambas plataformas
+    zIndex: 1,
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    minHeight: 56,
   },
   iconLeft: {
     marginRight: 15,
+    width: 24,
+    alignItems: 'center',
   },
   buttonText: {
     flex: 1,
@@ -476,18 +704,32 @@ const styles = StyleSheet.create({
     color: '#333',
     fontFamily: getUbuntuFont('medium'),
   },
+  highlightedText: {
+    color: '#fa7e17',
+    fontFamily: getUbuntuFont('bold'),
+  },
   logoutText: {
     color: '#ff4444',
   },
   iconRight: {
     marginLeft: 10,
+    transform: [{ rotate: '0deg' }],
+  },
+  iconRotated: {
+    transform: [{ rotate: '90deg' }],
   },
   submenu: {
     backgroundColor: '#f8f8f8',
+    overflow: 'hidden',
+    borderTopWidth: 1,
+    borderTopColor: '#efefef',
   },
   subSubmenu: {
     backgroundColor: '#f0f0f0',
     paddingLeft: 20,
+    overflow: 'hidden',
+    borderTopWidth: 1,
+    borderTopColor: '#e8e8e8',
   },
   separator: {
     height: 1,
