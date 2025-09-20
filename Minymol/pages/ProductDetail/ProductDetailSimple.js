@@ -1,17 +1,17 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  FlatList,
-  Image,
-  Alert as RNAlert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    FlatList,
+    Image,
+    Alert as RNAlert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
@@ -1013,6 +1013,7 @@ const styles = StyleSheet.create({
   },
   productDetails: {
     paddingHorizontal: 16,
+    paddingBottom: 85, // Espacio para el NavInf (70px) + extra (15px)
   },
   productDescription: {
     fontSize: 16,

@@ -119,14 +119,17 @@ export const AppStateProvider = ({ children }) => {
                     const categoriesData = await response.json();
                     console.log('📡 Datos recibidos:', categoriesData);
 
+                    // Extraer el array de categorías de la respuesta
+                    const categories = categoriesData.value || categoriesData || [];
+                    
                     // Verificar que la respuesta es un array válido
-                    if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+                    if (Array.isArray(categories) && categories.length > 0) {
                         // Guardar en cache y estado
-                        globalProductsCache.setCategories(categoriesData);
-                        dispatch({ type: ACTIONS.SET_CATEGORIES, payload: categoriesData });
+                        globalProductsCache.setCategories(categories);
+                        dispatch({ type: ACTIONS.SET_CATEGORIES, payload: categories });
 
-                        console.log(`✅ ${categoriesData.length} categorías cargadas desde API con imágenes`);
-                        return categoriesData;
+                        console.log(`✅ ${categories.length} categorías cargadas desde API con imágenes`);
+                        return categories;
                     } else {
                         console.error('❌ La respuesta de categorías no es un array válido:', categoriesData);
                         throw new Error('Formato de respuesta inválido o array vacío');

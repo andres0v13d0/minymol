@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
   },
   subCategoriesGrid: {
     padding: 15,
+    paddingBottom: 85, // Espacio para el NavInf (70px) + extra (15px)
   },
   subCategoryItem: {
     width: '50%', // Exactamente la mitad

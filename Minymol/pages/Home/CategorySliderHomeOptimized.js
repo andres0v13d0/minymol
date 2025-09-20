@@ -57,14 +57,34 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
     // Estado para recordar la subcategoría seleccionada por cada categoría
     const [categorySubCategoryMemory, setCategorySubCategoryMemory] = useState({});
 
+    // Función helper para obtener la subcategoría actual de una categoría específica
+    const getCurrentSubCategoryForCategory = useCallback((categoryIndex) => {
+        return categorySubCategoryMemory[categoryIndex] || 0;
+    }, [categorySubCategoryMemory]);
+
+    // Función helper para establecer la subcategoría de una categoría específica
+    const setSubCategoryForCategory = useCallback((categoryIndex, subCategoryIndex) => {
+        setCategorySubCategoryMemory(prev => ({
+            ...prev,
+            [categoryIndex]: subCategoryIndex
+        }));
+        
+        // Solo cambiar el estado global si es la categoría actual
+        if (categoryIndex === currentCategoryIndex) {
+            changeSubCategory(subCategoryIndex);
+        }
+    }, [currentCategoryIndex, changeSubCategory]);
+
     // Hook para forzar re-render cuando se actualizan las subcategorías
     const [, forceUpdate] = useState({});
 
     // Animaciones
     const subCategoriesHeight = useRef(new Animated.Value(65)).current;
+    const subCategoriesTranslateY = useRef(new Animated.Value(0)).current; // Nueva animación para sticky header
 
     // Referencias
     const categoryFlatListRef = useRef(null);
+    const scrollThrottleRef = useRef(null); // Para throttling del scroll anticipado
 
     // Función helper para actualizar estado de productos por categoría
     const setCategoryProductsState = useCallback((categoryIndex, newState) => {
@@ -105,14 +125,17 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 return prev;
             }
 
-            console.log(`🔄 Inicializando productos para categoría ${categoryIndex}-${currentSubCategoryIndex}`);
+            console.log(`🔄 Inicializando productos para categoría ${categoryIndex}-${getCurrentSubCategoryForCategory(categoryIndex)}`);
             console.log(`📊 Estado antes de cargar:`, currentState);
+
+            // Obtener la subcategoría específica para esta categoría
+            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(categoryIndex);
 
             // Marcar como cargando y ejecutar la carga async
             const newState = { ...currentState, isLoading: true };
 
             // Ejecutar la carga de productos de forma async
-            loadCategoryProducts(categoryIndex, currentSubCategoryIndex)
+            loadCategoryProducts(categoryIndex, categorySubCategoryIndex)
                 .then(products => {
                     setCategoryProducts(prevState => ({
                         ...prevState,
@@ -122,7 +145,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                             hasMore: (products && products.length > 0),
                             isLoading: false,
                             initialized: true,
-                            lastSubCategoryIndex: currentSubCategoryIndex
+                            lastSubCategoryIndex: categorySubCategoryIndex
                         }
                     }));
                     console.log(`✅ Categoría ${categoryIndex} inicializada con ${(products || []).length} productos`);
@@ -137,7 +160,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                             hasMore: false,
                             isLoading: false,
                             initialized: true,
-                            lastSubCategoryIndex: currentSubCategoryIndex
+                            lastSubCategoryIndex: categorySubCategoryIndex
                         }
                     }));
                 });
@@ -147,7 +170,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 [categoryIndex]: newState
             };
         });
-    }, [currentSubCategoryIndex, loadCategoryProducts]);    // Cargar categorías al montar el componente
+    }, [loadCategoryProducts, getCurrentSubCategoryForCategory]);    // Cargar categorías al montar el componente
     useEffect(() => {
         const initializeHome = async () => {
             if (!homeInitialized) {
@@ -201,15 +224,18 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
     useEffect(() => {
         if (!homeInitialized || categories.length === 0) return;
 
+        // Obtener la subcategoría actual para esta categoría
+        const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+
         // Cuando cambia la subcategoría, necesitamos resetear la categoría actual
         setCategoryProducts(prevCategoryProducts => {
             const currentState = prevCategoryProducts[currentCategoryIndex];
 
             // Si la categoría no está inicializada o si cambió la subcategoría, reinicializar
-            if (!currentState || !currentState.initialized || currentState.lastSubCategoryIndex !== currentSubCategoryIndex) {
-                console.log(`🔄 Reinicializando categoría ${currentCategoryIndex} para subcategoría ${currentSubCategoryIndex}`);
+            if (!currentState || !currentState.initialized || currentState.lastSubCategoryIndex !== categorySubCategoryIndex) {
+                console.log(`🔄 Reinicializando categoría ${currentCategoryIndex} para subcategoría ${categorySubCategoryIndex}`);
                 console.log(`📊 Estado actual:`, currentState);
-                console.log(`📊 Subcategoría anterior: ${currentState?.lastSubCategoryIndex}, nueva: ${currentSubCategoryIndex}`);
+                console.log(`📊 Subcategoría anterior: ${currentState?.lastSubCategoryIndex}, nueva: ${categorySubCategoryIndex}`);
 
                 // Resetear el estado de la categoría para la nueva subcategoría
                 const resetState = {
@@ -218,7 +244,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                     hasMore: true,
                     isLoading: false,
                     initialized: false,
-                    lastSubCategoryIndex: currentSubCategoryIndex
+                    lastSubCategoryIndex: categorySubCategoryIndex
                 };
 
                 // Llamar initializeCategoryProducts de forma async
@@ -236,7 +262,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             return prevCategoryProducts;
         });
 
-    }, [currentCategoryIndex, currentSubCategoryIndex, homeInitialized, categories.length, initializeCategoryProducts]);
+    }, [currentCategoryIndex, homeInitialized, categories.length, initializeCategoryProducts, getCurrentSubCategoryForCategory, categorySubCategoryMemory]);
 
     // Función para refrescar productos
     const onRefresh = useCallback(async () => {
@@ -247,8 +273,11 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             // Recargar categorías
             await loadCategories();
 
+            // Obtener la subcategoría específica para la categoría actual
+            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+
             // Reset del estado de la categoría actual
-            const refreshedProducts = await loadCategoryProducts(currentCategoryIndex, currentSubCategoryIndex, true);
+            const refreshedProducts = await loadCategoryProducts(currentCategoryIndex, categorySubCategoryIndex, true);
 
             setCategoryProducts(prev => ({
                 ...prev,
@@ -258,7 +287,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                     hasMore: (refreshedProducts && refreshedProducts.length > 0),
                     isLoading: false,
                     initialized: true,
-                    lastSubCategoryIndex: currentSubCategoryIndex
+                    lastSubCategoryIndex: categorySubCategoryIndex
                 }
             }));
 
@@ -268,9 +297,9 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
         } finally {
             setIsRefreshing(false);
         }
-    }, [currentCategoryIndex, currentSubCategoryIndex, loadCategories, loadCategoryProducts]);
+    }, [currentCategoryIndex, loadCategories, loadCategoryProducts, getCurrentSubCategoryForCategory]);
 
-    // Función para cargar más productos (infinite scroll)
+    // Función para cargar más productos (infinite scroll) con lotes adaptativos
     const loadMoreProducts = useCallback(async () => {
         setCategoryProducts(prev => {
             const currentState = prev[currentCategoryIndex] || {};
@@ -280,13 +309,26 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             }
 
             const currentOffset = currentState.offset || 10;
-            console.log(`🔄 Cargando más productos para categoría ${currentCategoryIndex}... offset: ${currentOffset}`);
+            const currentProductCount = currentState.products?.length || 0;
+            
+            // Lotes adaptativos: cargar más productos si ya tenemos muchos (scroll rápido detectado)
+            let batchSize = 10; // Tamaño base
+            if (currentProductCount > 30) {
+                batchSize = 15; // Lotes más grandes para usuarios que hacen scroll rápido
+            } else if (currentProductCount > 60) {
+                batchSize = 20; // Lotes aún más grandes para power users
+            }
+            
+            // Obtener la subcategoría específica para la categoría actual
+            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+            
+            console.log(`🔄 Cargando más productos para categoría ${currentCategoryIndex}... offset: ${currentOffset}, batch: ${batchSize}`);
 
             // Marcar como cargando más y ejecutar la carga async
             const newState = { ...currentState, isLoading: true };
 
             // Ejecutar la carga de productos de forma async
-            loadCategoryProducts(currentCategoryIndex, currentSubCategoryIndex, false, currentOffset)
+            loadCategoryProducts(currentCategoryIndex, categorySubCategoryIndex, false, currentOffset)
                 .then(moreProducts => {
                     if (moreProducts && moreProducts.length > 0) {
                         setCategoryProducts(prevState => {
@@ -294,14 +336,14 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                             const existingIds = new Set(currentProducts.map(p => p.id || p.uuid));
                             const uniqueNewProducts = moreProducts.filter(p => !existingIds.has(p.id || p.uuid));
 
-                            console.log(`🔍 ${moreProducts.length} productos recibidos, ${uniqueNewProducts.length} únicos`);
+                            console.log(`🔍 ${moreProducts.length} productos recibidos, ${uniqueNewProducts.length} únicos (batch size: ${batchSize})`);
 
                             return {
                                 ...prevState,
                                 [currentCategoryIndex]: {
                                     ...currentState,
                                     products: [...currentProducts, ...uniqueNewProducts],
-                                    offset: currentOffset + 10,
+                                    offset: currentOffset + batchSize, // Usar el tamaño de lote dinámico
                                     hasMore: uniqueNewProducts.length > 0,
                                     isLoading: false
                                 }
@@ -338,7 +380,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 [currentCategoryIndex]: newState
             };
         });
-    }, [currentCategoryIndex, currentSubCategoryIndex, loadCategoryProducts]);
+    }, [currentCategoryIndex, loadCategoryProducts, getCurrentSubCategoryForCategory]);
 
     // Obtener subcategorías de la categoría actual - INSTANTÁNEO desde JSON
     const getCurrentSubCategories = useCallback(() => {
@@ -378,11 +420,9 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
     const handleCategoryPress = useCallback((category) => {
         console.log('🔄 Cambio de categoría solicitado:', category);
 
-        // Guardar la subcategoría actual antes de cambiar
-        setCategorySubCategoryMemory(prev => ({
-            ...prev,
-            [currentCategoryIndex]: currentSubCategoryIndex
-        }));
+        // Guardar la subcategoría actual antes de cambiar (usar la función helper)
+        const currentSubCategoryForCategory = getCurrentSubCategoryForCategory(currentCategoryIndex);
+        setSubCategoryForCategory(currentCategoryIndex, currentSubCategoryForCategory);
 
         let newCategoryIndex;
         if (!category) {
@@ -400,7 +440,10 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             changeCategory(newCategoryIndex);
 
             // Restaurar la subcategoría recordada para esta categoría
-            const rememberedSubCategory = categorySubCategoryMemory[newCategoryIndex] || 0;
+            const rememberedSubCategory = getCurrentSubCategoryForCategory(newCategoryIndex);
+            console.log(`🧠 Restaurando subcategoría ${rememberedSubCategory} para categoría ${newCategoryIndex}`);
+            
+            // Actualizar la subcategoría si es diferente
             if (rememberedSubCategory !== currentSubCategoryIndex) {
                 setTimeout(() => {
                     changeSubCategory(rememberedSubCategory);
@@ -408,10 +451,10 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             }
         }
 
-        // Reset scroll position
+        // Reset scroll position y animaciones
         setLastScrollY(0);
         setShowSubCategories(true);
-        subCategoriesHeight.setValue(65);
+        subCategoriesTranslateY.setValue(0); // Resetear posición del sticky header
 
         // Sincronizar FlatList con el cambio de categoría
         if (categoryFlatListRef.current && newCategoryIndex !== undefined) {
@@ -422,7 +465,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 });
             }
         }
-    }, [currentCategoryIndex, currentSubCategoryIndex, categories, categorySubCategoryMemory, changeCategory, changeSubCategory]);
+    }, [currentCategoryIndex, currentSubCategoryIndex, categories, changeCategory, changeSubCategory, getCurrentSubCategoryForCategory, setSubCategoryForCategory]);
 
     // Manejar cambio de categoría desde el FlatList horizontal
     const handleCategoryScroll = useCallback((event) => {
@@ -434,16 +477,11 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
 
     // Manejar cambio de subcategoría
     const handleSubCategoryPress = useCallback((subCategoryIndex) => {
-        console.log(`🔀 Cambiando a subcategoría ${subCategoryIndex}`);
+        console.log(`🔀 Cambiando a subcategoría ${subCategoryIndex} para categoría ${currentCategoryIndex}`);
 
-        // Actualizar la memoria de subcategoría para la categoría actual
-        setCategorySubCategoryMemory(prev => ({
-            ...prev,
-            [currentCategoryIndex]: subCategoryIndex
-        }));
-
-        changeSubCategory(subCategoryIndex);
-    }, [changeSubCategory, currentCategoryIndex]);
+        // Usar la nueva función helper para actualizar la subcategoría específica
+        setSubCategoryForCategory(currentCategoryIndex, subCategoryIndex);
+    }, [currentCategoryIndex, setSubCategoryForCategory]);
 
     // Función para distribuir productos en columnas (masonry)
     const distributeProductsInColumns = useCallback((products) => {
@@ -471,38 +509,66 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
         </View>
     ), []);
 
-    // Manejar scroll para ocultar/mostrar subcategorías y infinite scroll
+    // Manejar scroll para sticky header de subcategorías y infinite scroll
     const handleScroll = useCallback((event) => {
         const currentY = event.nativeEvent.contentOffset.y;
-        const isScrollingDown = currentY > lastScrollY && currentY > 10;
+        const isScrollingDown = currentY > lastScrollY && currentY > 20; // Umbral más alto para mejor UX
+        const isScrollingUp = currentY < lastScrollY - 10; // Umbral para scroll hacia arriba
 
         setLastScrollY(currentY);
 
-        // Manejar subcategorías
+        // Manejar sticky header de subcategorías con animación suave
         if (isScrollingDown && showSubCategories) {
+            // Ocultar barra al hacer scroll hacia abajo
             setShowSubCategories(false);
-            Animated.timing(subCategoriesHeight, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: false,
+            Animated.timing(subCategoriesTranslateY, {
+                toValue: -80, // Mover completamente fuera de la pantalla
+                duration: 250,
+                useNativeDriver: true, // Usar native driver para mejor performance
             }).start();
-        } else if (!isScrollingDown && !showSubCategories && currentY < lastScrollY - 5) {
+        } else if (isScrollingUp && !showSubCategories) {
+            // Mostrar barra al hacer scroll hacia arriba
             setShowSubCategories(true);
-            Animated.timing(subCategoriesHeight, {
-                toValue: 65,
-                duration: 200,
-                useNativeDriver: false,
+            Animated.timing(subCategoriesTranslateY, {
+                toValue: 0, // Posición original
+                duration: 250,
+                useNativeDriver: true,
             }).start();
         }
 
-        // Infinite scroll - detectar cuando estamos cerca del final
+        // Infinite scroll estilo Amazon/Temu - carga anticipada inteligente con throttling
         const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-        const paddingToBottom = 100; // Disparar cuando estemos a 100px del final
-        const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-
+        
+        // Calcular el porcentaje de scroll
+        const scrollPercentage = (contentOffset.y / (contentSize.height - layoutMeasurement.height)) * 100;
+        
         const currentState = categoryProducts[currentCategoryIndex] || {};
-        if (isCloseToBottom && currentState.hasMore && !currentState.isLoading && currentState.initialized) {
-            loadMoreProducts();
+        const currentProductCount = currentState.products?.length || 0;
+        
+        // Carga anticipada progresiva: más agresiva mientras más productos tengamos
+        let preloadThreshold = 75; // Base: 75%
+        
+        if (currentProductCount > 50) {
+            preloadThreshold = 70; // Con muchos productos, cargar al 70%
+        } else if (currentProductCount > 100) {
+            preloadThreshold = 65; // Con muchísimos productos, cargar al 65%
+        }
+        
+        // Verificar si necesitamos cargar más productos
+        const shouldLoadMore = scrollPercentage >= preloadThreshold && 
+                              currentState.hasMore && 
+                              !currentState.isLoading && 
+                              currentState.initialized &&
+                              contentSize.height > layoutMeasurement.height; // Solo si hay contenido para hacer scroll
+
+        if (shouldLoadMore) {
+            // Throttling: solo ejecutar si han pasado al menos 500ms desde la última carga
+            const now = Date.now();
+            if (!scrollThrottleRef.current || (now - scrollThrottleRef.current) > 500) {
+                scrollThrottleRef.current = now;
+                console.log(`🚀 Carga anticipada activada al ${scrollPercentage.toFixed(1)}% (threshold: ${preloadThreshold}%) con ${currentProductCount} productos`);
+                loadMoreProducts();
+            }
         }
     }, [lastScrollY, showSubCategories, categoryProducts, currentCategoryIndex, loadMoreProducts]);
 
@@ -558,15 +624,68 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             );
         }
 
-        const isLoading = isCategoryLoading(categoryIndex, currentSubCategoryIndex);
+        const isLoading = isCategoryLoading(categoryIndex, getCurrentSubCategoryForCategory(categoryIndex));
 
         return (
             <View style={[styles.categoryPage, { width: screenWidth }]}>
+                {/* Barra de subcategorías sticky - Solo mostrar si NO es "Todos" y hay subcategorías */}
+                {shouldShowSubCategories && (
+                    <Animated.View style={[
+                        styles.stickySubCategoriesContainer,
+                        {
+                            transform: [{ translateY: subCategoriesTranslateY }]
+                        }
+                    ]}>
+                        <View style={styles.subCategoriesBar}>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                style={styles.subCategoriesList}
+                                contentContainerStyle={styles.subCategoriesScrollContent}
+                            >
+                                <TouchableOpacity
+                                    style={[
+                                        styles.subCategoryItem,
+                                        getCurrentSubCategoryForCategory(categoryIndex) === 0 && styles.selectedSubCategory
+                                    ]}
+                                    onPress={() => handleSubCategoryPress(0)}
+                                >
+                                    <Text style={[
+                                        styles.subCategoryText,
+                                        getCurrentSubCategoryForCategory(categoryIndex) === 0 && styles.selectedSubCategoryText
+                                    ]}>
+                                        Todos
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {subCategories.map((subCategory, index) => (
+                                    <TouchableOpacity
+                                        key={subCategory.id || index}
+                                        style={[
+                                            styles.subCategoryItem,
+                                            getCurrentSubCategoryForCategory(categoryIndex) === (index + 1) && styles.selectedSubCategory
+                                        ]}
+                                        onPress={() => handleSubCategoryPress(index + 1)}
+                                    >
+                                        <Text style={[
+                                            styles.subCategoryText,
+                                            getCurrentSubCategoryForCategory(categoryIndex) === (index + 1) && styles.selectedSubCategoryText
+                                        ]}>
+                                            {subCategory.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </Animated.View>
+                )}
+
                 <ScrollView
                     style={styles.categoryPage}
                     onScroll={handleScroll}
                     scrollEventThrottle={16}
                     showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollViewContent}
                     refreshControl={
                         <RefreshControl
                             refreshing={isRefreshing}
@@ -589,58 +708,11 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                         </View>
                     )}
 
-                    {/* Subcategorías - Solo mostrar si NO es "Todos" y hay subcategorías */}
-                    {shouldShowSubCategories && (
-                        <Animated.View style={[
-                            styles.subCategoriesContainer,
-                            { height: subCategoriesHeight }
-                        ]}>
-                            <View style={styles.subCategoriesBar}>
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    style={styles.subCategoriesList}
-                                    contentContainerStyle={styles.subCategoriesScrollContent}
-                                >
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.subCategoryItem,
-                                            currentSubCategoryIndex === 0 && styles.selectedSubCategory
-                                        ]}
-                                        onPress={() => handleSubCategoryPress(0)}
-                                    >
-                                        <Text style={[
-                                            styles.subCategoryText,
-                                            currentSubCategoryIndex === 0 && styles.selectedSubCategoryText
-                                        ]}>
-                                            Todos
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                    {subCategories.map((subCategory, index) => (
-                                        <TouchableOpacity
-                                            key={subCategory.id || index}
-                                            style={[
-                                                styles.subCategoryItem,
-                                                currentSubCategoryIndex === (index + 1) && styles.selectedSubCategory
-                                            ]}
-                                            onPress={() => handleSubCategoryPress(index + 1)}
-                                        >
-                                            <Text style={[
-                                                styles.subCategoryText,
-                                                currentSubCategoryIndex === (index + 1) && styles.selectedSubCategoryText
-                                            ]}>
-                                                {subCategory.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        </Animated.View>
-                    )}
-
-                    {/* Productos */}
-                    <View style={styles.productsList}>
+                    {/* Productos con padding superior para compensar sticky header */}
+                    <View style={[
+                        styles.productsList,
+                        shouldShowSubCategories && styles.productsListWithStickyHeader
+                    ]}>
                         {categoryState.products.length > 0 ? (
                             <View style={styles.masonryContainer}>
                                 {distributeProductsInColumns(categoryState.products).map((columnProducts, columnIndex) =>
@@ -660,11 +732,15 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                         )}
                     </View>
 
-                    {/* Indicador de carga para infinite scroll */}
+                    {/* Indicador de carga sutil para infinite scroll estilo Amazon/Temu */}
                     {categoryState.isLoading && categoryState.products.length > 0 && (
                         <View style={styles.loadingMoreContainer}>
-                            <ActivityIndicator color="#fa7e17" size="small" />
-                            <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
+                            <View style={styles.loadingMoreContent}>
+                                <ActivityIndicator color="#fa7e17" size="small" />
+                                <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
+                            </View>
+                            {/* Línea sutil de separación */}
+                            <View style={styles.loadingMoreSeparator} />
                         </View>
                     )}
 
@@ -677,7 +753,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 </ScrollView>
             </View>
         );
-    }, [categoryProducts, getCurrentSubCategories, subCategoriesHeight, currentSubCategoryIndex, handleSubCategoryPress, handleScroll, distributeProductsInColumns, renderMasonryColumn, isRefreshing, onRefresh]);
+    }, [categoryProducts, getCurrentSubCategories, handleSubCategoryPress, handleScroll, distributeProductsInColumns, renderMasonryColumn, isRefreshing, onRefresh, getCurrentSubCategoryForCategory, subCategoriesTranslateY]);
 
     // Mostrar skeleton si estamos cargando categorías o no está inicializado
     if (loading && categories.length === 0) {
@@ -777,6 +853,9 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'white',
     },
+    scrollViewContent: {
+        paddingBottom: 85, // Espacio para el NavInf (70px) + extra (15px)
+    },
     autoCarouselContainer: {
         position: 'relative',
         zIndex: 1,
@@ -822,6 +901,22 @@ const styles = StyleSheet.create({
         backgroundColor: '#ffffff',
         width: '100%',
         overflow: 'hidden',
+    },
+    stickySubCategoriesContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#ffffff',
+        zIndex: 10,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    productsListWithStickyHeader: {
+        paddingTop: 65,
     },
     subCategoriesBar: {
         backgroundColor: '#ffffff',
@@ -869,17 +964,33 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     loadingMoreContainer: {
-        paddingVertical: 20,
+        paddingVertical: 16,
         paddingHorizontal: 16,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: '#fafafa',
+        marginHorizontal: 8,
+        marginVertical: 8,
+        borderRadius: 8,
+    },
+    loadingMoreContent: {
         flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     loadingMoreText: {
         marginLeft: 8,
-        fontSize: 14,
+        fontSize: 13,
         color: '#666',
         fontFamily: getUbuntuFont('regular'),
+    },
+    loadingMoreSeparator: {
+        width: 30,
+        height: 2,
+        backgroundColor: '#fa7e17',
+        marginTop: 8,
+        borderRadius: 1,
+        opacity: 0.3,
     },
     endMessageContainer: {
         paddingVertical: 20,

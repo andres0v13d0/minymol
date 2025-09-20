@@ -106,8 +106,11 @@ class SubCategoriesManager {
     formatApiData(apiData) {
         const formatted = {};
 
-        if (Array.isArray(apiData)) {
-            apiData.forEach(category => {
+        // Extraer el array de categorías, manejando la estructura { value: [...] }
+        const categories = apiData.value || apiData || [];
+        
+        if (Array.isArray(categories)) {
+            categories.forEach(category => {
                 if (category.slug) {
                     formatted[category.slug] = {
                         id: category.id,
