@@ -1,0 +1,81 @@
+{
+  "categories": [
+    {
+      "id": "1",
+      "name": "Electrónicos",
+      "icon": "📱",
+      "color": "#4A90E2",
+      "subcategoriesCount": 12,
+      "image": "https://via.placeholder.com/100x100/4A90E2/FFFFFF?text=📱",
+      "description": "Smartphones, tablets, accesorios"
+    },
+    {
+      "id": "2",
+      "name": "Ropa y Moda",
+      "icon": "👗",
+      "color": "#E91E63",
+      "subcategoriesCount": 18,
+      "image": "https://via.placeholder.com/100x100/E91E63/FFFFFF?text=👗",
+      "description": "Ropa para hombre, mujer y niños"
+    },
+    {
+      "id": "3",
+      "name": "Hogar y Jardín",
+      "icon": "🏠",
+      "color": "#4CAF50",
+      "subcategoriesCount": 15,
+      "image": "https://via.placeholder.com/100x100/4CAF50/FFFFFF?text=🏠",
+      "description": "Decoración, muebles, jardinería"
+    },
+    {
+      "id": "4",
+      "name": "Deportes",
+      "icon": "⚽",
+      "color": "#FF9800",
+      "subcategoriesCount": 10,
+      "image": "https://via.placeholder.com/100x100/FF9800/FFFFFF?text=⚽",
+      "description": "Equipos deportivos y fitness"
+    },
+    {
+      "id": "5",
+      "name": "Belleza",
+      "icon": "💄",
+      "color": "#9C27B0",
+      "subcategoriesCount": 8,
+      "image": "https://via.placeholder.com/100x100/9C27B0/FFFFFF?text=💄",
+      "description": "Cosméticos, cuidado personal"
+    },
+    {
+      "id": "6",
+      "name": "Juguetes",
+      "icon": "🧸",
+      "color": "#F44336",
+      "subcategoriesCount": 6,
+      "image": "https://via.placeholder.com/100x100/F44336/FFFFFF?text=🧸",
+      "description": "Juguetes para todas las edades"
+    },
+    {
+      "id": "7",
+      "name": "Libros",
+      "icon": "📚",
+      "color": "#795548",
+      "subcategoriesCount": 12,
+      "image": "https://via.placeholder.com/100x100/795548/FFFFFF?text=📚",
+      "description": "Libros físicos y digitales"
+    },
+    {
+      "id": "8",
+      "name": "Automóvil",
+      "icon": "🚗",
+      "color": "#607D8B",
+      "subcategoriesCount": 9,
+      "image": "https://via.placeholder.com/100x100/607D8B/FFFFFF?text=🚗",
+      "description": "Accesorios y repuestos"
+    }
+  ],
+  "meta": {
+    "version": "1.0",
+    "lastUpdated": "2025-09-18T00:00:00Z",
+    "totalCategories": 8
+  }
+}

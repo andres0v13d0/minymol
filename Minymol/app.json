@@ -14,12 +14,6 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "fonts": [
-      "./assets/fonts/Ubuntu-Regular.ttf",
-      "./assets/fonts/Ubuntu-Bold.ttf",
-      "./assets/fonts/Ubuntu-Light.ttf",
-      "./assets/fonts/Ubuntu-Medium.ttf"
-    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.minymol.app",
@@ -49,6 +43,10 @@
     },
     "updates": {
       "url": "https://u.expo.dev/fa331260-c87d-4a77-b708-31b53a5f11d3"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-video"
+    ]
   }
 }

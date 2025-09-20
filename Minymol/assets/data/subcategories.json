@@ -1,0 +1,114 @@
+{
+    "version": "1.0.0",
+    "lastUpdated": "2025-09-19T00:00:00Z",
+    "categories": {
+        "electronics": {
+            "id": 1,
+            "slug": "electronics",
+            "name": "Electrónicos",
+            "subcategories": [
+                {
+                    "id": 101,
+                    "slug": "smartphones",
+                    "name": "Smartphones"
+                },
+                {
+                    "id": 102,
+                    "slug": "laptops",
+                    "name": "Laptops"
+                },
+                {
+                    "id": 103,
+                    "slug": "headphones",
+                    "name": "Audífonos"
+                },
+                {
+                    "id": 104,
+                    "slug": "cameras",
+                    "name": "Cámaras"
+                }
+            ]
+        },
+        "clothing": {
+            "id": 2,
+            "slug": "clothing",
+            "name": "Ropa",
+            "subcategories": [
+                {
+                    "id": 201,
+                    "slug": "mens",
+                    "name": "Hombres"
+                },
+                {
+                    "id": 202,
+                    "slug": "womens",
+                    "name": "Mujeres"
+                },
+                {
+                    "id": 203,
+                    "slug": "kids",
+                    "name": "Niños"
+                },
+                {
+                    "id": 204,
+                    "slug": "shoes",
+                    "name": "Calzado"
+                }
+            ]
+        },
+        "home": {
+            "id": 3,
+            "slug": "home",
+            "name": "Hogar",
+            "subcategories": [
+                {
+                    "id": 301,
+                    "slug": "furniture",
+                    "name": "Muebles"
+                },
+                {
+                    "id": 302,
+                    "slug": "kitchen",
+                    "name": "Cocina"
+                },
+                {
+                    "id": 303,
+                    "slug": "decoration",
+                    "name": "Decoración"
+                },
+                {
+                    "id": 304,
+                    "slug": "garden",
+                    "name": "Jardín"
+                }
+            ]
+        },
+        "sports": {
+            "id": 4,
+            "slug": "sports",
+            "name": "Deportes",
+            "subcategories": [
+                {
+                    "id": 401,
+                    "slug": "fitness",
+                    "name": "Fitness"
+                },
+                {
+                    "id": 402,
+                    "slug": "outdoor",
+                    "name": "Aire Libre"
+                },
+                {
+                    "id": 403,
+                    "slug": "team-sports",
+                    "name": "Deportes de Equipo"
+                },
+                {
+                    "id": 404,
+                    "slug": "water-sports",
+                    "name": "Deportes Acuáticos"
+                }
+            ]
+        }
+    }
+}

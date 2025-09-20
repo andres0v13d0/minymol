@@ -1,20 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import providersData from '../../assets/data/providers.json';
+import { useCache } from '../../hooks/useCache';
+import { CACHE_KEYS } from '../../utils/cache/StorageKeys';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 // Función para obtener los proveedores desde la API
 const fetchProviders = async () => {
+  console.log('🔄 fetchProviders - Iniciando...');
   try {
     const response = await fetch('https://api.minymol.com/providers/carousel');
     if (!response.ok) {
       throw new Error('Error al cargar proveedores');
     }
     const data = await response.json();
-    return data;
+    const providers = Array.isArray(data) ? data : (data.providers || []);
+    console.log('✅ fetchProviders - Proveedores obtenidos:', providers.length);
+    return providers;
   } catch (error) {
-    console.error('Error fetching providers:', error);
-    return [];
+    console.error('❌ fetchProviders - Error:', error);
+    console.log('📁 fetchProviders - Usando fallback local');
+    return providersData.providers || [];
   }
 };
 
@@ -32,28 +39,50 @@ const AutoCarouselAnimated = ({
 }) => {
   const scrollViewRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [providers, setProviders] = useState([]);
   const [providerGroups, setProviderGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [forceRender, setForceRender] = useState(0); // Para forzar re-render en Android
   
   // Animación para el skeleton
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
-  // Cargar proveedores al montar el componente
-  useEffect(() => {
-    const loadProviders = async () => {
-      setLoading(true);
-      const fetchedProviders = await fetchProviders();
-      setProviders(fetchedProviders);
-      const groups = groupProviders(fetchedProviders);
-      setProviderGroups(groups);
-      setLoading(false);
-    };
+  // Hook de caché para proveedores
+  const {
+    data: providers,
+    isLoading,
+    isRefreshing,
+    hasCache,
+    isOnline
+  } = useCache(
+    CACHE_KEYS.PROVIDERS_CAROUSEL,
+    fetchProviders,
+    {
+      refreshOnMount: true, // Necesario para la primera carga
+      refreshOnFocus: false
+    }
+  );
 
-    loadProviders();
-    
-    // En Android, forzar un re-render después de un breve delay
+  // Debug logs
+  useEffect(() => {
+    console.log('🏗️ AutoCarousel - Estado:', {
+      hasProviders: !!providers,
+      providersCount: providers?.length || 0,
+      hasCache,
+      isLoading,
+      isRefreshing,
+      key: CACHE_KEYS.PROVIDERS_CAROUSEL
+    });
+  }, [providers, hasCache, isLoading, isRefreshing]);
+
+  // Agrupar proveedores cuando cambien
+  useEffect(() => {
+    if (providers && providers.length > 0) {
+      const groups = groupProviders(providers);
+      setProviderGroups(groups);
+    }
+  }, [providers]);
+
+  // En Android, forzar un re-render después de un breve delay
+  useEffect(() => {
     if (Platform.OS === 'android') {
       setTimeout(() => {
         setForceRender(prev => prev + 1);
@@ -63,7 +92,9 @@ const AutoCarouselAnimated = ({
 
   // Animación del shimmer
   useEffect(() => {
-    if (loading) {
+    const shouldShowSkeleton = !providers && isLoading && !hasCache;
+    
+    if (shouldShowSkeleton) {
       const shimmerAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(shimmerAnim, {
@@ -81,7 +112,7 @@ const AutoCarouselAnimated = ({
       shimmerAnimation.start();
       return () => shimmerAnimation.stop();
     }
-  }, [loading, shimmerAnim]);
+  }, [providers, isLoading, hasCache, shimmerAnim]);
 
   // Auto scroll
   useEffect(() => {
@@ -141,6 +172,9 @@ const AutoCarouselAnimated = ({
 
     return (
       <View style={styles.container}>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Nuestros Proveedores</Text>
+        </View>
         <View style={[styles.groupContainer, { width: screenWidth }]}>
           {[1, 2, 3].map((item) => (
             <View key={item} style={styles.providerContainer}>
@@ -188,20 +222,35 @@ const AutoCarouselAnimated = ({
     );
   };
 
-  if (loading) {
+  // Mostrar skeleton solo si es la primera carga SIN datos
+  const shouldShowSkeleton = !providers && isLoading && !hasCache;
+  
+  if (shouldShowSkeleton) {
     return renderSkeleton();
   }
 
   if (providerGroups.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No hay proveedores disponibles</Text>
+        <Text style={styles.emptyText}>
+          {!isOnline ? 'Sin conexión - Reintentando...' : 'No hay proveedores disponibles'}
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <View style={styles.titleContainer}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.title}>Nuestros Proveedores</Text>
+          {isRefreshing && (
+            <Text style={[styles.title, { fontSize: 12, marginLeft: 8, color: '#666' }]}>
+              ⟳
+            </Text>
+          )}
+        </View>
+      </View>
       <ScrollView
         ref={scrollViewRef}
         horizontal
@@ -224,8 +273,21 @@ const AutoCarouselAnimated = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
-    height: 180, // Altura fija para el carousel de proveedores
+    height: 200,
     paddingVertical: 10,
+    position: 'relative',
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333333',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
@@ -245,23 +307,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
     overflow: 'hidden',
   },
   providerLogo: {
-    width: 70,
-    height: 70,
+    width: 75,
+    height: 75,
     borderRadius: 35,
   },
   providerName: {
@@ -314,7 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   loadingContainer: {
-    height: 180,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -325,7 +379,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   emptyContainer: {
-    height: 180,
+    height: 200,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#ffffff',

@@ -1,53 +1,83 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
+import { useCache } from '../../hooks/useCache';
+import { CACHE_KEYS } from '../../utils/cache/StorageKeys';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// Función para cargar categorías desde la API
+const fetchCategories = async () => {
+  try {
+    const res = await fetch('https://api.minymol.com/categories/with-products-and-images');
+    
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
+    const data = await res.json();
+
+    if (Array.isArray(data)) {
+      return data;
+    } else {
+      console.error('La respuesta no es un array:', data);
+      // Fallback a array vacío ya que la estructura local es incompatible
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    // Fallback a array vacío en caso de error
+    return [];
+  }
+};
+
 const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
-  const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [loading, setLoading] = useState(true);
 
+  // Hook de caché para categorías principales
+  const {
+    data: categories,
+    isLoading,
+    isRefreshing,
+    hasCache,
+    isOnline,
+    refresh: refreshCategories
+  } = useCache(
+    CACHE_KEYS.CATEGORIES_MAIN,
+    fetchCategories,
+    {
+      refreshOnMount: true,
+      refreshOnFocus: false
+    }
+  );
+
+  // Solo mostrar loading si no hay caché
+  const loading = isLoading && !hasCache;
+
+  // Seleccionar primera categoría cuando se cargan los datos
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch('https://api.minymol.com/categories/with-products-and-images');
-        const data = await res.json();
+    if (categories && Array.isArray(categories) && categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
 
-        if (Array.isArray(data)) {
-          setCategories(data);
-          if (data.length > 0) {
-            setSelectedCategoryId(data[0].id);
-          }
-        } else {
-          console.error('La respuesta no es un array:', data);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const filteredSubCategories = (categories && Array.isArray(categories)) 
+    ? (categories.find(cat => cat.id === selectedCategoryId)?.subCategories || [])
+    : [];
 
-    fetchData();
-  }, []);
-
-  const filteredSubCategories = categories.find(cat => cat.id === selectedCategoryId)?.subCategories || [];
-
-  const renderCategoryItem = ({ item }) => (
+  const renderCategoryItem = ({ item }) => {
+    return (
     <TouchableOpacity
       style={[
         styles.categoryItem,
@@ -62,9 +92,11 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
         {item.name}
       </Text>
     </TouchableOpacity>
-  );
+    );
+  };
 
-  const renderSubCategoryItem = ({ item }) => (
+  const renderSubCategoryItem = ({ item }) => {
+    return (
     <TouchableOpacity
       style={styles.subCategoryItem}
       onPress={() => onCategoryPress && onCategoryPress(item.slug)}
@@ -78,7 +110,8 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
       </View>
       <Text style={styles.subCategoryText}>{item.name}</Text>
     </TouchableOpacity>
-  );
+    );
+  };
 
   const getSubCategoryColumns = () => {
     // Para móvil, siempre 2 columnas es lo mejor
@@ -120,9 +153,9 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
         {/* Sidebar de categorías */}
         <View style={styles.sidebar}>
           <FlatList
-            data={categories}
+            data={categories || []}
             renderItem={renderCategoryItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item?.id || Math.random().toString()}
             showsVerticalScrollIndicator={false}
           />
         </View>
@@ -130,9 +163,9 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
         {/* Grid de subcategorías */}
         <View style={styles.categoriesMain}>
           <FlatList
-            data={filteredSubCategories}
+            data={filteredSubCategories || []}
             renderItem={renderSubCategoryItem}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => item?.id || Math.random().toString()}
             numColumns={getSubCategoryColumns()}
             key={getSubCategoryColumns()} // Para forzar re-render cuando cambian las columnas
             contentContainerStyle={styles.subCategoriesGrid}

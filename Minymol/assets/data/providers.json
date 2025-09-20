@@ -1,0 +1,100 @@
+{
+  "providers": [
+    {
+      "id": "prov_001",
+      "name": "TechStore",
+      "logo": "https://via.placeholder.com/80x80/4A90E2/FFFFFF?text=TS",
+      "category": "Electrónicos", 
+      "verified": true,
+      "rating": 4.8,
+      "totalProducts": 1250,
+      "description": "Los mejores productos tecnológicos"
+    },
+    {
+      "id": "prov_002", 
+      "name": "Fashion World",
+      "logo": "https://via.placeholder.com/80x80/E91E63/FFFFFF?text=FW",
+      "category": "Ropa y Moda",
+      "verified": true,
+      "rating": 4.6,
+      "totalProducts": 2100,
+      "description": "Moda para toda la familia"
+    },
+    {
+      "id": "prov_003",
+      "name": "Home & Garden",
+      "logo": "https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=HG", 
+      "category": "Hogar y Jardín",
+      "verified": true,
+      "rating": 4.7,
+      "totalProducts": 980,
+      "description": "Tu hogar perfecto nos espera"
+    },
+    {
+      "id": "prov_004",
+      "name": "SportZone",
+      "logo": "https://via.placeholder.com/80x80/FF9800/FFFFFF?text=SZ",
+      "category": "Deportes",
+      "verified": false,
+      "rating": 4.5,
+      "totalProducts": 750,
+      "description": "Equipos deportivos de calidad"
+    },
+    {
+      "id": "prov_005",
+      "name": "Beauty Plus",
+      "logo": "https://via.placeholder.com/80x80/9C27B0/FFFFFF?text=BP",
+      "category": "Belleza", 
+      "verified": true,
+      "rating": 4.9,
+      "totalProducts": 650,
+      "description": "Belleza y cuidado personal"
+    },
+    {
+      "id": "prov_006",
+      "name": "Toy Kingdom",
+      "logo": "https://via.placeholder.com/80x80/F44336/FFFFFF?text=TK",
+      "category": "Juguetes",
+      "verified": true,
+      "rating": 4.4,
+      "totalProducts": 890,
+      "description": "Diversión para los más pequeños"
+    },
+    {
+      "id": "prov_007",
+      "name": "BookMart",
+      "logo": "https://via.placeholder.com/80x80/795548/FFFFFF?text=BM",
+      "category": "Libros",
+      "verified": true,
+      "rating": 4.8,
+      "totalProducts": 1500,
+      "description": "El conocimiento al alcance"
+    },
+    {
+      "id": "prov_008",
+      "name": "Auto Parts",
+      "logo": "https://via.placeholder.com/80x80/607D8B/FFFFFF?text=AP",
+      "category": "Automóvil",
+      "verified": false,
+      "rating": 4.3,
+      "totalProducts": 450,
+      "description": "Repuestos y accesorios"
+    },
+    {
+      "id": "prov_009",
+      "name": "MegaStore",
+      "logo": "https://via.placeholder.com/80x80/673AB7/FFFFFF?text=MS",
+      "category": "General",
+      "verified": true,
+      "rating": 4.6,
+      "totalProducts": 3200,
+      "description": "De todo para todos"
+    }
+  ],
+  "meta": {
+    "version": "1.0",
+    "lastUpdated": "2025-09-18T00:00:00Z",
+    "totalProviders": 9,
+    "verifiedProviders": 7
+  }
+}
