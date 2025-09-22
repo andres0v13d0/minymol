@@ -18,7 +18,8 @@ const Header = ({
   isHome = false,
   onBack,
   currentCategory = '',
-  onCategoryPress 
+  onCategoryPress,
+  onProductPress 
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -86,7 +87,7 @@ const Header = ({
           </TouchableOpacity>
         )}
         <View style={styles.searchContainer}>
-          <Search />
+          <Search onProductPress={onProductPress} />
         </View>
       </View>
       {isHome && (

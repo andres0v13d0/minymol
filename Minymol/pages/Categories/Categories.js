@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
+import SubCategoryModal from '../../components/SubCategoryModal';
 import { useCache } from '../../hooks/useCache';
 import { CACHE_KEYS } from '../../utils/cache/StorageKeys';
 import { getUbuntuFont } from '../../utils/fonts';
@@ -44,6 +46,11 @@ const fetchCategories = async () => {
 
 const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+
+  // Animación para el cambio de categoría
+  const categoryAnimations = useRef({}).current;
 
   // Hook de caché para categorías principales
   const {
@@ -72,26 +79,67 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
     }
   }, [categories, selectedCategoryId]);
 
+  // Función para inicializar animación de cada categoría
+  const initCategoryAnimation = (categoryId) => {
+    if (!categoryAnimations[categoryId]) {
+      categoryAnimations[categoryId] = new Animated.Value(1);
+    }
+    return categoryAnimations[categoryId];
+  };
+
+  // Función para animar categoría al seleccionar
+  const animateCategory = (categoryId) => {
+    const animation = categoryAnimations[categoryId];
+    if (animation) {
+      Animated.sequence([
+        Animated.timing(animation, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animation, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  };
+
   const filteredSubCategories = (categories && Array.isArray(categories)) 
     ? (categories.find(cat => cat.id === selectedCategoryId)?.subCategories || [])
     : [];
 
   const renderCategoryItem = ({ item }) => {
+    const isSelected = selectedCategoryId === item.id;
+    const categoryAnimation = initCategoryAnimation(item.id);
+    
     return (
-    <TouchableOpacity
-      style={[
-        styles.categoryItem,
-        selectedCategoryId === item.id && styles.selectedCategory
-      ]}
-      onPress={() => setSelectedCategoryId(item.id)}
-    >
-      <Text style={[
-        styles.categoryText,
-        selectedCategoryId === item.id && styles.selectedCategoryText
-      ]}>
-        {item.name}
-      </Text>
-    </TouchableOpacity>
+    <Animated.View style={{ transform: [{ scale: categoryAnimation }] }}>
+      <TouchableOpacity
+        style={[
+          styles.categoryItem,
+          isSelected && styles.selectedCategory
+        ]}
+        onPress={() => {
+          setSelectedCategoryId(item.id);
+          animateCategory(item.id);
+        }}
+        activeOpacity={0.7}
+      >
+        {/* Barra izquierda para categoría seleccionada */}
+        {isSelected && (
+          <View style={styles.selectedIndicator} />
+        )}
+        
+        <Text style={[
+          styles.categoryText,
+          isSelected && styles.selectedCategoryText
+        ]}>
+          {item.name}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
     );
   };
 
@@ -99,7 +147,10 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
     return (
     <TouchableOpacity
       style={styles.subCategoryItem}
-      onPress={() => onCategoryPress && onCategoryPress(item.slug)}
+      onPress={() => {
+        setSelectedSubCategory(item);
+        setModalVisible(true);
+      }}
     >
       <View style={styles.circleImage}>
         <Image 
@@ -175,6 +226,21 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
       </View>
 
       <NavInf selected="categories" onPress={onTabPress} />
+      
+      {/* Modal de subcategoría */}
+      <SubCategoryModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedSubCategory(null);
+        }}
+        subCategory={selectedSubCategory}
+        onProductPress={onProductPress}
+        onAddToCart={(product) => {
+          // Aquí puedes manejar agregar al carrito si tienes esa funcionalidad
+          console.log('Agregar al carrito:', product);
+        }}
+      />
     </View>
   );
 };
@@ -201,30 +267,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    width: 90, // Más angosto como Temu
-    backgroundColor: '#f5f5f5',
+    width: 120,
+    backgroundColor: '#ffffff',
     paddingVertical: 5,
+    borderRightWidth: 1,
+    borderRightColor: '#f0f0f0',
   },
   categoryItem: {
     paddingVertical: 15,
     paddingHorizontal: 12,
-    marginVertical: 2,
-    marginLeft: 0, // Pegado al borde izquierdo
-    marginRight: 0,
+    marginVertical: 3,
+    marginHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    position: 'relative',
   },
   selectedCategory: {
-    backgroundColor: '#fa7e17', // Naranja completo
+    backgroundColor: '#fa7e17',
+    shadowColor: '#fa7e17',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   categoryText: {
     color: '#666',
     fontSize: 12,
     fontFamily: getUbuntuFont('medium'),
-    textAlign: 'left', // Alineado a la izquierda
+    textAlign: 'center',
     lineHeight: 14,
   },
   selectedCategoryText: {
-    color: 'white', // Blanco cuando está seleccionado
+    color: 'white',
     fontFamily: getUbuntuFont('bold'),
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    left: 3,
+    top: 3,
+    bottom: 3,
+    width: 6,
+    backgroundColor: '#14144b',
+    borderRadius: 3,
   },
   categoriesMain: {
     flex: 1,

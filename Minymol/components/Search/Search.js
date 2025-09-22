@@ -1,41 +1,46 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import SearchModal from '../SearchModal';
 
-const Search = ({ onSearch }) => {
+const Search = ({ onProductPress }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  const handleSearch = () => {
-    const trimmed = text.trim();
-    if (onSearch) {
-      onSearch(trimmed);
-    }
-    // Aquí puedes agregar navegación como en el código web
-    console.log('Buscando:', trimmed);
+  const handleOpenModal = () => {
+    setModalVisible(true);
   };
 
-  const handleSubmit = () => {
-    handleSearch();
+  const handleCloseModal = () => {
+    setModalVisible(false);
   };
 
   return (
-    <View style={[styles.search, isFocused && styles.searchFocused]}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Buscar..."
-        placeholderTextColor="#999"
-        value={text}
-        onChangeText={setText}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        onSubmitEditing={handleSubmit}
-        returnKeyType="search"
-      />
-      <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-        <Ionicons name="search" size={20} color="white" />
+    <>
+      <TouchableOpacity style={[styles.search, isFocused && styles.searchFocused]} onPress={handleOpenModal}>
+        <View style={styles.searchContent}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar..."
+            placeholderTextColor="#999"
+            value={text}
+            editable={false}
+            pointerEvents="none"
+          />
+          <View style={styles.searchButton}>
+            <Ionicons name="search" size={20} color="white" />
+          </View>
+        </View>
       </TouchableOpacity>
-    </View>
+
+      <SearchModal
+        visible={modalVisible}
+        onClose={handleCloseModal}
+        onProductPress={onProductPress}
+        initialText={text}
+      />
+    </>
   );
 };
 
@@ -44,14 +49,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     height: 40,
     borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
     marginHorizontal: 10,
     flex: 1,
     overflow: 'hidden',
   },
   searchFocused: {
     // Puedes agregar estilos para cuando esté enfocado
+  },
+  searchContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: '100%',
   },
   searchInput: {
     flex: 1,

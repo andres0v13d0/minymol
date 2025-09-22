@@ -760,7 +760,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
         console.log('🔄 Mostrando loading inicial - categories.length:', categories.length, 'loading:', loading);
         return (
             <View style={styles.container}>
-                <Header selectedTab={selectedTab} onTabPress={onTabPress} />
+                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
                 <BarSup
                     categories={[]}
                     currentCategory=""
@@ -777,7 +777,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
         console.log('❌ Home inicializado pero sin categorías disponibles');
         return (
             <View style={styles.container}>
-                <Header selectedTab={selectedTab} onTabPress={onTabPress} />
+                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
                 <BarSup
                     categories={[]}
                     currentCategory=""
@@ -798,7 +798,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
 
     return (
         <View style={styles.container}>
-            <Header selectedTab={selectedTab} onTabPress={onTabPress} />
+            <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
 
             <BarSup
                 categories={categories}
