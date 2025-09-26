@@ -3,6 +3,10 @@ import {
     ActivityIndicator,
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    Animated,
+>>>>>>> Stashed changes
 =======
     Animated,
 >>>>>>> Stashed changes
@@ -151,8 +155,11 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       <NavInf selected="categories" onPress={onTabPress} />
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
       <NavInf selectedTab="categories" onTabPress={onTabPress} />

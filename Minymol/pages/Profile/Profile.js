@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   ActivityIndicator,
   Alert,
   RefreshControl,
@@ -15,6 +16,21 @@ import {
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import LoginModal from '../../components/LoginModal';
+=======
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import AuthManager from '../../components/AuthManager';
+>>>>>>> Stashed changes
 =======
     ActivityIndicator,
     Alert,
