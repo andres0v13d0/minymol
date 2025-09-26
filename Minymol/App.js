@@ -6,6 +6,9 @@ import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppStateProvider } from './contexts/AppStateContext';
 import { CartProvider } from './contexts/CartContext';
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import { useFonts } from './hooks/useFonts';
 import Cart from './pages/Cart/Cart';
@@ -147,15 +150,21 @@ function AppContent() {
           zIndex: selectedTab === 'cart' ? 1 : 0
         }}>
           <Cart 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
           />
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         );
     }
 =======
+=======
+>>>>>>> Stashed changes
         </View>
       </View>
     );

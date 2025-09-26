@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+    Animated,
+>>>>>>> Stashed changes
 =======
     Animated,
 >>>>>>> Stashed changes
@@ -146,8 +150,11 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
       </View>
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       <NavInf selected="categories" onPress={onTabPress} />
 =======
+=======
+>>>>>>> Stashed changes
       <NavInf selectedTab="categories" onTabPress={onTabPress} />
       
       {/* Modal de subcategoría */}

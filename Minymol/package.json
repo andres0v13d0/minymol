@@ -21,6 +21,7 @@
     "@rneui/themed": "^4.0.0-rc.8",
     "axios": "^1.11.0",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "expo": "~53.0.22",
     "expo-blur": "~14.1.5",
     "expo-constants": "~17.1.7",
@@ -38,6 +39,8 @@
     "expo-updates": "~0.28.17",
     "expo-web-browser": "~14.2.0",
 =======
+=======
+>>>>>>> Stashed changes
     "expo": "~54.0.9",
     "expo-blur": "~15.0.7",
     "expo-constants": "~18.0.8",
