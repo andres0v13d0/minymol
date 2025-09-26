@@ -25,6 +25,11 @@ import subCategoriesManager from '../../utils/SubCategoriesManager';
 const { width: screenWidth } = Dimensions.get('window');
 
 const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }) => {
+    // Verificar que onProductPress existe
+    if (!onProductPress) {
+        console.warn('⚠️ onProductPress no está definido en CategorySliderHome');
+    }
+
     // Estado global de la app
     const {
         categories,
@@ -502,12 +507,15 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 <View key={`${product.uuid || product.id}-${columnIndex}-${index}`} style={styles.masonryItem}>
                     <Product
                         product={product}
-                        onPress={() => onProductPress(product)}
+                        onProductPress={(product) => {
+                            console.log('🔄 CategorySliderHome: onProductPress llamado con producto:', product?.name);
+                            onProductPress(product);
+                        }}
                     />
                 </View>
             ))}
         </View>
-    ), []);
+    ), [onProductPress]);
 
     // Manejar scroll para sticky header de subcategorías y infinite scroll
     const handleScroll = useCallback((event) => {
@@ -767,7 +775,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                     onCategoryPress={() => { }}
                 />
                 <ProductsSkeleton columnsCount={2} itemsCount={6} />
-                <NavInf selected={selectedTab} onPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
             </View>
         );
     }
@@ -784,7 +792,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                     onCategoryPress={() => { }}
                 />
                 <ProductsSkeleton columnsCount={2} itemsCount={6} />
-                <NavInf selected={selectedTab} onPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
             </View>
         );
     }
@@ -827,7 +835,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
                 decelerationRate="fast"
             />
 
-            <NavInf selected={selectedTab} onPress={onTabPress} />
+            <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
         </View>
     );
 };

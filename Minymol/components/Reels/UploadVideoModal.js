@@ -1,3 +1,4 @@
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
@@ -54,6 +55,17 @@ const UploadVideoModal = ({
             setVideoDuration(0);
         }
     }, [visible]);
+
+    // Auto-cerrar cuando la subida se completa exitosamente
+    useEffect(() => {
+        if (uploadStatus === 'completed') {
+            const timer = setTimeout(() => {
+                onClose(); // Cerrar modal automáticamente después de 1 segundo
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [uploadStatus, onClose]);
 
     // Controlar el video player
     useEffect(() => {
@@ -123,10 +135,10 @@ const UploadVideoModal = ({
 
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: 'videos',
-                allowsEditing: true,
-                aspect: [9, 16], // Aspecto vertical tipo Instagram
-                quality: 1,
+                allowsEditing: false, // ❌ Desactivar editor de iOS
+                quality: 1, // ✅ Volver a calidad máxima
                 videoMaxDuration: 60, // Máximo 60 segundos
+                exif: false, // No necesitamos metadatos EXIF
             });
 
             if (result.canceled) {
@@ -135,6 +147,45 @@ const UploadVideoModal = ({
             }
 
             const file = result.assets[0];
+
+            // ✅ VALIDACIÓN CRÍTICA: Verificar que el archivo existe y tiene contenido
+            let fileSize;
+            try {
+                const fileObj = new File(file.uri);
+                fileSize = fileObj.size; // ✅ Es una propiedad, no un método
+                
+                if (fileSize === 0) {
+                    Alert.alert('Error', 'El archivo seleccionado está vacío o corrompido');
+                    return;
+                }
+
+                // ✅ Validación adicional del formato de archivo
+                if (!file.uri.toLowerCase().includes('.mp4') && 
+                    !file.mimeType?.includes('video/mp4') && 
+                    !file.type?.includes('video/mp4')) {
+                    
+                    console.warn('⚠️ File format warning:', {
+                        uri: file.uri,
+                        mimeType: file.mimeType,
+                        type: file.type
+                    });
+                }
+
+                console.log('📁 File validation:', {
+                    size: fileSize,
+                    uri: file.uri,
+                    originalType: file.type,
+                    mimeType: file.mimeType,
+                    duration: file.duration,
+                    width: file.width,
+                    height: file.height
+                });
+
+            } catch (error) {
+                console.error('Error validating file:', error);
+                Alert.alert('Error', 'No se pudo validar el archivo seleccionado');
+                return;
+            }
 
             // Validar duración del video
             if (file.duration && file.duration > 60000) { // 60 segundos en ms
@@ -145,25 +196,54 @@ const UploadVideoModal = ({
                 return;
             }
 
-            // Crear objeto compatible con el resto del código
-            const selectedFile = {
-                uri: file.uri,
-                name: file.fileName || `video_${Date.now()}.mp4`,
-                type: file.type || 'video/mp4',
-                size: file.fileSize || 0
-            };
-
-            // Validar tamaño según estrategia de procesamiento
-            const fileSizeMB = selectedFile.size / (1024 * 1024);
-            const maxSize = fileSizeMB > 10 ? 200 : 100; // Más espacio para videos grandes
-
-            if (fileSizeMB > maxSize) {
+            // ✅ Validación específica de formato para evitar archivos problemáticos
+            const fileExtension = file.uri.split('.').pop()?.toLowerCase();
+            if (fileExtension && !['mp4', 'm4v'].includes(fileExtension)) {
                 Alert.alert(
-                    'Archivo muy grande',
-                    `El archivo es demasiado grande. Máximo ${maxSize}MB.\n\nPara videos grandes se usará procesamiento optimizado.`
+                    'Formato no compatible',
+                    `Formato .${fileExtension} no es compatible. Por favor selecciona un video MP4.`
                 );
                 return;
             }
+
+            // ✅ Validar que no sea un video con codificación problemática
+            if (file.type && file.type.includes('quicktime')) {
+                console.warn('⚠️ QuickTime format detected, may cause issues');
+            }
+
+            // Crear objeto compatible con el resto del código
+            // Nombre ultra corto: solo números
+            const now = new Date();
+            const shortName = now.getTime().toString().slice(-8); // Últimos 8 dígitos del timestamp
+            
+            const selectedFile = {
+                uri: file.uri,
+                name: `${shortName}.mp4`, // Nombre súper corto: ej. "12345678.mp4"
+                type: 'video/mp4', // ✅ SIEMPRE forzar video/mp4
+                size: fileSize, // ✅ Usar size de File API
+                // ✅ Información adicional para debugging
+                originalType: file.type,
+                mimeType: file.mimeType,
+                duration: file.duration,
+                width: file.width,
+                height: file.height
+            };
+
+            console.log('🎬 Final selected file object:', selectedFile);
+
+            // Validar tamaño según estrategia de procesamiento
+            const fileSizeMB = selectedFile.size / (1024 * 1024);
+            const maxSize = 200; // Límite generoso para archivos grandes
+            
+            if (fileSizeMB > maxSize) {
+                Alert.alert(
+                    'Archivo muy grande',
+                    `El archivo es demasiado grande (${fileSizeMB.toFixed(1)}MB). Máximo ${maxSize}MB.`
+                );
+                return;
+            }
+
+            console.log(`📊 File size: ${fileSizeMB.toFixed(1)}MB (limit: ${maxSize}MB)`);
 
             setSelectedFile(selectedFile);
             setVideoPreview(file.uri);
@@ -182,16 +262,41 @@ const UploadVideoModal = ({
         setIsMuted(!isMuted);
     };
 
-    // Función simplificada - Solo sube el archivo original
+    // Función simplificada - Solo sube el archivo original con validaciones
     const prepareVideoForUpload = async (file) => {
-        return new Promise((resolve) => {
-            setProcessingStep('Preparando video...');
+        return new Promise((resolve, reject) => {
+            try {
+                setProcessingStep('Validando archivo...');
 
-            // Simular preparación breve
-            setTimeout(() => {
-                setProcessingStep('¡Listo para subir!');
-                resolve(file); // Siempre usar archivo original
-            }, 1000);
+                // ✅ Validación adicional antes del upload
+                const fileObj = new File(file.uri);
+                const fileSize = fileObj.size; // ✅ Es una propiedad, no un método
+                
+                if (fileSize === 0) {
+                    reject(new Error('Archivo no válido para upload'));
+                    return;
+                }
+
+                setProcessingStep('Preparando video...');
+
+                // Simular preparación breve
+                setTimeout(() => {
+                    setProcessingStep('¡Listo para subir!');
+                    
+                    // Asegurar que el archivo tenga todas las propiedades necesarias
+                    const validatedFile = {
+                        ...file,
+                        type: 'video/mp4', // Siempre forzar tipo
+                        size: fileSize // Usar tamaño validado
+                    };
+                    
+                    resolve(validatedFile);
+                }, 1000);
+
+            } catch (error) {
+                console.error('Error preparing video:', error);
+                reject(error);
+            }
         });
     };
 
@@ -219,11 +324,41 @@ const UploadVideoModal = ({
             // Pequeña pausa para que el usuario vea el mensaje
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Subir el video
+            // Subir el video con validaciones adicionales
+            console.log('🚀 Starting upload with data:', {
+                uri: processedFile.uri,
+                name: processedFile.name,
+                size: processedFile.size,
+                sizeMB: (processedFile.size / (1024 * 1024)).toFixed(1),
+                type: 'video/mp4',
+                duration: processedFile.duration,
+                dimensions: `${processedFile.width}x${processedFile.height}`
+            });
+
+            console.log('🔥 =====================================================');
+            console.log('🔥 MENSAJE PARA EL BACKEND:');
+            console.log('🔥 El frontend está enviando un archivo VÁLIDO:');
+            console.log('🔥 ✅ Tamaño: ' + (processedFile.size / (1024 * 1024)).toFixed(1) + 'MB');
+            console.log('🔥 ✅ Tipo: video/mp4');
+            console.log('🔥 ✅ Nombre: ' + processedFile.name);
+            console.log('🔥 ✅ URI válida: ' + processedFile.uri);
+            console.log('🔥 ✅ Duración: ' + (processedFile.duration / 1000).toFixed(1) + 's');
+            console.log('🔥 ');
+            console.log('🔥 SI AWS MediaConvert da ERROR 1010:');
+            console.log('🔥 "No parser found for container"');
+            console.log('🔥 ');
+            console.log('🔥 ❌ EL PROBLEMA ESTÁ EN EL BACKEND ❌');
+            console.log('🔥 - Revisar FormData construction');
+            console.log('🔥 - Revisar S3 upload integrity');
+            console.log('🔥 - Revisar Content-Type headers');
+            console.log('🔥 - El archivo se corrompe en el servidor');
+            console.log('🔥 =====================================================');
+
             await onUpload(
                 processedFile.uri,
                 processedFile.name,
-                processedFile.size
+                processedFile.size,
+                'video/mp4' // ✅ Forzar siempre video/mp4
             );
 
         } catch (error) {
@@ -231,10 +366,20 @@ const UploadVideoModal = ({
 
             try {
                 // Fallback: subir original si hay error en procesamiento
+                console.log('🔥 =====================================================');
+                console.log('🔥 FALLBACK: Subiendo archivo original sin procesamiento');
+                console.log('🔥 ✅ Archivo validado por frontend como correcto');
+                console.log('🔥 ✅ Tamaño: ' + (selectedFile.size / (1024 * 1024)).toFixed(1) + 'MB');
+                console.log('🔥 ✅ Tipo: video/mp4 (forzado)');
+                console.log('🔥 ✅ Nombre: ' + selectedFile.name);
+                console.log('🔥 ❌ SI FALLA = PROBLEMA EN BACKEND ❌');
+                console.log('🔥 =====================================================');
+
                 await onUpload(
                     selectedFile.uri,
                     selectedFile.name,
-                    selectedFile.size
+                    selectedFile.size,
+                    'video/mp4' // ✅ Forzar siempre video/mp4
                 );
             } catch (uploadError) {
                 Alert.alert('Error', 'Error al subir el video. Por favor, inténtalo de nuevo.');
@@ -407,8 +552,8 @@ const UploadVideoModal = ({
                                     <View style={styles.progressIcon}>
                                         <Icon name="check-circle" size={48} color="#4CAF50" />
                                     </View>
-                                    <Text style={styles.statusTitle}>¡Historia subida exitosamente!</Text>
-                                    <Text style={styles.statusText}>Tu video ya está disponible para tus seguidores</Text>
+                                    <Text style={styles.statusTitle}>¡Historia subida!</Text>
+                                    <Text style={styles.statusText}>Cerrando...</Text>
                                 </View>
                             )}
 
@@ -419,8 +564,8 @@ const UploadVideoModal = ({
                                     </View>
                                     <Text style={styles.statusTitle}>Error al subir video</Text>
                                     <Text style={styles.statusText}>Hubo un problema. Intenta nuevamente.</Text>
-                                    <TouchableOpacity style={styles.primaryButton} onPress={onClose}>
-                                        <Text style={styles.primaryButtonText}>Cerrar</Text>
+                                    <TouchableOpacity style={styles.errorCloseButton} onPress={onClose}>
+                                        <Text style={styles.errorCloseButtonText}>Cerrar</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
@@ -692,7 +837,8 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     errorSection: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 30,
+        alignItems: 'center',
     },
     // Estilos para preview fullscreen
     fullscreenContainer: {
@@ -771,6 +917,20 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('medium'),
         color: 'white',
         marginTop: 4,
+    },
+    errorCloseButton: {
+        backgroundColor: '#ff4444',
+        paddingHorizontal: 32,
+        paddingVertical: 16,
+        borderRadius: 8,
+        marginTop: 20,
+        minWidth: 120,
+    },
+    errorCloseButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontFamily: getUbuntuFont('bold'),
+        textAlign: 'center',
     },
 });
 

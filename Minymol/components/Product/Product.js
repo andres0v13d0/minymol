@@ -20,8 +20,12 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
   };
 
   const handleProductPress = () => {
+    console.log('🔄 Product: handleProductPress llamado, onProductPress existe:', !!onProductPress);
     if (onProductPress) {
+      console.log('🔄 Product: Llamando onProductPress con producto:', product?.name);
       onProductPress(product);
+    } else {
+      console.warn('⚠️ Product: onProductPress no está definido');
     }
   };
 
@@ -80,32 +84,6 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
     return diffInDays <= 5;
   };
 
-  // Calcular el tamaño dinámico del badge NEW basado en la altura de la imagen
-  const getBadgeSize = () => {
-    const baseSize = Math.min(Math.max(imageHeight * 0.25, 40), 80);
-    return baseSize;
-  };
-
-  const getDynamicBadgeStyles = () => {
-    const badgeSize = getBadgeSize();
-    const textSize = Math.max(badgeSize * 0.25, 10);
-    const textTop = -(badgeSize * 0.8);
-    const textLeft = badgeSize * 0.02;
-    
-    return {
-      badge: {
-        borderTopWidth: badgeSize,
-        borderRightWidth: badgeSize,
-      },
-      text: {
-        fontSize: textSize,
-        top: textTop,
-        left: textLeft,
-        width: badgeSize * 0.6,
-      }
-    };
-  };
-
   return (
     <TouchableOpacity style={styles.container} onPress={handleProductPress} activeOpacity={0.8}>
       {/* Botón de favoritos */}
@@ -139,8 +117,8 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
 
       {/* Etiqueta de nuevo */}
       {isNew() && (
-        <View style={[styles.newBadge, getDynamicBadgeStyles().badge]}>
-          <Text style={[styles.newBadgeText, getDynamicBadgeStyles().text]}>NEW</Text>
+        <View style={styles.newBadge}>
+          <Text style={styles.newBadgeText}>NEW</Text>
         </View>
       )}
 
@@ -271,21 +249,20 @@ const styles = StyleSheet.create({
   },
   newBadge: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 0,
-    height: 0,
-    borderTopColor: '#078fff',
-    borderRightColor: 'transparent',
+    top: 15,
+    right: -2,
+    backgroundColor: '#078fff',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    transform: [{ rotate: '45deg' }],
     zIndex: 5,
+    height: 10,
   },
   newBadgeText: {
-    position: 'absolute',
     color: 'white',
+    fontSize: 10,
     fontFamily: getUbuntuFont('bold'),
-    transform: [{ rotate: '-45deg' }],
-    zIndex: 6,
-    textAlign: 'center',
+    marginTop: -10,
   },
   productInfo: {
     padding: 8,

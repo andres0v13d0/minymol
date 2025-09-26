@@ -1,25 +1,266 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    FlatList,
-    Image,
-    Alert as RNAlert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  Alert as RNAlert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
+import { useCart } from '../../contexts/CartContext';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// CARRUSEL INDEPENDIENTE CON MEMO - NO SE RECREA EN CADA RENDER
+// SKELETON COMPONENT
+const SkeletonBox = ({ width, height, style = {} }) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [animatedValue]);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          backgroundColor: '#e0e0e0',
+          borderRadius: 8,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+const ProductDetailSkeleton = () => (
+  <View style={styles.container}>
+    <View style={styles.customHeader}>
+      <View style={styles.backButton}>
+        <SkeletonBox width={30} height={30} style={{ borderRadius: 15 }} />
+      </View>
+      <SkeletonBox width="80%" height={40} style={{ borderRadius: 8 }} />
+    </View>
+    
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {/* Título skeleton */}
+      <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+        <SkeletonBox width="70%" height={24} style={{ marginBottom: 8 }} />
+      </View>
+
+      {/* Imagen skeleton */}
+      <SkeletonBox width={screenWidth} height={screenWidth * 0.8} style={{ marginBottom: 16 }} />
+
+      {/* Dots skeleton */}
+      <View style={styles.dotsContainer}>
+        {[1, 2, 3].map((_, index) => (
+          <SkeletonBox key={index} width={8} height={8} style={{ borderRadius: 4, marginHorizontal: 3 }} />
+        ))}
+      </View>
+
+      <View style={styles.productDetails}>
+        {/* Descripción skeleton */}
+        <SkeletonBox width="100%" height={16} style={{ marginBottom: 8 }} />
+        <SkeletonBox width="80%" height={16} style={{ marginBottom: 16 }} />
+
+        {/* Precio skeleton */}
+        <SkeletonBox width="60%" height={40} style={{ marginBottom: 16 }} />
+
+        {/* Precios lista skeleton */}
+        <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+          {[1, 2, 3].map((_, index) => (
+            <SkeletonBox key={index} width={120} height={60} style={{ marginRight: 8, borderRadius: 8 }} />
+          ))}
+        </View>
+
+        {/* Selectores skeleton */}
+        <SkeletonBox width="30%" height={20} style={{ marginBottom: 8 }} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {[1, 2, 3, 4].map((_, index) => (
+            <SkeletonBox key={index} width={60} height={36} style={{ borderRadius: 18 }} />
+          ))}
+        </View>
+
+        {/* Botón agregar skeleton */}
+        <SkeletonBox width="100%" height={56} style={{ borderRadius: 25, marginBottom: 24 }} />
+
+        {/* Proveedor skeleton */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <SkeletonBox width={50} height={50} style={{ borderRadius: 25, marginRight: 12 }} />
+          <View style={{ flex: 1 }}>
+            <SkeletonBox width="70%" height={18} style={{ marginBottom: 4 }} />
+            <SkeletonBox width="50%" height={14} />
+          </View>
+        </View>
+
+        {/* Productos relacionados skeleton */}
+        <SkeletonBox width="60%" height={20} style={{ marginBottom: 16 }} />
+        <View style={{ flexDirection: 'row' }}>
+          {[1, 2].map((_, index) => (
+            <View key={index} style={{ flex: 1, paddingHorizontal: 4 }}>
+              <SkeletonBox width="100%" height={180} style={{ borderRadius: 8, marginBottom: 8 }} />
+              <SkeletonBox width="80%" height={16} style={{ marginBottom: 4 }} />
+              <SkeletonBox width="60%" height={14} />
+            </View>
+          ))}
+        </View>
+      </View>
+    </ScrollView>
+  </View>
+);
+
+// COMPONENTE SELECTOR DE CANTIDAD MEJORADO
+const QuantitySelector = memo(({ quantity, availableQuantities, onQuantityChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  // Usar un valor simple para la altura sin animación nativa
+  const [dropdownHeight, setDropdownHeight] = useState(0);
+  const animatedRotation = useRef(new Animated.Value(0)).current;
+  const animatedOpacity = useRef(new Animated.Value(0)).current;
+
+  const toggleDropdown = useCallback(() => {
+    const newIsOpen = !isOpen;
+    setIsOpen(newIsOpen);
+
+    // Cambiar altura de forma simple sin animación conflictiva
+    if (newIsOpen) {
+      setDropdownHeight(Math.min(availableQuantities.length * 48, 200));
+    } else {
+      setDropdownHeight(0);
+    }
+
+    // Solo animar transform y opacity que son seguros con native driver
+    Animated.timing(animatedRotation, {
+      toValue: newIsOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.timing(animatedOpacity, {
+      toValue: newIsOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [isOpen, availableQuantities.length, animatedRotation, animatedOpacity]);
+
+  const handleQuantitySelect = useCallback((qty) => {
+    onQuantityChange(qty);
+    setIsOpen(false);
+    
+    // Reset simple
+    setDropdownHeight(0);
+    
+    Animated.timing(animatedRotation, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    
+    Animated.timing(animatedOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [onQuantityChange, animatedRotation, animatedOpacity]);
+
+  const rotateInterpolation = animatedRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  return (
+    <View style={styles.quantitySelector}>
+      <TouchableOpacity 
+        style={[styles.quantitySelectorButton, isOpen && styles.quantitySelectorButtonOpen]}
+        onPress={toggleDropdown}
+        activeOpacity={0.8}
+      >
+        <View style={styles.quantitySelectorContent}>
+          <MaterialIcons name="confirmation-number" size={20} color="#666" />
+          <Text style={styles.quantitySelectorText}>{quantity}</Text>
+        </View>
+        <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
+          <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
+        </Animated.View>
+      </TouchableOpacity>
+      
+      <Animated.View 
+        style={[
+          styles.quantityDropdownContainer,
+          {
+            height: dropdownHeight,
+            opacity: animatedOpacity,
+          }
+        ]}
+      >
+        <ScrollView 
+          style={styles.quantityDropdownScroll}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
+        >
+          {availableQuantities.map((qty) => (
+            <TouchableOpacity
+              key={qty}
+              style={[
+                styles.quantityDropdownOption,
+                quantity === qty && styles.quantityDropdownOptionSelected
+              ]}
+              onPress={() => handleQuantitySelect(qty)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.quantityOptionContent}>
+                <MaterialIcons 
+                  name="confirmation-number" 
+                  size={16} 
+                  color={quantity === qty ? "#fff" : "#666"} 
+                />
+                <Text style={[
+                  styles.quantityDropdownOptionText,
+                  quantity === qty && styles.quantityDropdownOptionTextSelected
+                ]}>
+                  {qty}
+                </Text>
+              </View>
+              {quantity === qty && (
+                <MaterialIcons name="check" size={18} color="#fff" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </Animated.View>
+    </View>
+  );
+});
 const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageMode, setImageMode] = useState('contain'); // modo de redimensionamiento dinámico
@@ -194,6 +435,9 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
 
 const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   
+  // Hook del contexto de carrito
+  const { addToCart } = useCart();
+  
   // Recibir el producto completo desde los parámetros
   const productData = route?.params?.product;
   const productId = productData?.uuid || productData?.id || '1';
@@ -210,9 +454,11 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   const [selectedSize, setSelectedSize] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedSubcat, setSelectedSubcat] = useState(null);
-  const [displayedProductsCount, setDisplayedProductsCount] = useState(5);
+  const [displayedProductsCount, setDisplayedProductsCount] = useState(2);
   const [subCategories, setSubCategories] = useState([]);
-  const [quantityDropdownOpen, setQuantityDropdownOpen] = useState(false);
+  const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
+  const [hasMoreProducts, setHasMoreProducts] = useState(true);
+  const [allRelatedProducts, setAllRelatedProducts] = useState([]);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -286,16 +532,23 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
           const ids = resIds.map(p => p.product_id).filter(Boolean);
 
           if (ids.length > 0) {
+            setAllRelatedProducts(ids); // Guardar todos los IDs
+            
+            // Cargar los primeros productos
+            const initialIds = ids.slice(0, Math.min(2, ids.length));
             const previewsRes = await fetch('https://api.minymol.com/products/previews', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids }),
+              body: JSON.stringify({ ids: initialIds }),
             });
 
             const previews = await previewsRes.json();
             if (Array.isArray(previews)) {
               const activos = previews.filter(prod => !prod.isInactive);
               setRelatedProducts(activos);
+              
+              // Verificar si hay más productos para cargar
+              setHasMoreProducts(ids.length > 2);
               
               // Extraer subcategorías
               const categoryMap = new Map();
@@ -309,6 +562,8 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
           }
         } else {
           setRelatedProducts([]);
+          setAllRelatedProducts([]);
+          setHasMoreProducts(false);
         }
 
         setLoading(false);
@@ -423,8 +678,66 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
     if (selectedSubcat) {
       filtered = relatedProducts.filter(p => p.subCategory?.slug === selectedSubcat);
     }
-    return filtered.slice(0, displayedProductsCount);
-  }, [relatedProducts, selectedSubcat, displayedProductsCount]);
+    return filtered;
+  }, [relatedProducts, selectedSubcat]);
+
+  // Función para cargar más productos
+  const loadMoreProducts = useCallback(async () => {
+    if (loadingMoreProducts || !hasMoreProducts) return;
+    
+    setLoadingMoreProducts(true);
+    
+    try {
+      const currentCount = relatedProducts.length;
+      const nextBatch = allRelatedProducts.slice(currentCount, currentCount + 6);
+      
+      if (nextBatch.length > 0) {
+        const previewsRes = await fetch('https://api.minymol.com/products/previews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: nextBatch }),
+        });
+
+        const newPreviews = await previewsRes.json();
+        if (Array.isArray(newPreviews)) {
+          const newActivos = newPreviews.filter(prod => !prod.isInactive);
+          setRelatedProducts(prev => [...prev, ...newActivos]);
+          
+          // Actualizar subcategorías
+          const categoryMap = new Map();
+          [...relatedProducts, ...newActivos].forEach(p => {
+            if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
+              categoryMap.set(p.subCategory.slug, p.subCategory);
+            }
+          });
+          setSubCategories(Array.from(categoryMap.values()));
+        }
+      }
+      
+      // Verificar si hay más productos
+      setHasMoreProducts(currentCount + nextBatch.length < allRelatedProducts.length);
+      
+    } catch (error) {
+      console.warn('Error cargando más productos:', error);
+    } finally {
+      setLoadingMoreProducts(false);
+    }
+  }, [loadingMoreProducts, hasMoreProducts, relatedProducts, allRelatedProducts]);
+
+  // Detectar cuando el usuario ha scrolleado al 70%
+  const handleScroll = useCallback((event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const paddingToBottom = 20;
+    const threshold = 0.7; // 70%
+    
+    const scrollPosition = layoutMeasurement.height + contentOffset.y;
+    const contentHeight = contentSize.height - paddingToBottom;
+    const scrollPercentage = scrollPosition / contentHeight;
+    
+    if (scrollPercentage >= threshold && hasMoreProducts && !loadingMoreProducts) {
+      loadMoreProducts();
+    }
+  }, [hasMoreProducts, loadingMoreProducts, loadMoreProducts]);
 
   // Formatear rangos de cantidad
   const formatRanges = (numbersStr) => {
@@ -453,7 +766,7 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
     return `Aplica ${ranges.join(', ')} unidades`;
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (Array.isArray(colors) && colors.length > 0 && !selectedColor) {
       RNAlert.alert('Error', 'Selecciona un color');
       return;
@@ -469,18 +782,40 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
       return;
     }
 
-    const item = {
-      productId: product.id,
-      nombre: product.name,
-      talla: selectedSize || null,
-      color: selectedColor || null,
-      cantidad: quantity,
-      precio: applicablePrice.price,
-      productPrices: prices,
-      image: images[0]?.imageUrl, // Usar primera imagen
-    };
+    try {
+      const item = {
+        productId: product.id,
+        nombre: product.name,
+        productNameSnapshot: product.name,
+        talla: selectedSize || null,
+        sizeSnapshot: selectedSize || null,
+        color: selectedColor || null,
+        colorSnapshot: selectedColor || null,
+        cantidad: quantity,
+        quantity: quantity,
+        precio: applicablePrice.price,
+        priceSnapshot: applicablePrice.price,
+        productPrices: prices,
+        image: images[0]?.imageUrl,
+        imageUrlSnapshot: images[0]?.imageUrl,
+        providerId: provider?.id,
+        providerNameSnapshot: provider?.nombre_empresa || 'Proveedor desconocido',
+        isChecked: true
+      };
 
-    RNAlert.alert('Éxito', 'Producto agregado al carrito');
+      const success = await addToCart(item);
+      
+      if (success) {
+        // El feedback visual se maneja automáticamente por el CartIcon animado
+        console.log('Producto agregado al carrito exitosamente');
+      } else {
+        RNAlert.alert('Error', 'No se pudo agregar el producto al carrito');
+      }
+
+    } catch (error) {
+      console.error('Error al agregar al carrito:', error);
+      RNAlert.alert('Error', 'No se pudo agregar el producto al carrito');
+    }
   };
 
   const handleBack = () => {
@@ -492,10 +827,6 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
 
   const handleProductPress = (product) => {
     // Aquí se navegaría a otro producto
-  };
-
-  const addToCart = (product) => {
-    RNAlert.alert('Producto agregado', `${product.name} agregado al carrito`);
   };
 
   // Organizar productos relacionados en columnas
@@ -540,15 +871,7 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   );
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <CustomHeader provider={null} onBack={handleBack} />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#fa7e17" />
-          <Text style={styles.loadingText}>Cargando producto...</Text>
-        </View>
-      </View>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (!product || !provider) {
@@ -566,7 +889,12 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
     <View style={styles.container}>
       <CustomHeader provider={provider} onBack={handleBack} />
       
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
+      >
         {/* Título del producto */}
         <Text style={styles.productTitle}>{product.name}</Text>
 
@@ -667,48 +995,11 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
 
             <View style={styles.selectorGroup}>
               <Text style={styles.selectorLabel}>Cantidad:</Text>
-              <View style={styles.customDropdownContainer}>
-                <TouchableOpacity 
-                  style={styles.customDropdownButton}
-                  onPress={() => setQuantityDropdownOpen(!quantityDropdownOpen)}
-                >
-                  <Text style={styles.customDropdownText}>{quantity}</Text>
-                  <Text style={styles.customDropdownArrow}>
-                    {quantityDropdownOpen ? '▲' : '▼'}
-                  </Text>
-                </TouchableOpacity>
-                
-                {quantityDropdownOpen && (
-                  <View style={styles.customDropdownOptions}>
-                    <ScrollView 
-                      style={styles.customDropdownScroll}
-                      showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled={true}
-                    >
-                      {Array.isArray(availableQuantities) && availableQuantities.map((qty) => (
-                        <TouchableOpacity
-                          key={qty}
-                          style={[
-                            styles.customDropdownOption,
-                            quantity === qty && styles.customDropdownOptionSelected
-                          ]}
-                          onPress={() => {
-                            setQuantity(qty);
-                            setQuantityDropdownOpen(false);
-                          }}
-                        >
-                          <Text style={[
-                            styles.customDropdownOptionText,
-                            quantity === qty && styles.customDropdownOptionTextSelected
-                          ]}>
-                            {qty}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+              <QuantitySelector 
+                quantity={quantity}
+                availableQuantities={availableQuantities}
+                onQuantityChange={setQuantity}
+              />
             </View>
           </View>
 
@@ -825,15 +1116,37 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
                 ))}
               </View>
               
-              {/* Botón de cargar más */}
-              {filteredProducts.length < relatedProducts.length && (
-                <TouchableOpacity 
-                  style={styles.loadMoreButton}
-                  onPress={() => setDisplayedProductsCount(prev => prev + 5)}
-                >
-                  <Text style={styles.loadMoreText}>Cargar más productos</Text>
-                </TouchableOpacity>
+              {/* Loading más productos */}
+              {loadingMoreProducts && (
+                <View style={styles.loadingMoreContainer}>
+                  <ActivityIndicator size="small" color="#fa7e17" />
+                  <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
+                </View>
               )}
+              
+              {/* Mensaje cuando no hay más productos */}
+              {!hasMoreProducts && filteredProducts.length > 2 && (
+                <View style={styles.noMoreProductsContainer}>
+                  <MaterialIcons name="inventory" size={24} color="#666" />
+                  <Text style={styles.noMoreProductsText}>
+                    Has visto todos los productos de este proveedor
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Mensaje cuando no hay productos relacionados */}
+          {Array.isArray(relatedProducts) && relatedProducts.length === 0 && !loading && (
+            <>
+              <View style={styles.line} />
+              <View style={styles.noProductsContainer}>
+                <MaterialIcons name="store" size={48} color="#ddd" />
+                <Text style={styles.noProductsTitle}>Sin productos relacionados</Text>
+                <Text style={styles.noProductsText}>
+                  Este proveedor no tiene otros productos disponibles en este momento.
+                </Text>
+              </View>
             </>
           )}
 
@@ -843,8 +1156,8 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
       {/* Navegación inferior */}
       <NavInf 
         isProductInfo={true} 
-        selected={selectedTab}
-        onPress={onTabPress}
+        selectedTab={selectedTab}
+        onTabPress={onTabPress}
       />
     </View>
   );
@@ -1013,7 +1326,6 @@ const styles = StyleSheet.create({
   },
   productDetails: {
     paddingHorizontal: 16,
-    paddingBottom: 85, // Espacio para el NavInf (70px) + extra (15px)
   },
   productDescription: {
     fontSize: 16,
@@ -1110,49 +1422,62 @@ const styles = StyleSheet.create({
   selectedOptionText: {
     color: 'white',
   },
-  // Nuevo: Dropdown personalizado para cantidad
-  customDropdownContainer: {
+  // Nuevos estilos para el selector de cantidad mejorado
+  quantitySelector: {
     position: 'relative',
     zIndex: 1000,
   },
-  customDropdownButton: {
+  quantitySelectorButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: 'white',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 50,
+    paddingVertical: 14,
+    minHeight: 52,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  customDropdownText: {
-    fontSize: 16,
-    fontFamily: getUbuntuFont('regular'),
-    color: '#333',
+  quantitySelectorButtonOpen: {
+    borderColor: '#fa7e17',
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  quantitySelectorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  customDropdownArrow: {
-    fontSize: 12,
-    color: '#666',
-    fontFamily: getUbuntuFont('regular'),
+  quantitySelectorText: {
+    fontSize: 16,
+    fontFamily: getUbuntuFont('medium'),
+    color: '#333',
+    marginLeft: 8,
   },
-  customDropdownOptions: {
+  quantityDropdownContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
     backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: 2,
+    borderColor: '#fa7e17',
     borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
-    maxHeight: 200,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
     zIndex: 1001,
-    elevation: 5, // Para Android
-    shadowColor: '#000', // Para iOS
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -1160,25 +1485,34 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
-  customDropdownScroll: {
+  quantityDropdownScroll: {
     maxHeight: 200,
   },
-  customDropdownOption: {
+  quantityDropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    minHeight: 48,
   },
-  customDropdownOptionSelected: {
+  quantityDropdownOptionSelected: {
     backgroundColor: '#fa7e17',
   },
-  customDropdownOptionText: {
+  quantityOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  quantityDropdownOptionText: {
     fontSize: 16,
     fontFamily: getUbuntuFont('regular'),
     color: '#333',
-    textAlign: 'center',
+    marginLeft: 8,
   },
-  customDropdownOptionTextSelected: {
+  quantityDropdownOptionTextSelected: {
     color: 'white',
     fontFamily: getUbuntuFont('medium'),
   },
@@ -1317,7 +1651,58 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: 'white',
   },
-  // Nuevo: Botón de cargar más
+  // Nuevos estilos para loading más y mensajes
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  loadingMoreText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#666',
+  },
+  noMoreProductsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    marginBottom: 16,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  noMoreProductsText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontFamily: getUbuntuFont('medium'),
+    color: '#666',
+    textAlign: 'center',
+  },
+  noProductsContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    marginBottom: 16,
+  },
+  noProductsTitle: {
+    fontSize: 18,
+    fontFamily: getUbuntuFont('medium'),
+    color: '#666',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  noProductsText: {
+    fontSize: 14,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#999',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    lineHeight: 20,
+  },
+  // Nuevo: Botón de cargar más (mantener por compatibilidad pero no se usa)
   loadMoreButton: {
     backgroundColor: '#f0f0f0',
     borderRadius: 8,

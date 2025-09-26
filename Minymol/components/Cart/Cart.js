@@ -1,23 +1,107 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { useCart } from '../../contexts/CartContext';
 
-const Cart = () => {
-  const [count, setCount] = useState(3); // Simulando 3 items en el carrito
+const CartIcon = ({ isSelected = false }) => {
+  const { cartItems, getTotalItems } = useCart();
+  const [count, setCount] = useState(0);
+  const [previousCount, setPreviousCount] = useState(-1);
+  
+  // Animaciones
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const bounceAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Aquí puedes agregar la lógica para obtener el contador real del carrito
-  // useEffect(() => {
-  //   // Fetch cart count from API or state management
-  // }, []);
+  // Color del ícono basado en si está seleccionado
+  const iconColor = isSelected ? '#fa7e17' : 'white';
+
+  useEffect(() => {
+    const totalItems = getTotalItems();
+    
+    // Solo animar si hay un cambio real en la cantidad y no es la primera carga
+    if (totalItems !== count) {
+      // Si se añadió un producto (cantidad aumentó), animar
+      if (totalItems > previousCount && previousCount >= 0) {
+        animateAddToCart();
+      }
+      
+      setCount(totalItems);
+      setPreviousCount(totalItems);
+    }
+  }, [cartItems, getTotalItems, count, previousCount]);
+
+  const animateAddToCart = () => {
+    // Secuencia de animaciones cuando se añade un producto
+    Animated.sequence([
+      // Primero un bounce del ícono
+      Animated.timing(bounceAnim, {
+        toValue: 1.3,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bounceAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      // Luego un pulse del badge
+      Animated.timing(pulseAnim, {
+        toValue: 1.4,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pulseAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Animación de escala del badge
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.7,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1.2,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   return (
     <View style={styles.container}>
       {count > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{count}</Text>
-        </View>
+        <Animated.View 
+          style={[
+            styles.badge,
+            {
+              transform: [
+                { scale: scaleAnim },
+                { scale: pulseAnim }
+              ]
+            }
+          ]}
+        >
+          <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+        </Animated.View>
       )}
-      <Ionicons name="cart" size={20} color="white" />
+      <Animated.View
+        style={{
+          transform: [{ scale: bounceAnim }]
+        }}
+      >
+        <Ionicons name="cart" size={20} color={iconColor} />
+      </Animated.View>
     </View>
   );
 };
@@ -30,21 +114,33 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -8,
+    right: -8,
     backgroundColor: '#fa7e17',
-    borderRadius: 8,
-    width: 16,
-    height: 16,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+    borderWidth: 2,
+    borderColor: '#14144b',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   badgeText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
 });
 
-export default Cart;
+export default CartIcon;

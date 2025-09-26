@@ -1,23 +1,34 @@
-import React, { useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUbuntuFont } from '../../utils/fonts';
 
-const BarSup = React.memo(({ categories = [], currentCategory = '', onCategoryPress }) => {
-  // Verificación de seguridad para categories
-  const safeCategories = Array.isArray(categories) ? categories : [];
-  
-  console.log('🔍 BarSup renderizado con categorías:', safeCategories.length);
+const BarSup = ({ currentCategory = '', onCategoryPress }) => {
+  const [categorias, setCategorias] = useState([]);
 
-  const handleCategoryPress = useCallback((category) => {
+  useEffect(() => {
+    const fetchCategorias = async () => {
+      try {
+        const res = await fetch('https://api.minymol.com/categories/with-products-and-images');
+        const data = await res.json();
+        setCategorias(data);
+      } catch (err) {
+        console.error('Error al cargar categorías:', err);
+      }
+    };
+
+    fetchCategorias();
+  }, []);
+
+  const handleCategoryPress = (category) => {
     if (onCategoryPress) {
       onCategoryPress(category);
     }
-  }, [onCategoryPress]);
+  };
 
   return (
     <View style={styles.barSup}>
-      <ScrollView
-        horizontal
+      <ScrollView 
+        horizontal 
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -26,21 +37,21 @@ const BarSup = React.memo(({ categories = [], currentCategory = '', onCategoryPr
           onPress={() => handleCategoryPress(null)}
         >
           <Text style={[
-            styles.linkText,
+            styles.linkText, 
             currentCategory === '' && styles.selected
           ]}>
             Todos
           </Text>
         </TouchableOpacity>
 
-        {safeCategories.map((cat) => (
+        {categorias.map((cat) => (
           <TouchableOpacity
             key={cat.id}
             style={styles.linkSup}
             onPress={() => handleCategoryPress(cat)}
           >
             <Text style={[
-              styles.linkText,
+              styles.linkText, 
               currentCategory === cat.slug && styles.selected
             ]}>
               {cat.name}
@@ -50,7 +61,7 @@ const BarSup = React.memo(({ categories = [], currentCategory = '', onCategoryPr
       </ScrollView>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   barSup: {
@@ -79,34 +90,4 @@ const styles = StyleSheet.create({
   },
 });
 
-// Función de comparación para evitar re-renders innecesarios
-const areEqual = (prevProps, nextProps) => {
-  // Asegurar que categories sea un array válido
-  const prevCategories = Array.isArray(prevProps.categories) ? prevProps.categories : [];
-  const nextCategories = Array.isArray(nextProps.categories) ? nextProps.categories : [];
-  
-  // Comparar cantidad de categorías
-  if (prevCategories.length !== nextCategories.length) {
-    return false;
-  }
-
-  // Comparar categoría actual
-  if (prevProps.currentCategory !== nextProps.currentCategory) {
-    return false;
-  }
-
-  // Comparar categorías por ID y slug (lo más importante)
-  for (let i = 0; i < prevCategories.length; i++) {
-    const prev = prevCategories[i];
-    const next = nextCategories[i];
-
-    if (!prev || !next || prev.id !== next.id || prev.slug !== next.slug || prev.name !== next.name) {
-      return false;
-    }
-  }
-
-  // Si todo es igual, no re-renderizar
-  return true;
-};
-
-export default React.memo(BarSup, areEqual);
+export default BarSup;

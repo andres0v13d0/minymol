@@ -1,65 +1,41 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
+<<<<<<< Updated upstream
+=======
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { AppStateProvider } from './contexts/AppStateContext';
+import { CartProvider } from './contexts/CartContext';
+>>>>>>> Stashed changes
 import { useFonts } from './hooks/useFonts';
+import Cart from './pages/Cart/Cart';
 import Categories from './pages/Categories/Categories';
 import Home from './pages/Home/Home';
 import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
 import Profile from './pages/Profile/Profile';
-import CacheManager from './utils/cache/CacheManager';
 
 export default function App() {
+<<<<<<< Updated upstream
+=======
   return (
     <SafeAreaProvider>
       <AppStateProvider>
-        <AppContent />
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
       </AppStateProvider>
     </SafeAreaProvider>
   );
 }
 
 function AppContent() {
+>>>>>>> Stashed changes
   const [selectedTab, setSelectedTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [cacheInitialized, setCacheInitialized] = useState(false);
   const fontsLoaded = useFonts();
 
-  // Inicializar el sistema de caché al arrancar la app
-  useEffect(() => {
-    const initializeCache = async () => {
-      try {
-        console.log('🚀 Inicializando sistema de caché...');
-        await CacheManager.initialize();
-        
-        // Obtener estadísticas del caché
-        const stats = await CacheManager.getStats();
-        console.log('📊 Estadísticas del caché:', stats);
-        
-        setCacheInitialized(true);
-        console.log('✅ Sistema de caché inicializado correctamente');
-      } catch (error) {
-        console.error('❌ Error inicializando caché:', error);
-        // Continuar sin caché en caso de error
-        setCacheInitialized(true);
-      }
-    };
-
-    initializeCache();
-  }, []);
-
-  // Mostrar loading mientras se inicializa el caché y cargan las fuentes
-  if (!fontsLoaded || !cacheInitialized) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#fa7e17" />
-      </View>
-    );
-  }
-
-  const handleCategorySelect = (categorySlug) => {
+  const handleCategoryPress = (categorySlug) => {
     console.log('Categoría seleccionada:', categorySlug);
     // Aquí podrías navegar a una página de productos de esa categoría
     // o implementar la lógica que necesites
@@ -72,15 +48,10 @@ function AppContent() {
   };
 
   const handleTabPress = (tab) => {
-    try {
-      console.log('🔄 handleTabPress iniciado:', tab);
-      setSelectedTab(tab);
-      setCurrentScreen(tab);
-      setSelectedProduct(null);
-      console.log('✅ handleTabPress completado:', tab);
-    } catch (error) {
-      console.error('❌ Error en handleTabPress:', error);
-    }
+    setSelectedTab(tab);
+    setCurrentScreen(tab);
+    setSelectedProduct(null);
+    console.log('Tab seleccionado:', tab);
   };
 
   const handleProductPress = (product) => {
@@ -99,87 +70,73 @@ function AppContent() {
   // Mostrar loading mientras cargan las fuentes
   if (!fontsLoaded) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <SafeAreaView style={[styles.topSafeArea, { backgroundColor: '#14144b' }]} edges={['top']} />
         <StatusBar backgroundColor="#14144b" barStyle="light-content" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fa7e17" />
         </View>
-      </SafeAreaView>
+        <SafeAreaView style={styles.bottomSafeArea} edges={['bottom']} />
+      </View>
     );
   }
 
   const renderScreen = () => {
     console.log('App: renderScreen llamado, currentScreen:', currentScreen);
-    
-    // Si estamos en ProductDetail, mostramos solo esa pantalla
-    if (currentScreen === 'productDetail') {
-      console.log('App: Renderizando ProductDetail con producto:', selectedProduct);
-      return (
-        <ProductDetail 
-          route={{ params: { product: selectedProduct } }}
-          navigation={{ goBack: handleBackToHome }}
-          selectedTab={selectedTab}
-          onTabPress={handleTabPress}
-        />
-      );
-    }
-    
-    // Para el resto de pantallas, las mantenemos todas vivas y solo ocultamos/mostramos
-    return (
-      <View style={{ flex: 1 }}>
-        {/* Home - siempre montado */}
-        <View style={{ 
-          display: selectedTab === 'home' ? 'flex' : 'none',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: selectedTab === 'home' ? 1 : 0
-        }}>
+    switch (currentScreen) {
+      case 'productDetail':
+        console.log('App: Renderizando ProductDetail con producto:', selectedProduct);
+        return (
+          <ProductDetail 
+            route={{ params: { product: selectedProduct } }}
+            navigation={{ goBack: handleBackToHome }}
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+          />
+        );
+      case 'home':
+        return (
           <Home 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
           />
-        </View>
-
-        {/* Categories - siempre montado */}
-        <View style={{ 
-          display: selectedTab === 'categories' ? 'flex' : 'none',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: selectedTab === 'categories' ? 1 : 0
-        }}>
+        );
+      case 'categories':
+        return (
           <Categories 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
-            onCategoryPress={handleCategorySelect}
+            onCategoryPress={handleCategoryPress}
           />
-        </View>
-
-        {/* Profile - siempre montado */}
-        <View style={{ 
-          display: selectedTab === 'profile' ? 'flex' : 'none',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: selectedTab === 'profile' ? 1 : 0
-        }}>
+        );
+      case 'profile':
+        return (
           <Profile 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
           />
+<<<<<<< Updated upstream
+        );
+      case 'cart':
+        return (
+          <View style={styles.placeholderScreen}>
+            <Home 
+              onProductPress={handleProductPress} 
+              selectedTab={selectedTab}
+              onTabPress={handleTabPress}
+            />
+          </View>
+        );
+      default:
+        return (
+          <Home 
+=======
         </View>
 
-        {/* Cart - siempre montado (por ahora usa Home como placeholder) */}
+        {/* Cart - siempre montado */}
         <View style={{ 
           display: selectedTab === 'cart' ? 'flex' : 'none',
           position: 'absolute',
@@ -189,29 +146,62 @@ function AppContent() {
           bottom: 0,
           zIndex: selectedTab === 'cart' ? 1 : 0
         }}>
-          <View style={styles.placeholderScreen}>
-            <Home 
-              onProductPress={handleProductPress} 
-              selectedTab={selectedTab}
-              onTabPress={handleTabPress}
-            />
-          </View>
+          <Cart 
+>>>>>>> Stashed changes
+            onProductPress={handleProductPress} 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+          />
+<<<<<<< Updated upstream
+        );
+    }
+=======
         </View>
       </View>
     );
+>>>>>>> Stashed changes
   };
 
+  // Determinar el estilo del SafeArea superior
+  const isWhiteArea = selectedTab === 'profile' || selectedTab === 'cart';
+  const statusBarStyle = isWhiteArea ? 'dark-content' : 'light-content';
+  const statusBarBackground = isWhiteArea ? '#ffffff' : '#14144b';
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#14144b" barStyle="light-content" />
-      {renderScreen()}
-    </SafeAreaView>
+    <View style={styles.container}>
+      {/* SafeArea superior condicional */}
+      <SafeAreaView 
+        style={[
+          styles.topSafeArea, 
+          { backgroundColor: isWhiteArea ? '#ffffff' : '#14144b' }
+        ]} 
+        edges={['top']}
+      />
+      
+      <StatusBar backgroundColor={statusBarBackground} barStyle={statusBarStyle} />
+      
+      <View style={styles.content}>
+        {renderScreen()}
+      </View>
+      
+      {/* SafeArea inferior */}
+      <SafeAreaView style={styles.bottomSafeArea} edges={['bottom']} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#14144b',
+  },
+  topSafeArea: {
+    // El backgroundColor se define dinámicamente
+  },
+  content: {
+    flex: 1,
+  },
+  bottomSafeArea: {
     backgroundColor: '#14144b',
   },
   loadingContainer: {

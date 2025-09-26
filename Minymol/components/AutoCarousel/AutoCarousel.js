@@ -3,7 +3,7 @@ import { Dimensions, Image, Platform, ScrollView, StyleSheet, View } from 'react
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const AutoCarouselAnimated = ({ 
+const AutoCarousel = ({ 
   images = [
     require('../../assets/imgs/img1.gif'),
     require('../../assets/imgs/img2.gif'),
@@ -110,4 +110,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AutoCarouselAnimated;
+export default AutoCarousel;

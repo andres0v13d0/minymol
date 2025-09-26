@@ -321,9 +321,10 @@ const ProviderStories = ({ visible, provider, onClose, isOwner = false, onDelete
             <Modal visible={visible} animationType="fade" statusBarTranslucent>
                 <StatusBar hidden />
                 <View style={styles.emptyContainer}>
+                    <Icon name="video-library" size={48} color="#ccc" />
                     <Text style={styles.emptyText}>No hay historias disponibles</Text>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <Text style={styles.closeButtonText}>Cerrar</Text>
+                    <TouchableOpacity style={styles.emptyCloseButton} onPress={onClose}>
+                        <Text style={styles.emptyCloseButtonText}>Cerrar</Text>
                     </TouchableOpacity>
                 </View>
             </Modal>
@@ -336,9 +337,10 @@ const ProviderStories = ({ visible, provider, onClose, isOwner = false, onDelete
             <Modal visible={visible} animationType="fade" statusBarTranslucent>
                 <StatusBar hidden />
                 <View style={styles.emptyContainer}>
+                    <Icon name="error-outline" size={48} color="#ff4444" />
                     <Text style={styles.emptyText}>Error al cargar el video</Text>
-                    <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                        <Text style={styles.closeButtonText}>Cerrar</Text>
+                    <TouchableOpacity style={styles.emptyCloseButton} onPress={onClose}>
+                        <Text style={styles.emptyCloseButtonText}>Cerrar</Text>
                     </TouchableOpacity>
                 </View>
             </Modal>
@@ -545,14 +547,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'black',
-        paddingHorizontal: 20,
+        paddingHorizontal: 40,
     },
     emptyText: {
         color: 'white',
-        fontSize: 16,
-        fontFamily: getUbuntuFont('regular'),
+        fontSize: 18,
+        fontFamily: getUbuntuFont('medium'),
         textAlign: 'center',
-        marginBottom: 20,
+        marginTop: 16,
+        marginBottom: 8,
     },
     progressContainer: {
         flexDirection: 'row',
@@ -779,6 +782,19 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    emptyCloseButton: {
+        backgroundColor: '#fa7e17',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginTop: 20,
+    },
+    emptyCloseButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontFamily: getUbuntuFont('bold'),
+        textAlign: 'center',
     },
 });
 

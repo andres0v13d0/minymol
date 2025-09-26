@@ -189,7 +189,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                 <View key={`${product.id || product.product_id}-${index}`} style={styles.productContainer}>
                     <Product 
                         product={product} 
-                        onPress={() => handleProductPress(product)}
+                        onProductPress={() => handleProductPress(product)}
                         index={index}
                     />
                 </View>
@@ -201,7 +201,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
         <View style={styles.productContainer}>
             <Product 
                 product={item} 
-                onPress={() => handleProductPress(item)}
+                onProductPress={() => handleProductPress(item)}
                 index={index}
             />
         </View>

@@ -21,7 +21,7 @@ import { auth } from '../../config/firebase';
 import { getUbuntuFont } from '../../utils/fonts';
 import LogoMinymol from '../LogoMinymol';
 
-const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
+const LoginModal = ({ visible, onClose, onLoginSuccess }) => {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -144,9 +144,8 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
         // Remover espacios y caracteres especiales
         const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
         
-        // Validación básica: solo verificar que tenga entre 7 y 15 dígitos
-        // (estándar internacional para números de teléfono)
-        return /^[0-9]{7,15}$/.test(cleanPhone);
+        // Validar usando el patrón del país actual
+        return countryInfo.validation.test(cleanPhone);
     };
 
     const clearFieldsOnError = () => {
@@ -167,7 +166,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
 
         if (!validatePhone(phone)) {
             setErrors({ 
-                phone: 'Número de celular inválido. Debe tener entre 7 y 15 dígitos' 
+                phone: `Número de celular inválido. Ejemplo: ${countryInfo.placeholder.replace(/\s/g, '')}` 
             });
             return;
         }
@@ -264,13 +263,14 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
     };
 
     const handleRegister = () => {
-        if (!loading && onOpenRegister) {
-            // Cerrar el modal de login y notificar al componente padre
-            onClose();
-            setTimeout(() => {
-                onOpenRegister();
-            }, 300); // Pequeño delay para que se complete la animación de cierre
-        }
+        Alert.alert(
+            'Registro',
+            'Para registrarte, contacta con nuestro equipo de ventas',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Contactar', onPress: () => console.log('Contactar ventas') }
+            ]
+        );
     };
 
     return (
@@ -309,7 +309,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                     {/* Título */}
                     <Text style={styles.title}>¡Bienvenido!</Text>
                     <Text style={styles.subtitle}>
-                        Ingresa el número con el que te registraste y tu contraseña
+                        Ingresa tu número de celular y contraseña para continuar
                     </Text>
 
                     {/* Formulario */}
@@ -327,7 +327,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                             ]}>
                                 <TextInput
                                     style={[styles.phoneInputClean, loading && styles.inputTextDisabled]}
-                                    placeholder={`Ej: ${countryInfo.placeholder}`}
+                                    placeholder={countryInfo.placeholder}
                                     value={phone}
                                     onChangeText={(text) => {
                                         // Solo permitir números y espacios
@@ -336,7 +336,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                                         if (errors.phone) setErrors({ ...errors, phone: null });
                                     }}
                                     keyboardType="phone-pad"
-                                    maxLength={18} // Máximo internacional estándar
+                                    maxLength={countryInfo.length + 3} // +3 para espacios
                                     editable={!loading}
                                     placeholderTextColor="#aaa"
                                 />
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingTop: 20,
+        paddingTop: Platform.OS === 'ios' ? 50 : 30,
         paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',

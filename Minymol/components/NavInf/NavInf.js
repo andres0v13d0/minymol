@@ -1,16 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Cart from '../Cart/Cart';
+import CartIcon from '../Cart/Cart';
 
-const NavInf = ({ selected, onPress, isProductInfo = false }) => {
+const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
   // Si estamos en ProductInfo, no mostrar ningún tab como seleccionado
-  const activeTab = isProductInfo ? null : selected;
+  const activeTab = isProductInfo ? null : selectedTab;
   
   return (
     <View style={styles.container}>
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onPress && onPress('home')}
+        onPress={() => onTabPress && onTabPress('home')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -26,7 +26,7 @@ const NavInf = ({ selected, onPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onPress && onPress('categories')}
+        onPress={() => onTabPress && onTabPress('categories')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -42,7 +42,7 @@ const NavInf = ({ selected, onPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onPress && onPress('profile')}
+        onPress={() => onTabPress && onTabPress('profile')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -58,10 +58,10 @@ const NavInf = ({ selected, onPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onPress && onPress('cart')}
+        onPress={() => onTabPress && onTabPress('cart')}
       >
         <View style={styles.iconContainer}>
-          <Cart />
+          <CartIcon isSelected={activeTab === 'cart'} />
         </View>
         <Text style={[styles.navText, activeTab === 'cart' && styles.selectedText]}>
           Carrito

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import BarSup from '../BarSup/BarSup';
 import Search from '../Search/Search';
 
@@ -18,8 +18,7 @@ const Header = ({
   isHome = false,
   onBack,
   currentCategory = '',
-  onCategoryPress,
-  onProductPress 
+  onCategoryPress 
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -37,10 +36,7 @@ const Header = ({
   // Header para páginas con barra de búsqueda
   if (searchBar) {
     return (
-      <View style={[
-        styles.header, 
-        styles.searchBarHeader
-      ]}>
+      <View style={[styles.header, styles.searchBarHeader]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Ionicons name="chevron-back" size={25} color="white" />
         </TouchableOpacity>
@@ -64,10 +60,7 @@ const Header = ({
   // Header minimal (solo logo)
   if (minimal) {
     return (
-      <View style={[
-        styles.header, 
-        styles.headerMinimal
-      ]}>
+      <View style={[styles.header, styles.headerMinimal]}>
         <View style={styles.buttons}>
           <TouchableOpacity onPress={handleLogoPress}>
             <Image source={require('../../assets/logo.png')} style={styles.logoMinymol} />
@@ -87,7 +80,7 @@ const Header = ({
           </TouchableOpacity>
         )}
         <View style={styles.searchContainer}>
-          <Search onProductPress={onProductPress} />
+          <Search />
         </View>
       </View>
       {isHome && (
@@ -107,11 +100,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'column',
     justifyContent: 'flex-start',
-    // Removido paddingTop fijo - ahora es dinámico
-    minHeight: 60,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10, // Menos padding en iOS
+    minHeight: 60, // Reducido de 80 a 60
   },
   headerMinimal: {
-    minHeight: 50,
+    minHeight: 50, // Reducido de 60 a 50
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -126,7 +119,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 1000,
-    // Removido paddingTop fijo - ahora es dinámico
+    paddingTop: 50, // Para el status bar
   },
   titleHeader: {
     flexDirection: 'row',

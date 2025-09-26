@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { File } from 'expo-file-system';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { auth } from '../../config/firebase';
 import { useCache } from '../../hooks/useCache';
+import { apiCall } from '../../utils/apiUtils';
 import { CACHE_KEYS } from '../../utils/cache/StorageKeys';
 import { getUbuntuFont } from '../../utils/fonts';
 import ProviderStories from './ProviderStories';
@@ -25,16 +27,26 @@ const STORY_WIDTH = 100;
 const STORY_HEIGHT = 140;
 const STORY_MARGIN = 8;
 
-const secureFetch = async (url, options = {}) => {
-    // Implementación simplificada de secureFetch para React Native
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        },
-    });
-    return response;
+// Función para cargar mis reels usando apiCall centralizada
+const fetchMyReels = async (userId) => {
+    try {
+        const response = await apiCall('https://api.minymol.com/reels/my-reels');
+
+        if (response.ok) {
+            const data = await response.json();
+            // Ordenar mis historias por fecha (más reciente primero)
+            const sortedMyStories = Array.isArray(data) ? data.sort((a, b) => {
+                const dateA = new Date(a.createdAt || a.created_at || 0);
+                const dateB = new Date(b.createdAt || b.created_at || 0);
+                return dateB - dateA; // Más reciente primero
+            }) : [];
+            return sortedMyStories;
+        }
+        return [];
+    } catch (error) {
+        console.error('Error cargando mis reels:', error);
+        return [];
+    }
 };
 
 // Función para cargar proveedores con historias
@@ -76,34 +88,6 @@ const fetchProvidersWithReels = async () => {
         }
     } catch (error) {
         console.error('Error cargando reels:', error);
-        return [];
-    }
-};
-
-// Función para cargar mis reels
-const fetchMyReels = async (userId) => {
-    try {
-        const user = auth.currentUser;
-        if (!user) return [];
-
-        const userToken = await user.getIdToken();
-        const response = await secureFetch('https://api.minymol.com/reels/my-reels', {
-            headers: { 'Authorization': `Bearer ${userToken}` }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            // Ordenar mis historias por fecha (más reciente primero)
-            const sortedMyStories = Array.isArray(data) ? data.sort((a, b) => {
-                const dateA = new Date(a.createdAt || a.created_at || 0);
-                const dateB = new Date(b.createdAt || b.created_at || 0);
-                return dateB - dateA; // Más reciente primero
-            }) : [];
-            return sortedMyStories;
-        }
-        return [];
-    } catch (error) {
-        console.error('Error cargando mis reels:', error);
         return [];
     }
 };
@@ -227,13 +211,8 @@ const Reels = ({ onEmpty }) => {
             setUploadProgress(10);
 
             // 1. Solicitar presigned URL
-            const userToken = await user.getIdToken();
-            const uploadRequest = await secureFetch('https://api.minymol.com/reels/upload', {
+            const uploadRequest = await apiCall('https://api.minymol.com/reels/upload', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
                 body: JSON.stringify({
                     filename: fileName,
                     duration: Math.round(duration),
@@ -249,35 +228,41 @@ const Reels = ({ onEmpty }) => {
             const { presignedUrl, uploadKey } = await uploadRequest.json();
             setUploadProgress(30);
 
-            // 2. Subir a S3 (en React Native usaríamos fetch con FormData)
-            const formData = new FormData();
-            formData.append('file', {
-                uri: fileUri,
-                type: 'video/mp4',
-                name: fileName,
-            });
+            // 2. Subir a S3 usando presigned URL
+            setUploadProgress(30);
 
-            const uploadResponse = await fetch(presignedUrl, {
-                method: 'PUT',
-                body: formData,
-                headers: {
-                    'Content-Type': 'video/mp4',
-                },
-            });
+            try {
+                // Crear una instancia de File con la nueva API
+                const file = new File(fileUri);
 
-            if (!uploadResponse.ok) {
-                throw new Error('Error al subir video a S3');
+                // Realizar el upload usando fetch con el file object de React Native
+                const uploadResponse = await fetch(presignedUrl, {
+                    method: 'PUT',
+                    body: {
+                        uri: file.uri,
+                        type: 'video/mp4',
+                        name: fileName
+                    },
+                    headers: {
+                        'Content-Type': 'video/mp4'
+                    }
+                });
+
+                if (!uploadResponse.ok) {
+                    const errorText = await uploadResponse.text();
+                    throw new Error(`S3 Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+                }
+
+            } catch (uploadError) {
+                console.error('Error uploading to S3:', uploadError);
+                throw new Error('Error al subir video a S3: ' + uploadError.message);
             }
 
             setUploadProgress(80);
 
             // 3. Notificar completado
-            await secureFetch('https://api.minymol.com/reels/upload-complete', {
+            await apiCall('https://api.minymol.com/reels/upload-complete', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
                 body: JSON.stringify({ uploadKey })
             });
 
@@ -325,10 +310,8 @@ const Reels = ({ onEmpty }) => {
         if (!user) return;
 
         try {
-            const userToken = await user.getIdToken();
-            const response = await secureFetch(`https://api.minymol.com/reels/${reelId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${userToken}` }
+            const response = await apiCall(`https://api.minymol.com/reels/${reelId}`, {
+                method: 'DELETE'
             });
 
             if (response.ok) {
