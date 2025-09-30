@@ -29,6 +29,8 @@ const STORY_MARGIN = 8;
 
 // Función para cargar mis reels usando apiCall centralizada
 const fetchMyReels = async (userId) => {
+    if (!userId) return [];
+    
     try {
         const response = await apiCall('https://api.minymol.com/reels/my-reels');
 
@@ -41,10 +43,18 @@ const fetchMyReels = async (userId) => {
                 return dateB - dateA; // Más reciente primero
             }) : [];
             return sortedMyStories;
+        } else if (response.status === 404) {
+            // No hay reels disponibles para este usuario
+            return [];
         }
+        
+        console.warn(`Error HTTP ${response.status} cargando mis reels`);
         return [];
     } catch (error) {
-        console.error('Error cargando mis reels:', error);
+        // Solo loggear si no es un error de cuota (ya se maneja en apiCall)
+        if (!error.message?.includes('quota-exceeded')) {
+            console.error('Error cargando mis reels:', error);
+        }
         return [];
     }
 };
@@ -168,7 +178,7 @@ const Reels = ({ onEmpty }) => {
                 onEmpty();
             }
         }
-    }, [providers, user, isProvider, loading, onEmpty]);
+    }, [providers, user, isProvider, loading]); // Removido onEmpty para evitar loops
 
     // Verificar si el usuario es proveedor
     const checkIsProvider = async () => {
@@ -367,23 +377,29 @@ const Reels = ({ onEmpty }) => {
 
     // Verificar si el usuario es dueño del provider actual
     const checkIsOwner = useCallback(async (provider) => {
+        if (!user || !provider) return false;
+        
         try {
             const usuario = await AsyncStorage.getItem('usuario');
-            return user && provider && usuario && 
-                   provider.provider.id === JSON.parse(usuario)?.proveedorInfo?.id;
+            if (!usuario) return false;
+            
+            const userData = JSON.parse(usuario);
+            return provider.provider.id === userData?.proveedorInfo?.id;
         } catch {
             return false;
         }
-    }, [user]);
+    }, [user?.uid]); // Solo depender del uid del usuario
 
     const [currentIsOwner, setCurrentIsOwner] = useState(false);
 
-    // Actualizar isOwner cuando cambie el provider seleccionado
+    // Actualizar isOwner cuando cambie el provider seleccionado o el usuario
     useEffect(() => {
-        if (selectedProvider) {
+        if (selectedProvider && user) {
             checkIsOwner(selectedProvider).then(setCurrentIsOwner);
+        } else {
+            setCurrentIsOwner(false);
         }
-    }, [selectedProvider, checkIsOwner]);
+    }, [selectedProvider, user?.uid, checkIsOwner]);
 
     const openProviderStories = (provider) => {
         setSelectedProvider(provider);

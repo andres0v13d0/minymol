@@ -2,9 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   ActivityIndicator,
   Alert,
   RefreshControl,
@@ -12,55 +9,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import Header from '../../components/Header/Header';
 import LoginModal from '../../components/LoginModal';
-=======
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Easing,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import AuthManager from '../../components/AuthManager';
->>>>>>> Stashed changes
-=======
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Easing,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import AuthManager from '../../components/AuthManager';
->>>>>>> Stashed changes
-=======
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Easing,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import AuthManager from '../../components/AuthManager';
->>>>>>> Stashed changes
 import NavInf from '../../components/NavInf/NavInf';
 import { getUbuntuFont } from '../../utils/fonts';
 

@@ -1,18 +1,10 @@
 import { useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
-<<<<<<< Updated upstream
-=======
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import SearchModal from './components/SearchModal/SearchModal';
 import { AppStateProvider } from './contexts/AppStateContext';
 import { CartProvider } from './contexts/CartContext';
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 import { useFonts } from './hooks/useFonts';
 import Cart from './pages/Cart/Cart';
 import Categories from './pages/Categories/Categories';
@@ -21,8 +13,6 @@ import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
 import Profile from './pages/Profile/Profile';
 
 export default function App() {
-<<<<<<< Updated upstream
-=======
   return (
     <SafeAreaProvider>
       <AppStateProvider>
@@ -35,10 +25,10 @@ export default function App() {
 }
 
 function AppContent() {
->>>>>>> Stashed changes
   const [selectedTab, setSelectedTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const fontsLoaded = useFonts();
 
   const handleCategoryPress = (categorySlug) => {
@@ -71,6 +61,14 @@ function AppContent() {
     setCurrentScreen('home');
     setSelectedProduct(null);
     setSelectedTab('home');
+  };
+
+  const handleSearchPress = () => {
+    setShowSearchModal(true);
+  };
+
+  const handleCloseSearch = () => {
+    setShowSearchModal(false);
   };
 
   // Mostrar loading mientras cargan las fuentes
@@ -106,6 +104,7 @@ function AppContent() {
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
+            onSearchPress={handleSearchPress}
           />
         );
       case 'categories':
@@ -115,6 +114,7 @@ function AppContent() {
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onCategoryPress={handleCategoryPress}
+            onSearchPress={handleSearchPress}
           />
         );
       case 'profile':
@@ -123,61 +123,27 @@ function AppContent() {
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
+            onSearchPress={handleSearchPress}
           />
-<<<<<<< Updated upstream
         );
       case 'cart':
         return (
-          <View style={styles.placeholderScreen}>
-            <Home 
-              onProductPress={handleProductPress} 
-              selectedTab={selectedTab}
-              onTabPress={handleTabPress}
-            />
-          </View>
+          <Cart 
+            onProductPress={handleProductPress} 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onSearchPress={handleSearchPress}
+          />
         );
       default:
         return (
           <Home 
-=======
-        </View>
-
-        {/* Cart - siempre montado */}
-        <View style={{ 
-          display: selectedTab === 'cart' ? 'flex' : 'none',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: selectedTab === 'cart' ? 1 : 0
-        }}>
-          <Cart 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
           />
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
         );
     }
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-        </View>
-      </View>
-    );
->>>>>>> Stashed changes
   };
 
   // Determinar el estilo del SafeArea superior
@@ -204,6 +170,13 @@ function AppContent() {
       
       {/* SafeArea inferior */}
       <SafeAreaView style={styles.bottomSafeArea} edges={['bottom']} />
+      
+      {/* Modal de búsqueda */}
+      <SearchModal
+        visible={showSearchModal}
+        onClose={handleCloseSearch}
+        onProductPress={handleProductPress}
+      />
     </View>
   );
 }

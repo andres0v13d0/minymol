@@ -1,25 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-    Animated,
->>>>>>> Stashed changes
-=======
-    Animated,
->>>>>>> Stashed changes
-=======
-    Animated,
->>>>>>> Stashed changes
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
@@ -153,32 +141,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
         </View>
       </View>
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      <NavInf selected="categories" onPress={onTabPress} />
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
       <NavInf selectedTab="categories" onTabPress={onTabPress} />
-      
-      {/* Modal de subcategoría */}
-      <SubCategoryModal
-        visible={modalVisible}
-        onClose={() => {
-          setModalVisible(false);
-          setSelectedSubCategory(null);
-        }}
-        subCategory={selectedSubCategory}
-        onProductPress={onProductPress}
-        onAddToCart={(product) => {
-          // Aquí puedes manejar agregar al carrito si tienes esa funcionalidad
-          console.log('Agregar al carrito:', product);
-        }}
-      />
->>>>>>> Stashed changes
     </View>
   );
 };

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
-const Search = ({ onSearch }) => {
+const Search = ({ onSearch, onPress }) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
@@ -19,23 +19,32 @@ const Search = ({ onSearch }) => {
     handleSearch();
   };
 
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    }
+  };
+
   return (
-    <View style={[styles.search, isFocused && styles.searchFocused]}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Buscar..."
-        placeholderTextColor="#999"
-        value={text}
-        onChangeText={setText}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        onSubmitEditing={handleSubmit}
-        returnKeyType="search"
-      />
-      <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-        <Ionicons name="search" size={20} color="white" />
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity style={[styles.search, isFocused && styles.searchFocused]} onPress={handlePress}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar..."
+          placeholderTextColor="#999"
+          value={text}
+          onChangeText={setText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          onSubmitEditing={handleSubmit}
+          returnKeyType="search"
+          editable={!onPress} // Si hay onPress, el TextInput no es editable (solo modal)
+        />
+        <TouchableOpacity style={styles.searchButton} onPress={onPress ? handlePress : handleSearch}>
+          <Ionicons name="search" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
 };
 
@@ -44,14 +53,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     height: 40,
     borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
     marginHorizontal: 10,
     flex: 1,
     overflow: 'hidden',
   },
   searchFocused: {
     // Puedes agregar estilos para cuando esté enfocado
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: '100%',
+    width: '100%',
   },
   searchInput: {
     flex: 1,

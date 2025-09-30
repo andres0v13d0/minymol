@@ -24,7 +24,7 @@ import subCategoriesManager from '../../utils/SubCategoriesManager';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }) => {
+const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress }) => {
     // Verificar que onProductPress existe
     if (!onProductPress) {
         console.warn('⚠️ onProductPress no está definido en CategorySliderHome');
@@ -208,26 +208,18 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
             }
         };
 
-        initializeHome();
+        // Solo ejecutar si no está inicializado
+        if (!homeInitialized) {
+            initializeHome();
+        }
     }, [homeInitialized, loadCategories, setHomeInitialized]);
 
     // Effect adicional para verificar que las categorías se cargaron correctamente
-    useEffect(() => {
-        if (homeInitialized && categories.length === 0) {
-            console.log('⚠️ Home inicializado pero sin categorías, forzando recarga...');
-            // Si el home está inicializado pero no hay categorías, algo salió mal
-            // Forzar la carga de categorías
-            loadCategories().then(() => {
-                console.log('🔄 Recarga de categorías completada');
-            }).catch(error => {
-                console.error('❌ Error en recarga de categorías:', error);
-            });
-        }
-    }, [homeInitialized, categories.length, loadCategories]);
+    // REMOVIDO para evitar loops infinitos - la lógica de recarga se maneja en la inicialización
 
     // Effect para cargar productos cuando cambia la categoría/subcategoría
     useEffect(() => {
-        if (!homeInitialized || categories.length === 0) return;
+        if (!homeInitialized || !categories || categories.length === 0) return;
 
         // Obtener la subcategoría actual para esta categoría
         const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
@@ -390,13 +382,14 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
     // Obtener subcategorías de la categoría actual - INSTANTÁNEO desde JSON
     const getCurrentSubCategories = useCallback(() => {
         if (currentCategoryIndex === 0) return []; // "Todos" no tiene subcategorías
+        if (!categories || categories.length === 0) return []; // Verificación de seguridad
 
         const category = categories[currentCategoryIndex - 1]; // -1 porque 0 es "Todos"
         if (!category || !category.slug) return [];
 
         try {
             // Usar el manager para obtener subcategorías estáticas
-            const staticSubCategories = subCategoriesManager.getSubCategories(category.slug) || [];
+            const staticSubCategories = subCategoriesManager.getSubcategoriesByCategory(category.slug) || [];
 
             // Sincronizar en background (sin errores que afecten la UI)
             if (subCategoriesManager.shouldSync()) {
@@ -764,8 +757,8 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
     }, [categoryProducts, getCurrentSubCategories, handleSubCategoryPress, handleScroll, distributeProductsInColumns, renderMasonryColumn, isRefreshing, onRefresh, getCurrentSubCategoryForCategory, subCategoriesTranslateY]);
 
     // Mostrar skeleton si estamos cargando categorías o no está inicializado
-    if (loading && categories.length === 0) {
-        console.log('🔄 Mostrando loading inicial - categories.length:', categories.length, 'loading:', loading);
+    if (loading && (!categories || categories.length === 0)) {
+        console.log('🔄 Mostrando loading inicial - categories.length:', categories?.length, 'loading:', loading);
         return (
             <View style={styles.container}>
                 <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
@@ -785,7 +778,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
         console.log('❌ Home inicializado pero sin categorías disponibles');
         return (
             <View style={styles.container}>
-                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
+                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} />
                 <BarSup
                     categories={[]}
                     currentCategory=""
@@ -806,7 +799,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress }
 
     return (
         <View style={styles.container}>
-            <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
+            <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} />
 
             <BarSup
                 categories={categories}
