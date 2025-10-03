@@ -12,6 +12,11 @@ const RETRY_DELAY = 2000; // 2 segundos entre reintentos
  * Función de throttling para evitar spam de peticiones
  */
 const shouldThrottleRequest = (url, method = 'GET') => {
+    // Deshabilitar throttling para endpoints de productos para evitar race conditions
+    if (url.includes('/products/')) {
+        return false;
+    }
+    
     const key = `${method}:${url}`;
     const now = Date.now();
     const lastRequest = requestTimestamps.get(key);
@@ -114,13 +119,17 @@ export const apiCall = async (url, options = {}, retryCount = 0) => {
             headers
         });
 
-        // Cachear respuesta exitosa para GET requests
+        // Cachear respuesta exitosa para GET requests con cache específico por URL completa
         if (method === 'GET' && response.ok) {
             const cacheKey = `${method}:${url}`;
             requestCache.set(cacheKey, response.clone());
             
-            // Limpiar caché después de 5 minutos
-            setTimeout(() => requestCache.delete(cacheKey), 5 * 60 * 1000);
+            // Limpiar caché después de 2 minutos para productos (más rápido que antes)
+            const cacheTimeout = url.includes('/products/') ? 2 * 60 * 1000 : 5 * 60 * 1000;
+            setTimeout(() => {
+                requestCache.delete(cacheKey);
+                console.log(`🗑️ Cache eliminado para: ${cacheKey}`);
+            }, cacheTimeout);
         }
 
         // Si el token está vencido (401), intentar renovar
