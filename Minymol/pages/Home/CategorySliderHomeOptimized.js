@@ -74,8 +74,17 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
     // Función helper para obtener la subcategoría actual de una categoría específica
     const getCurrentSubCategoryForCategory = useCallback((categoryIndex) => {
-        return categorySubCategoryMemory[categoryIndex] || 0;
+        return categorySubCategoryMemory[categoryIndex] || 0; // 0 = "Todos" en UI
     }, [categorySubCategoryMemory]);
+
+    // Función helper para convertir índice de UI a índice de API
+    const convertUIIndexToAPIIndex = useCallback((uiIndex) => {
+        // UI: 0="Todos", 1=primera subcategoría, 2=segunda subcategoría
+        // API: -1="Todos", 0=primera subcategoría, 1=segunda subcategoría
+        const apiIndex = uiIndex === 0 ? -1 : uiIndex - 1;
+        console.log(`🔀 Conversión UI→API: UI(${uiIndex}) → API(${apiIndex})`);
+        return apiIndex;
+    }, []);
 
     // Función helper para establecer la subcategoría de una categoría específica
     const setSubCategoryForCategory = useCallback((categoryIndex, subCategoryIndex) => {
@@ -105,8 +114,9 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     const setCategoryProductsState = useCallback((categoryIndex, newState) => {
         setCategoryProducts(prev => {
             const currentState = prev[categoryIndex] || {
-                products: [],
-                offset: 0,
+                allProducts: [], // Lista completa de productos
+                products: [], // Productos visibles actualmente
+                visibleCount: 0, // Cantidad de productos visibles
                 hasMore: true,
                 isLoading: false,
                 initialized: false
@@ -140,42 +150,47 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 return prev;
             }
 
-            console.log(`🔄 Inicializando productos para categoría ${categoryIndex}-${getCurrentSubCategoryForCategory(categoryIndex)}`);
-            console.log(`📊 Estado antes de cargar:`, currentState);
+            // Obtener la subcategoría específica para esta categoría (UI index)
+            const categorySubCategoryUIIndex = getCurrentSubCategoryForCategory(categoryIndex);
+            // Convertir a API index para la petición
+            const categorySubCategoryAPIIndex = convertUIIndexToAPIIndex(categorySubCategoryUIIndex);
 
-            // Obtener la subcategoría específica para esta categoría
-            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(categoryIndex);
+            console.log(`🔄 Inicializando productos para categoría ${categoryIndex} - UI SubCat: ${categorySubCategoryUIIndex}, API SubCat: ${categorySubCategoryAPIIndex}`);
+            console.log(`📊 Estado antes de cargar:`, currentState);
 
             // Marcar como cargando y ejecutar la carga async
             const newState = { ...currentState, isLoading: true };
 
-            // Ejecutar la carga de productos de forma async
-            loadCategoryProducts(categoryIndex, categorySubCategoryIndex)
-                .then(products => {
+            // Ejecutar la carga de productos de forma async (ahora devuelve TODOS los productos)
+            loadCategoryProducts(categoryIndex, categorySubCategoryAPIIndex)
+                .then(allProducts => {
+                    const products = allProducts || [];
                     setCategoryProducts(prevState => ({
                         ...prevState,
                         [categoryIndex]: {
-                            products: products || [],
-                            offset: 10,
-                            hasMore: (products && products.length > 0),
+                            allProducts: products, // Guardar TODOS los productos
+                            products: products.slice(0, 20), // Mostrar primeros 20
+                            visibleCount: Math.min(20, products.length), // Productos visibles
+                            hasMore: products.length > 20,
                             isLoading: false,
                             initialized: true,
-                            lastSubCategoryIndex: categorySubCategoryIndex
+                            lastSubCategoryIndex: categorySubCategoryUIIndex
                         }
                     }));
-                    console.log(`✅ Categoría ${categoryIndex} inicializada con ${(products || []).length} productos`);
+                    console.log(`✅ Categoría ${categoryIndex} inicializada con ${products.length} productos totales, mostrando primeros 20`);
                 })
                 .catch(error => {
                     console.error(`❌ Error inicializando categoría ${categoryIndex}:`, error);
                     setCategoryProducts(prevState => ({
                         ...prevState,
                         [categoryIndex]: {
+                            allProducts: [],
                             products: [],
-                            offset: 0,
+                            visibleCount: 0,
                             hasMore: false,
                             isLoading: false,
                             initialized: true,
-                            lastSubCategoryIndex: categorySubCategoryIndex
+                            lastSubCategoryIndex: categorySubCategoryUIIndex
                         }
                     }));
                 });
@@ -185,7 +200,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 [categoryIndex]: newState
             };
         });
-    }, [loadCategoryProducts, getCurrentSubCategoryForCategory]);    // Cargar categorías al montar el componente
+    }, [loadCategoryProducts, getCurrentSubCategoryForCategory, convertUIIndexToAPIIndex]);    // Cargar categorías al montar el componente
     useEffect(() => {
         const initializeHome = async () => {
             if (!homeInitialized) {
@@ -231,27 +246,28 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     useEffect(() => {
         if (!homeInitialized || !categories || categories.length === 0) return;
 
-        // Obtener la subcategoría actual para esta categoría
-        const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+        // Obtener la subcategoría actual para esta categoría (UI index)
+        const categorySubCategoryUIIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
 
         // Cuando cambia la subcategoría, necesitamos resetear la categoría actual
         setCategoryProducts(prevCategoryProducts => {
             const currentState = prevCategoryProducts[currentCategoryIndex];
 
             // Si la categoría no está inicializada o si cambió la subcategoría, reinicializar
-            if (!currentState || !currentState.initialized || currentState.lastSubCategoryIndex !== categorySubCategoryIndex) {
-                console.log(`🔄 Reinicializando categoría ${currentCategoryIndex} para subcategoría ${categorySubCategoryIndex}`);
+            if (!currentState || !currentState.initialized || currentState.lastSubCategoryIndex !== categorySubCategoryUIIndex) {
+                console.log(`🔄 Reinicializando categoría ${currentCategoryIndex} para subcategoría UI: ${categorySubCategoryUIIndex}`);
                 console.log(`📊 Estado actual:`, currentState);
-                console.log(`📊 Subcategoría anterior: ${currentState?.lastSubCategoryIndex}, nueva: ${categorySubCategoryIndex}`);
+                console.log(`📊 Subcategoría anterior: ${currentState?.lastSubCategoryIndex}, nueva: ${categorySubCategoryUIIndex}`);
 
                 // Resetear el estado de la categoría para la nueva subcategoría
                 const resetState = {
+                    allProducts: [],
                     products: [],
-                    offset: 0,
+                    visibleCount: 0,
                     hasMore: true,
                     isLoading: false,
                     initialized: false,
-                    lastSubCategoryIndex: categorySubCategoryIndex
+                    lastSubCategoryIndex: categorySubCategoryUIIndex
                 };
 
                 // Llamar initializeCategoryProducts de forma async
@@ -280,34 +296,37 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             // Recargar categorías
             await loadCategories();
 
-            // Obtener la subcategoría específica para la categoría actual
-            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+            // Obtener la subcategoría específica para la categoría actual (UI index)
+            const categorySubCategoryUIIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+            // Convertir a API index para la petición
+            const categorySubCategoryAPIIndex = convertUIIndexToAPIIndex(categorySubCategoryUIIndex);
 
             // Reset del estado de la categoría actual
-            const refreshedProducts = await loadCategoryProducts(currentCategoryIndex, categorySubCategoryIndex, true);
+            const refreshedProducts = await loadCategoryProducts(currentCategoryIndex, categorySubCategoryAPIIndex, true);
 
             setCategoryProducts(prev => ({
                 ...prev,
                 [currentCategoryIndex]: {
-                    products: refreshedProducts || [],
-                    offset: 10,
-                    hasMore: (refreshedProducts && refreshedProducts.length > 0),
+                    allProducts: refreshedProducts || [],
+                    products: (refreshedProducts || []).slice(0, 20),
+                    visibleCount: Math.min(20, (refreshedProducts || []).length),
+                    hasMore: (refreshedProducts || []).length > 20,
                     isLoading: false,
                     initialized: true,
-                    lastSubCategoryIndex: categorySubCategoryIndex
+                    lastSubCategoryIndex: categorySubCategoryUIIndex
                 }
             }));
 
-            console.log(`✅ Categoría ${currentCategoryIndex} refrescada con ${(refreshedProducts || []).length} productos`);
+            console.log(`✅ Categoría ${currentCategoryIndex} refrescada con ${(refreshedProducts || []).length} productos totales, mostrando primeros 20`);
         } catch (error) {
             console.error('❌ Error refrescando:', error);
         } finally {
             setIsRefreshing(false);
         }
-    }, [currentCategoryIndex, loadCategories, loadCategoryProducts, getCurrentSubCategoryForCategory]);
+    }, [currentCategoryIndex, loadCategories, loadCategoryProducts, getCurrentSubCategoryForCategory, convertUIIndexToAPIIndex]);
 
-    // Función para cargar más productos (infinite scroll) con lotes adaptativos
-    const loadMoreProducts = useCallback(async () => {
+    // Función para cargar más productos (infinite scroll) con lotes adaptativos - Ahora usa slice() en cliente
+    const loadMoreProducts = useCallback(() => {
         setCategoryProducts(prev => {
             const currentState = prev[currentCategoryIndex] || {};
 
@@ -315,79 +334,52 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 return prev;
             }
 
-            const currentOffset = currentState.offset || 10;
-            const currentProductCount = currentState.products?.length || 0;
+            const allProducts = currentState.allProducts || [];
+            const currentVisibleCount = currentState.visibleCount || 20;
             
-            // Lotes adaptativos: cargar más productos si ya tenemos muchos (scroll rápido detectado)
-            let batchSize = 10; // Tamaño base
-            if (currentProductCount > 30) {
-                batchSize = 15; // Lotes más grandes para usuarios que hacen scroll rápido
-            } else if (currentProductCount > 60) {
-                batchSize = 20; // Lotes aún más grandes para power users
+            // Lotes adaptativos mejorados: 20 base, más para usuarios rápidos
+            let batchSize = 20; // Tamaño base aumentado
+            if (currentVisibleCount > 40) {
+                batchSize = 25; // Lotes más grandes para usuarios que hacen scroll rápido
+            } else if (currentVisibleCount > 80) {
+                batchSize = 30; // Lotes aún más grandes para power users
             }
             
-            // Obtener la subcategoría específica para la categoría actual
-            const categorySubCategoryIndex = getCurrentSubCategoryForCategory(currentCategoryIndex);
+            const newVisibleCount = Math.min(currentVisibleCount + batchSize, allProducts.length);
+            const hasMore = newVisibleCount < allProducts.length;
             
-            console.log(`🔄 Cargando más productos para categoría ${currentCategoryIndex}... offset: ${currentOffset}, batch: ${batchSize}`);
+            console.log(`🔄 Mostrando más productos para categoría ${currentCategoryIndex}... visible: ${currentVisibleCount} → ${newVisibleCount}, total: ${allProducts.length}, batch: ${batchSize}`);
 
-            // Marcar como cargando más y ejecutar la carga async
-            const newState = { ...currentState, isLoading: true };
-
-            // Ejecutar la carga de productos de forma async
-            loadCategoryProducts(currentCategoryIndex, categorySubCategoryIndex, false, currentOffset)
-                .then(moreProducts => {
-                    if (moreProducts && moreProducts.length > 0) {
-                        setCategoryProducts(prevState => {
-                            const currentProducts = prevState[currentCategoryIndex]?.products || [];
-                            const existingIds = new Set(currentProducts.map(p => p.id || p.uuid));
-                            const uniqueNewProducts = moreProducts.filter(p => !existingIds.has(p.id || p.uuid));
-
-                            console.log(`🔍 ${moreProducts.length} productos recibidos, ${uniqueNewProducts.length} únicos (batch size: ${batchSize})`);
-
-                            return {
-                                ...prevState,
-                                [currentCategoryIndex]: {
-                                    ...currentState,
-                                    products: [...currentProducts, ...uniqueNewProducts],
-                                    offset: currentOffset + batchSize, // Usar el tamaño de lote dinámico
-                                    hasMore: uniqueNewProducts.length > 0,
-                                    isLoading: false
-                                }
-                            };
-                        });
-
-                        console.log(`✅ ${moreProducts.length} productos más cargados`);
-                    } else {
-                        setCategoryProducts(prevState => ({
-                            ...prevState,
-                            [currentCategoryIndex]: {
-                                ...currentState,
-                                hasMore: false,
-                                isLoading: false
-                            }
-                        }));
-                        console.log('🏁 No hay más productos disponibles');
-                    }
-                })
-                .catch(error => {
-                    console.error('❌ Error cargando más productos:', error);
-                    setCategoryProducts(prevState => ({
+            // Simular delay para UX (como el servidor)
+            setTimeout(() => {
+                setCategoryProducts(prevState => {
+                    const state = prevState[currentCategoryIndex] || {};
+                    const newProducts = state.allProducts?.slice(0, newVisibleCount) || [];
+                    
+                    return {
                         ...prevState,
                         [currentCategoryIndex]: {
-                            ...currentState,
-                            hasMore: false,
+                            ...state,
+                            products: newProducts,
+                            visibleCount: newVisibleCount,
+                            hasMore: newVisibleCount < (state.allProducts?.length || 0),
                             isLoading: false
                         }
-                    }));
+                    };
                 });
+                
+                console.log(`✅ ${batchSize} productos más mostrados (${newVisibleCount}/${allProducts.length})`);
+            }, 300); // Delay similar al de la web
 
             return {
                 ...prev,
-                [currentCategoryIndex]: newState
+                [currentCategoryIndex]: {
+                    ...currentState,
+                    isLoading: true
+                }
             };
         });
-    }, [currentCategoryIndex, loadCategoryProducts, getCurrentSubCategoryForCategory]);
+    }, [currentCategoryIndex]);
 
     // Obtener subcategorías de la categoría actual - INSTANTÁNEO desde JSON
     const getCurrentSubCategories = useCallback(() => {
@@ -556,14 +548,8 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         const currentState = categoryProducts[currentCategoryIndex] || {};
         const currentProductCount = currentState.products?.length || 0;
         
-        // Carga anticipada progresiva: más agresiva mientras más productos tengamos
-        let preloadThreshold = 75; // Base: 75%
-        
-        if (currentProductCount > 50) {
-            preloadThreshold = 70; // Con muchos productos, cargar al 70%
-        } else if (currentProductCount > 100) {
-            preloadThreshold = 65; // Con muchísimos productos, cargar al 65%
-        }
+        // Carga anticipada al 80% (como requerido)
+        const preloadThreshold = 80; // Umbral fijo al 80%
         
         // Verificar si necesitamos cargar más productos
         const shouldLoadMore = scrollPercentage >= preloadThreshold && 

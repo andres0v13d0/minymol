@@ -28,8 +28,11 @@ const STORY_HEIGHT = 140;
 const STORY_MARGIN = 8;
 
 // Función para cargar mis reels usando apiCall centralizada
-const fetchMyReels = async (userId) => {
-    if (!userId) return [];
+const fetchMyReels = async (userId, userIsProvider) => {
+    if (!userId || !userIsProvider) {
+        console.log('No se cargan mis reels: usuario no es proveedor o no está logueado');
+        return [];
+    }
     
     try {
         const response = await apiCall('https://api.minymol.com/reels/my-reels');
@@ -45,6 +48,9 @@ const fetchMyReels = async (userId) => {
             return sortedMyStories;
         } else if (response.status === 404) {
             // No hay reels disponibles para este usuario
+            return [];
+        } else if (response.status === 403) {
+            console.log('Usuario no autorizado para cargar sus reels (no es proveedor)');
             return [];
         }
         
@@ -133,17 +139,17 @@ const Reels = ({ onEmpty }) => {
         }
     );
 
-    // Hook de caché para mis reels (si es usuario logueado)
-    const myReelsCacheKey = user ? CACHE_KEYS.MY_REELS(user.uid) : null;
+    // Hook de caché para mis reels (solo si es usuario proveedor)
+    const myReelsCacheKey = user && isProvider ? CACHE_KEYS.MY_REELS(user.uid) : null;
     const {
         data: myReelsData,
         isLoading: loadingMyReels,
         mutate: mutateMyReels
     } = useCache(
         myReelsCacheKey,
-        user ? () => fetchMyReels(user.uid) : null,
+        user && isProvider ? () => fetchMyReels(user.uid, isProvider) : null,
         {
-            enabled: !!user,
+            enabled: !!(user && isProvider),
             refreshOnMount: true
         }
     );

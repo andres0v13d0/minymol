@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useReducer } from 'react';
 import { apiCall } from '../utils/apiUtils';
+import { shuffleProducts } from '../utils/productUtils';
 import subCategoriesManager from '../utils/SubCategoriesManager';
 
 // Estado inicial
@@ -174,41 +175,78 @@ export const AppStateProvider = ({ children }) => {
         };
     }, [state.currentCategoryIndex]);
 
-    const loadCategoryProducts = useCallback(async (categoryIndex, subcategoryIndex = -1, offset = 0, limit = 20) => {
+    const loadCategoryProducts = useCallback(async (categoryIndex, subcategoryIndex = -1, forceRefresh = false) => {
         try {
             console.log(`🔄 Cargando productos para categoría ${categoryIndex}, subcategoría ${subcategoryIndex}`);
             
-            // Asegurar que offset y limit sean números
-            const numericOffset = Number(offset) || 0;
-            const numericLimit = Number(limit) || 20;
-            
             // Crear un ID único para esta petición para evitar race conditions
-            const requestId = `${categoryIndex}-${subcategoryIndex}-${numericOffset}-${numericLimit}-${Date.now()}`;
+            const requestId = `${categoryIndex}-${subcategoryIndex}-${Date.now()}`;
             console.log(`🆔 Request ID: ${requestId}`);
             
-            // 1. Si es "Todos" (categoryIndex === 0), cargar productos aleatorios
+            // 1. Si es "Todos" (categoryIndex === 0), usar lógica web para HOME
             if (categoryIndex === 0) {
-                console.log(`🏠 Cargando productos aleatorios para HOME/Todos (${requestId})`);
-                const apiUrl = `https://api.minymol.com/products/random-previews?limit=${numericLimit}&offset=${numericOffset}`;
-                console.log(`🌐 URL de la API (HOME): ${apiUrl}`);
+                console.log(`🏠 Cargando TODOS los productos para HOME (${requestId})`);
                 
-                const response = await apiCall(apiUrl);
+                // Obtener TODOS los IDs (como la web)
+                const idsUrl = 'https://api.minymol.com/products/public-ids';
+                console.log(`🌐 URL para obtener TODOS los IDs: ${idsUrl} (${requestId})`);
                 
-                if (!response.ok) {
-                    console.error(`❌ Error HTTP en HOME (${requestId}): ${response.status} - ${response.statusText}`);
-                    throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+                const idsResponse = await apiCall(idsUrl);
+                
+                if (!idsResponse.ok) {
+                    if (idsResponse.status === 429) {
+                        console.log(`⚠️ Rate limiting en public-ids HOME, retornando array vacío (${requestId})`);
+                        return [];
+                    }
+                    console.error(`❌ Error HTTP en public-ids HOME (${requestId}): ${idsResponse.status} - ${idsResponse.statusText}`);
+                    throw new Error(`Error HTTP: ${idsResponse.status} - ${idsResponse.statusText}`);
                 }
                 
-                const products = await response.json();
-                console.log(`✅ ${products.length} productos aleatorios cargados para HOME (${requestId})`);
+                const idsData = await idsResponse.json();
+                console.log(`📦 TODOS los IDs obtenidos para HOME: ${Array.isArray(idsData) ? idsData.length : 0} productos (${requestId})`);
+                
+                if (!Array.isArray(idsData) || idsData.length === 0) {
+                    console.log(`📭 No hay productos para HOME (${requestId})`);
+                    return [];
+                }
+                
+                // Extraer todos los IDs
+                const allIds = idsData.map(p => p.product_id).filter(id => id);
+                console.log(`📋 ${allIds.length} IDs válidos extraídos para HOME (${requestId})`);
+                
+                // Randomizar TODOS los IDs (paso clave de la Opción 3)
+                const shuffledIds = shuffleProducts(allIds);
+                console.log(`🎲 IDs randomizados para HOME (${requestId})`);
+                
+                // Obtener TODOS los previews de una vez (como la web)
+                const previewsUrl = 'https://api.minymol.com/products/previews';
+                console.log(`🌐 URL para obtener TODOS los previews: ${previewsUrl} con ${shuffledIds.length} IDs (${requestId})`);
+                
+                const previewsResponse = await apiCall(previewsUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: shuffledIds })
+                });
+                
+                if (!previewsResponse.ok) {
+                    if (previewsResponse.status === 429) {
+                        console.log(`⚠️ Rate limiting en previews HOME, retornando array vacío (${requestId})`);
+                        return [];
+                    }
+                    console.error(`❌ Error HTTP en previews HOME (${requestId}): ${previewsResponse.status} - ${previewsResponse.statusText}`);
+                    throw new Error(`Error HTTP en previews: ${previewsResponse.status} - ${previewsResponse.statusText}`);
+                }
+                
+                const products = await previewsResponse.json();
+                console.log(`📦 TODOS los previews obtenidos para HOME: ${Array.isArray(products) ? products.length : 0} productos (${requestId})`);
                 
                 const validProducts = Array.isArray(products) ? products.filter(p => p && p.uuid) : [];
-                console.log(`📋 ${validProducts.length} productos válidos después del filtrado (${requestId})`);
+                console.log(`✅ ${validProducts.length} productos válidos para HOME después del filtrado (${requestId})`);
+                
                 return validProducts;
             }
             
-            // 2. Para categorías específicas (1,2,3,4...), ajustar el índice
-            // Restar 1 porque el índice 0 es "Todos"
+            // 2. Para categorías específicas (1,2,3,4...), usar lógica web
             const categoryRealIndex = categoryIndex - 1;
             const category = state.categories[categoryRealIndex];
             
@@ -218,7 +256,7 @@ export const AppStateProvider = ({ children }) => {
                 return [];
             }
 
-            console.log(`📂 Cargando productos para categoría: ${category.name || category.slug} (índice real: ${categoryRealIndex}) (${requestId})`);
+            console.log(`📂 Cargando TODOS los productos para categoría: ${category.name || category.slug} (índice real: ${categoryRealIndex}) (${requestId})`);
             
             // Construir parámetros para la API de categorías
             const params = new URLSearchParams();
@@ -230,23 +268,27 @@ export const AppStateProvider = ({ children }) => {
                 return [];
             }
             
-            params.append('categorySlug', categorySlug);
-            
-            // Si hay subcategoría específica, añadirla
+            // Lógica de parámetros (igual que antes)
             if (subcategoryIndex >= 0) {
                 const subcategories = subCategoriesManager.getSubcategoriesByCategory(categorySlug);
                 if (subcategories && subcategories[subcategoryIndex]) {
                     const subcategory = subcategories[subcategoryIndex];
                     params.append('subCategorySlug', subcategory.slug);
-                    console.log(`📂 Filtrando por subcategoría: ${subcategory.name} (${requestId})`);
+                    console.log(`📂 MODO SUBCATEGORÍA - Filtrando SOLO por subcategoría: ${subcategory.name} (slug: ${subcategory.slug}) (${requestId})`);
                 } else {
-                    console.warn(`⚠️ Subcategoría ${subcategoryIndex} no encontrada para ${categorySlug} (${requestId})`);
+                    console.warn(`⚠️ Subcategoría ${subcategoryIndex} no encontrada para ${categorySlug}, usando categorySlug como fallback (${requestId})`);
+                    params.append('categorySlug', categorySlug);
+                    console.log(`📂 MODO FALLBACK - Filtrando por categoría: ${category.name || categorySlug} (slug: ${categorySlug}) (${requestId})`);
                 }
+            } else {
+                params.append('categorySlug', categorySlug);
+                console.log(`📂 MODO CATEGORÍA - Filtrando SOLO por categoría: ${category.name || categorySlug} (slug: ${categorySlug}) (${requestId})`);
             }
 
-            // Primer paso: obtener los IDs de productos
+            // Obtener TODOS los IDs de la categoría (como la web)
             const idsUrl = `https://api.minymol.com/products/public-ids?${params.toString()}`;
-            console.log(`🌐 URL para obtener IDs: ${idsUrl} (${requestId})`);
+            console.log(`🌐 URL para obtener TODOS los IDs: ${idsUrl} (${requestId})`);
+            console.log(`📋 Parámetros enviados: ${params.toString()} (${requestId})`);
             
             const idsResponse = await apiCall(idsUrl);
             
@@ -260,37 +302,29 @@ export const AppStateProvider = ({ children }) => {
             }
             
             const idsData = await idsResponse.json();
-            console.log(`📦 IDs obtenidos para ${categorySlug}: ${Array.isArray(idsData) ? idsData.length : 0} productos (${requestId})`);
+            console.log(`📦 TODOS los IDs obtenidos para ${categorySlug}: ${Array.isArray(idsData) ? idsData.length : 0} productos (${requestId})`);
             
             if (!Array.isArray(idsData) || idsData.length === 0) {
                 console.log(`📭 No hay productos para la categoría ${category.name || category.slug} (${requestId})`);
                 return [];
             }
 
-            // Aplicar paginación a los IDs usando números
-            const totalIds = idsData.length;
-            const startIndex = Math.min(numericOffset, totalIds);
-            const endIndex = Math.min(numericOffset + numericLimit, totalIds);
-            const paginatedIds = idsData.slice(startIndex, endIndex);
+            // Extraer TODOS los IDs (sin paginación como la web)
+            const allIds = idsData.map(p => p.product_id).filter(id => id);
+            console.log(`� ${allIds.length} IDs válidos extraídos para categoría (${requestId})`);
             
-            console.log(`📄 Paginación: ${startIndex}-${endIndex} de ${totalIds} productos (${requestId})`);
-            
-            const ids = paginatedIds.map(p => p.product_id).filter(id => id); // Filtrar IDs nulos
+            // Randomizar TODOS los IDs de la categoría
+            const shuffledIds = shuffleProducts(allIds);
+            console.log(`🎲 IDs randomizados para categoría ${categorySlug} (${requestId})`);
 
-            if (ids.length === 0) {
-                console.log(`📭 No hay más productos en esta página (offset: ${numericOffset}) (${requestId})`);
-                return [];
-            }
-
-            // Segundo paso: obtener los previews de esos productos
+            // Obtener TODOS los previews de una vez (como la web)
             const previewsUrl = `https://api.minymol.com/products/previews`;
-            console.log(`🌐 URL para obtener previews: ${previewsUrl} con ${ids.length} IDs (${requestId})`);
-            console.log(`📋 IDs a obtener: ${ids.slice(0, 5).join(', ')}${ids.length > 5 ? '...' : ''} (${requestId})`);
+            console.log(`🌐 URL para obtener TODOS los previews: ${previewsUrl} con ${shuffledIds.length} IDs (${requestId})`);
             
             const previewsResponse = await apiCall(previewsUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids })
+                body: JSON.stringify({ ids: shuffledIds })
             });
             
             if (!previewsResponse.ok) {
@@ -303,9 +337,9 @@ export const AppStateProvider = ({ children }) => {
             }
             
             const products = await previewsResponse.json();
-            console.log(`📦 Respuesta de previews: ${Array.isArray(products) ? products.length : 0} productos (${requestId})`);
+            console.log(`📦 TODOS los previews obtenidos para categoría: ${Array.isArray(products) ? products.length : 0} productos (${requestId})`);
             
-            // Validar que los productos tengan la estructura esperada y pertenezcan a la categoría correcta
+            // Validar productos
             const validProducts = Array.isArray(products) ? products.filter(p => {
                 if (!p || !p.uuid) {
                     console.warn(`⚠️ Producto inválido encontrado (${requestId}):`, p);
@@ -316,20 +350,7 @@ export const AppStateProvider = ({ children }) => {
             
             console.log(`✅ ${validProducts.length} productos válidos cargados para categoría ${category.name || category.slug} (${requestId})`);
             
-            // Agregar metadatos de categoría a cada producto para debugging
-            const productsWithMetadata = validProducts.map(product => ({
-                ...product,
-                _categoryMetadata: {
-                    categoryIndex,
-                    categoryRealIndex,
-                    categorySlug,
-                    subcategoryIndex,
-                    requestId,
-                    loadedAt: new Date().toISOString()
-                }
-            }));
-            
-            return productsWithMetadata;
+            return validProducts;
             
         } catch (error) {
             console.error('❌ Error cargando productos:', error);
@@ -337,9 +358,7 @@ export const AppStateProvider = ({ children }) => {
                 message: error.message,
                 stack: error.stack,
                 categoryIndex,
-                subcategoryIndex,
-                offset: Number(offset) || 0,
-                limit: Number(limit) || 20
+                subcategoryIndex
             });
             return [];
         }
