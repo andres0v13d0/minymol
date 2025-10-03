@@ -64,10 +64,12 @@ function AppContent() {
   };
 
   const handleSearchPress = () => {
+    console.log('App: handleSearchPress llamado, abriendo modal');
     setShowSearchModal(true);
   };
 
   const handleCloseSearch = () => {
+    console.log('App: handleCloseSearch llamado, cerrando modal');
     setShowSearchModal(false);
   };
 

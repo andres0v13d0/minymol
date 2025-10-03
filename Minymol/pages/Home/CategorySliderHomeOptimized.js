@@ -48,6 +48,16 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         totalCategories
     } = useAppState();
 
+    // Función para manejar cuando se presiona un proveedor
+    const handleProviderPress = useCallback((provider) => {
+        console.log('Proveedor seleccionado:', provider);
+        // Aquí puedes agregar navegación específica para el proveedor
+        // Por ejemplo, filtrar productos por proveedor o navegar a una página del proveedor
+        if (onSearchPress) {
+            onSearchPress(provider.nombre_empresa);
+        }
+    }, [onSearchPress]);
+
     // Estados locales para UI
     const [showSubCategories, setShowSubCategories] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
@@ -614,7 +624,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                         {/* AutoCarousel solo para categoría "Todos" */}
                         {categoryIndex === 0 && (
                             <View style={styles.autoCarouselContainer}>
-                                <AutoCarousel />
+                                <AutoCarousel onProviderPress={handleProviderPress} />
                             </View>
                         )}
 
@@ -705,7 +715,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     {/* AutoCarousel solo para categoría "Todos" */}
                     {categoryIndex === 0 && (
                         <View style={styles.autoCarouselContainer}>
-                            <AutoCarousel />
+                            <AutoCarousel onProviderPress={handleProviderPress} />
                         </View>
                     )}
 
@@ -761,7 +771,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         console.log('🔄 Mostrando loading inicial - categories.length:', categories?.length, 'loading:', loading);
         return (
             <View style={styles.container}>
-                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} />
+                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} isHome={true} />
                 <BarSup
                     categories={[]}
                     currentCategory=""
@@ -778,7 +788,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         console.log('❌ Home inicializado pero sin categorías disponibles');
         return (
             <View style={styles.container}>
-                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} />
+                <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} isHome={true} />
                 <BarSup
                     categories={[]}
                     currentCategory=""
@@ -799,7 +809,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
     return (
         <View style={styles.container}>
-            <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} />
+            <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} isHome={true} />
 
             <BarSup
                 categories={categories}

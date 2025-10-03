@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Dimensions, Image, Platform, StatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
-import BarSup from '../BarSup/BarSup';
+import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Search from '../Search/Search';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -84,12 +83,6 @@ const Header = ({
           <Search onPress={onSearchPress} />
         </View>
       </View>
-      {isHome && (
-        <BarSup 
-          currentCategory={currentCategory}
-          onCategoryPress={onCategoryPress}
-        />
-      )}
     </View>
   );
 };
@@ -101,7 +94,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'column',
     justifyContent: 'flex-start',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10, // Menos padding en iOS
+    paddingTop: 10, // Padding uniforme para ambos sistemas
     minHeight: 60, // Reducido de 80 a 60
   },
   headerMinimal: {

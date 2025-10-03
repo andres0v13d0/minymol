@@ -20,6 +20,7 @@ const Search = ({ onSearch, onPress }) => {
   };
 
   const handlePress = () => {
+    console.log('Search: handlePress llamado, onPress existe:', !!onPress);
     if (onPress) {
       onPress();
     }
@@ -39,8 +40,9 @@ const Search = ({ onSearch, onPress }) => {
           onSubmitEditing={handleSubmit}
           returnKeyType="search"
           editable={!onPress} // Si hay onPress, el TextInput no es editable (solo modal)
+          pointerEvents={onPress ? 'none' : 'auto'} // Evita conflictos de touch
         />
-        <TouchableOpacity style={styles.searchButton} onPress={onPress ? handlePress : handleSearch}>
+        <TouchableOpacity style={styles.searchButton} onPress={handlePress}>
           <Ionicons name="search" size={20} color="white" />
         </TouchableOpacity>
       </View>

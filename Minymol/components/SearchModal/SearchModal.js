@@ -5,6 +5,7 @@ import {
     Dimensions,
     FlatList,
     Modal,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -30,6 +31,16 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
     const slideAnim = useRef(new Animated.Value(50)).current;
     const textInputRef = useRef(null);
     const insets = useSafeAreaInsets();
+    
+    // Calcular el padding superior adecuado para cada plataforma
+    const getTopPadding = () => {
+        if (Platform.OS === 'ios') {
+            return insets.top || 50; // En iOS usa insets o fallback
+        } else {
+            // En Android, usar StatusBar.currentHeight + padding adicional
+            return (StatusBar.currentHeight || 24) + 10;
+        }
+    };
 
     useEffect(() => {
         if (visible) {
@@ -65,7 +76,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
 
     const loadSearchHistory = async () => {
         try {
-            const history = await searchHistoryStorage.getSearchHistory();
+            const history = await searchHistoryStorage.getHistory();
             setSearchHistory(history);
         } catch (error) {
             console.error('Error loading search history:', error);
@@ -118,7 +129,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
 
         try {
             // Guardar en historial
-            await searchHistoryStorage.addSearch(trimmed);
+            await searchHistoryStorage.addSearchTerm(trimmed);
             
             // Realizar búsqueda
             await performSearch(trimmed);
@@ -184,7 +195,13 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
     };
 
     const renderMasonryColumn = (columnProducts, columnIndex) => (
-        <View key={`column-${columnIndex}`} style={styles.masonryColumn}>
+        <View 
+            key={`column-${columnIndex}`} 
+            style={[
+                styles.masonryColumn,
+                columnIndex === 0 ? { marginRight: 5 } : { marginLeft: 5 }
+            ]}
+        >
             {columnProducts.map((product, index) => (
                 <View key={`${product.id || product.product_id}-${index}`} style={styles.productContainer}>
                     <Product 
@@ -234,7 +251,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                         {
                             opacity: fadeAnim,
                             transform: [{ translateY: slideAnim }],
-                            paddingTop: insets.top,
+                            paddingTop: getTopPadding(),
                         },
                     ]}
                 >
@@ -377,6 +394,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
         elevation: 2,
         shadowColor: '#000',
         shadowOffset: {
@@ -487,17 +506,16 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     productsContainer: {
-        paddingHorizontal: 10,
         paddingTop: 10,
         paddingBottom: 20,
     },
     masonryContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+        paddingHorizontal: 0,
     },
     masonryColumn: {
         flex: 1,
-        paddingHorizontal: 5,
     },
     row: {
         justifyContent: 'space-between',

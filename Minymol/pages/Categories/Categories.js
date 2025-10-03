@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
@@ -15,7 +15,7 @@ import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
+const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress }) => {
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +98,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
           minimal={false}
           searchBar={false}
           currentPage="categories"
+          onSearchPress={onSearchPress}
         />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#fa7e17" />
@@ -114,6 +115,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress }) => {
         minimal={false}
         searchBar={false}
         currentPage="categories"
+        onSearchPress={onSearchPress}
       />
       
       <View style={styles.categoriesContainer}>

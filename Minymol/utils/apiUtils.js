@@ -201,3 +201,39 @@ export const getUserId = async () => {
         return null;
     }
 };
+
+/**
+ * Obtener proveedores para el carousel
+ */
+export const getProvidersForCarousel = async () => {
+    try {
+        console.log('🔄 Iniciando carga de proveedores para carousel...');
+        const response = await apiCall('https://api.minymol.com/providers/carousel', 'GET');
+        console.log('📦 Respuesta raw:', response);
+        
+        // Parsear el JSON de la respuesta
+        const jsonData = await response.json();
+        console.log('📦 Datos JSON parseados:', jsonData);
+        console.log('📊 Tipo de datos:', typeof jsonData);
+        console.log('🔍 Es array:', Array.isArray(jsonData));
+        
+        // Verificar que la respuesta sea un array válido
+        if (Array.isArray(jsonData)) {
+            console.log(`✅ Se cargaron ${jsonData.length} proveedores`);
+            return jsonData;
+        } else if (jsonData && typeof jsonData === 'object') {
+            // Si la respuesta es un objeto, puede que tenga los datos en una propiedad
+            console.log('📋 Propiedades de la respuesta:', Object.keys(jsonData));
+            if (jsonData.data && Array.isArray(jsonData.data)) {
+                console.log(`✅ Se cargaron ${jsonData.data.length} proveedores desde response.data`);
+                return jsonData.data;
+            }
+        }
+        
+        console.warn('⚠️ Respuesta no es un array válido:', jsonData);
+        return [];
+    } catch (error) {
+        console.error('❌ Error obteniendo proveedores para carousel:', error);
+        return [];
+    }
+};
