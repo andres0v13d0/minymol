@@ -118,7 +118,9 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
       {/* Etiqueta de nuevo */}
       {isNew() && (
         <View style={styles.newBadge}>
-          <Text style={styles.newBadgeText}>NEW</Text>
+          <View style={styles.newBadgeTextWrapper}>
+            <Text style={styles.newBadgeText}>NEW</Text>
+          </View>
         </View>
       )}
 
@@ -260,16 +262,24 @@ const styles = StyleSheet.create({
     zIndex: 5,
     transform: [{ rotate: '90deg' }],
   },
-  newBadgeText: {
+  newBadgeTextWrapper: {
     position: 'absolute',
-    top: 35,
-    left: 5,
+    top: 20,
+    left: 0,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    transform: [{ rotate: '-135deg' }],
+  },
+  newBadgeText: {
     color: 'white',
     fontSize: 13,
     fontFamily: getUbuntuFont('bold'),
-    transform: [{ rotate: '-135deg' }],
     textAlign: 'center',
-    width: 35,
+    includeFontPadding: false,
+    lineHeight: 11,
+    letterSpacing: 0.5,
   },
   productInfo: {
     padding: 8,

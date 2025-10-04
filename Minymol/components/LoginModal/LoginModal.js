@@ -141,11 +141,13 @@ const LoginModal = ({ visible, onClose, onLoginSuccess }) => {
     };
 
     const validatePhone = (phoneNumber) => {
-        // Remover espacios y caracteres especiales
+        // En LOGIN, solo validamos que sea un número válido (no el formato específico del país)
+        // porque el usuario puede haber creado su cuenta en otro país
         const cleanPhone = phoneNumber.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
         
-        // Validar usando el patrón del país actual
-        return countryInfo.validation.test(cleanPhone);
+        // Validación básica: debe tener entre 7 y 15 dígitos (estándar internacional)
+        const digitsOnly = cleanPhone.replace(/\+/g, '');
+        return digitsOnly.length >= 7 && digitsOnly.length <= 15 && /^[0-9]+$/.test(digitsOnly);
     };
 
     const clearFieldsOnError = () => {
@@ -166,7 +168,7 @@ const LoginModal = ({ visible, onClose, onLoginSuccess }) => {
 
         if (!validatePhone(phone)) {
             setErrors({ 
-                phone: `Número de celular inválido. Ejemplo: ${countryInfo.placeholder.replace(/\s/g, '')}` 
+                phone: 'Número de celular inválido. Debe contener entre 7 y 15 dígitos' 
             });
             return;
         }

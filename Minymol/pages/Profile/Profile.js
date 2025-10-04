@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -201,28 +202,59 @@ const Profile = ({ onTabPress, onNavigate }) => {
       >
         {usuario ? (
           <View style={styles.userContainer}>
-            {/* Información del usuario con gradiente */}
+            {/* Información del usuario con gradiente y marca de agua */}
             <LinearGradient
               colors={['#fa7e17', '#ff9a3d']}
               style={styles.userHeaderGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
+              {/* Imagen de marca de agua en la esquina inferior derecha */}
+              <Image
+                source={require('../../assets/fondo_perfil.png')}
+                style={styles.watermarkImage}
+                resizeMode="contain"
+              />
+              
               <View style={styles.userHeaderContent}>
-                <View style={styles.userTextInfo}>
-                  <Text style={styles.welcomeText}>¡Hola!</Text>
-                  <Text style={styles.userName}>
-                    {usuario.rol === 'proveedor'
-                      ? usuario.proveedorInfo?.nombre_empresa
-                      : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
-                    }
-                  </Text>
-                  <View style={styles.userBadgeContainer}>
-                    <View style={styles.roleBadge}>
-                      <Text style={styles.roleBadgeText}>
-                        {usuario.rol === 'proveedor' ? 'Proveedor' : 
-                         usuario.rol === 'admin' ? 'Administrador' : 'Comerciante'}
-                      </Text>
+                <View style={styles.userInfoRow}>
+                  <View style={styles.userIconCircle}>
+                    <Ionicons 
+                      name={
+                        usuario.rol === 'proveedor' ? 'business' : 
+                        usuario.rol === 'admin' ? 'shield-checkmark' : 
+                        'person'
+                      } 
+                      size={32} 
+                      color="#fff" 
+                    />
+                  </View>
+                  
+                  <View style={styles.userTextInfo}>
+                    <Text style={styles.welcomeText}>¡Hola!</Text>
+                    <Text style={styles.userName}>
+                      {usuario.rol === 'proveedor'
+                        ? usuario.proveedorInfo?.nombre_empresa
+                        : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
+                      }
+                    </Text>
+                    <View style={styles.userBadgeContainer}>
+                      <View style={styles.roleBadge}>
+                        <Ionicons 
+                          name={
+                            usuario.rol === 'proveedor' ? 'briefcase' : 
+                            usuario.rol === 'admin' ? 'shield' : 
+                            'storefront'
+                          } 
+                          size={12} 
+                          color="#fff" 
+                          style={styles.badgeIcon}
+                        />
+                        <Text style={styles.roleBadgeText}>
+                          {usuario.rol === 'proveedor' ? 'Proveedor' : 
+                           usuario.rol === 'admin' ? 'Administrador' : 'Comerciante'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -546,42 +578,82 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderRadius: 20,
     overflow: 'hidden',
+    position: 'relative',
+    elevation: 4,
+    shadowColor: '#fa7e17',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  watermarkImage: {
+    position: 'absolute',
+    width: 200, // Ajusta aquí el tamaño horizontal (X)
+    height: 200, // Ajusta aquí el tamaño vertical (Y)
+    bottom: -70, // Mueve aquí en Y (valores negativos bajan la imagen)
+    right: 10, // Mueve aquí en X (valores negativos mueven a la derecha)
+    opacity: 0.3, // Transparencia de la marca de agua (0.0 - 1.0)
+    transform: [{ rotate: '0deg' }], // Puedes rotar la imagen si lo deseas
   },
   userHeaderContent: {
     padding: 24,
+    minHeight: 140,
+  },
+  userInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  userIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   userTextInfo: {
-    width: '100%',
+    flex: 1,
   },
   welcomeText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
     fontFamily: getUbuntuFont('regular'),
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   userName: {
-    fontSize: 22,
+    fontSize: 24,
     color: '#ffffff',
     fontFamily: getUbuntuFont('bold'),
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
   userBadgeContainer: {
     flexDirection: 'row',
+    marginTop: 4,
   },
   roleBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.4)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeIcon: {
+    marginRight: 2,
   },
   roleBadgeText: {
     color: '#ffffff',
-    fontSize: 12,
-    fontFamily: getUbuntuFont('medium'),
+    fontSize: 11,
+    fontFamily: getUbuntuFont('bold'),
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
 
   // Container del menú
