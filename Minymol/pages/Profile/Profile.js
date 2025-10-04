@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +24,28 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [subMenuSAIOpen, setSubMenuSAIOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Animaciones
+  const subMenuAnimation = useRef(new Animated.Value(0)).current;
+  const subMenuSAIAnimation = useRef(new Animated.Value(0)).current;
+
+  // Animar submenú principal
+  useEffect(() => {
+    Animated.timing(subMenuAnimation, {
+      toValue: subMenuOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [subMenuOpen]);
+
+  // Animar submenú SAI
+  useEffect(() => {
+    Animated.timing(subMenuSAIAnimation, {
+      toValue: subMenuSAIOpen ? 1 : 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [subMenuSAIOpen]);
 
   useEffect(() => {
     loadUserData();
@@ -99,34 +123,52 @@ const Profile = ({ onTabPress, onNavigate }) => {
     setRefreshing(false);
   };
 
-  const MenuButton = ({ icon, text, onPress, isSubitem = false, hasSubmenu = false, isOpen = false, isLogout = false }) => (
+  const MenuButton = ({ icon, text, onPress, isSubitem = false, hasSubmenu = false, isOpen = false, isLogout = false, isSpecial = false }) => (
     <TouchableOpacity
       style={[
         styles.menuButton,
         isSubitem && styles.subMenuItem,
-        isLogout && styles.logoutButton
+        isLogout && styles.logoutButton,
+        isSpecial && styles.specialButton
       ]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       <View style={styles.buttonContent}>
-        <Ionicons
-          name={icon}
-          size={20}
-          color={isLogout ? '#ff4444' : '#666'}
-          style={styles.iconLeft}
-        />
+        <View style={[
+          styles.iconContainer,
+          isLogout && styles.logoutIconContainer,
+          isSpecial && styles.specialIconContainer
+        ]}>
+          <Ionicons
+            name={icon}
+            size={22}
+            color={isLogout ? '#ff4757' : isSpecial ? '#fa7e17' : '#4a5568'}
+          />
+        </View>
         <Text style={[
           styles.buttonText,
-          isLogout && styles.logoutText
+          isLogout && styles.logoutText,
+          isSpecial && styles.specialText
         ]}>
           {text}
         </Text>
-        <Ionicons
-          name={hasSubmenu ? (isOpen ? 'chevron-down' : 'chevron-forward') : 'chevron-forward'}
-          size={16}
-          color="#ccc"
-          style={styles.iconRight}
-        />
+        <View style={styles.chevronContainer}>
+          {hasSubmenu && (
+            <Ionicons
+              name={isOpen ? 'chevron-down' : 'chevron-forward'}
+              size={18}
+              color="#9ca3af"
+            />
+          )}
+          {!hasSubmenu && !isSubitem && (
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color="#d1d5db"
+            />
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -159,128 +201,200 @@ const Profile = ({ onTabPress, onNavigate }) => {
       >
         {usuario ? (
           <View style={styles.userContainer}>
-            {/* Información del usuario */}
-            <View style={styles.userInfo}>
-              <Text style={styles.welcomeText}>Bienvenido,</Text>
-              <Text style={styles.userName}>
-                {usuario.rol === 'proveedor'
-                  ? usuario.proveedorInfo?.nombre_empresa
-                  : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
-                }
-              </Text>
-            </View>
+            {/* Información del usuario con gradiente */}
+            <LinearGradient
+              colors={['#fa7e17', '#ff9a3d']}
+              style={styles.userHeaderGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.userHeaderContent}>
+                <View style={styles.userTextInfo}>
+                  <Text style={styles.welcomeText}>¡Hola!</Text>
+                  <Text style={styles.userName}>
+                    {usuario.rol === 'proveedor'
+                      ? usuario.proveedorInfo?.nombre_empresa
+                      : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
+                    }
+                  </Text>
+                  <View style={styles.userBadgeContainer}>
+                    <View style={styles.roleBadge}>
+                      <Text style={styles.roleBadgeText}>
+                        {usuario.rol === 'proveedor' ? 'Proveedor' : 
+                         usuario.rol === 'admin' ? 'Administrador' : 'Comerciante'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </LinearGradient>
 
-            {/* Botones del menú */}
-            <View style={styles.menuContainer}>
-              {/* Panel de administrador / Mi catálogo */}
-              {usuario.rol !== 'comerciante' && (
+            {/* Panel de administrador / Mi catálogo - Contenedor separado */}
+            {usuario.rol !== 'comerciante' && (
+              <View style={styles.specialContainer}>
                 <MenuButton
                   icon={usuario.rol === 'admin' ? 'clipboard-outline' : 'shirt-outline'}
                   text={usuario.rol === 'admin' ? 'Panel de administrador' : 'Mi catálogo'}
+                  isSpecial={true}
                   onPress={() => handleMenuPress(usuario.rol === 'admin' ? 'admin' : 'catalog', {
                     id: usuario.proveedorInfo?.id
                   })}
                 />
-              )}
+              </View>
+            )}
 
-              {/* Mi inventario / Abonos inteligentes */}
-              {usuario.rol !== 'admin' && (
+            {/* Abonos inteligentes - Contenedor separado solo para comerciantes */}
+            {usuario.rol === 'comerciante' && (
+              <View style={styles.specialContainer}>
+                <MenuButton
+                  icon="trending-up-outline"
+                  text="Abonos inteligentes"
+                  hasSubmenu={true}
+                  isOpen={subMenuOpen}
+                  isSpecial={true}
+                  onPress={() => setSubMenuOpen(!subMenuOpen)}
+                />
+
+                {/* Submenú */}
+                <Animated.View
+                  style={[
+                    styles.submenu,
+                    {
+                      maxHeight: subMenuAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 500],
+                      }),
+                      opacity: subMenuAnimation,
+                      overflow: 'hidden',
+                    },
+                  ]}
+                >
+                    <MenuButton
+                      icon="people-outline"
+                      text="Proveedores"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('proveedores')}
+                    />
+
+                    <MenuButton
+                      icon="document-text-outline"
+                      text="Informes"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('informes')}
+                    />
+
+                    <>
+                      <MenuButton
+                        icon="construct-outline"
+                        text="Sistema SAI"
+                        hasSubmenu={true}
+                        isOpen={subMenuSAIOpen}
+                        isSubitem={true}
+                        onPress={() => setSubMenuSAIOpen(!subMenuSAIOpen)}
+                      />
+
+                      <Animated.View
+                        style={[
+                          styles.subSubmenu,
+                          {
+                            maxHeight: subMenuSAIAnimation.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 200],
+                            }),
+                            opacity: subMenuSAIAnimation,
+                            overflow: 'hidden',
+                          },
+                        ]}
+                      >
+                        <MenuButton
+                          icon="settings-outline"
+                          text="Usar estrategia"
+                          isSubitem={true}
+                          onPress={() => handleMenuPress('sai')}
+                        />
+                        <MenuButton
+                          icon="help-circle-outline"
+                          text="Ayuda"
+                          isSubitem={true}
+                          onPress={() => handleMenuPress('sai-help')}
+                        />
+                      </Animated.View>
+                    </>
+
+                    <MenuButton
+                      icon="car-outline"
+                      text="Registrar movimiento"
+                      isSubitem={true}
+                      onPress={() => handleMenuPress('movimientos')}
+                    />
+                </Animated.View>
+              </View>
+            )}
+
+            {/* Botones del menú principal */}
+            <View style={styles.menuContainer}>
+              {/* Mi inventario (solo proveedores) */}
+              {usuario.rol === 'proveedor' && (
                 <>
                   <MenuButton
-                    icon={usuario.rol === 'proveedor' ? 'cube-outline' : 'trending-up-outline'}
-                    text={usuario.rol === 'proveedor' ? 'Mi inventario' : 'Abonos inteligentes'}
+                    icon="cube-outline"
+                    text="Mi inventario"
                     hasSubmenu={true}
                     isOpen={subMenuOpen}
                     onPress={() => setSubMenuOpen(!subMenuOpen)}
                   />
 
-                  {/* Submenú */}
-                  {subMenuOpen && (
-                    <View style={styles.submenu}>
-                      {usuario.rol === 'comerciante' && (
-                        <MenuButton
-                          icon="people-outline"
-                          text="Proveedores"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('proveedores')}
-                        />
-                      )}
-
+                  {/* Submenú de Mi inventario */}
+                  <Animated.View
+                    style={[
+                      styles.submenu,
+                      {
+                        maxHeight: subMenuAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 500],
+                        }),
+                        opacity: subMenuAnimation,
+                        overflow: 'hidden',
+                      },
+                    ]}
+                  >
                       <MenuButton
-                        icon={usuario.rol === 'proveedor' ? 'archive-outline' : 'document-text-outline'}
-                        text={usuario.rol === 'proveedor' ? 'Mis productos' : 'Informes'}
+                        icon="archive-outline"
+                        text="Mis productos"
                         isSubitem={true}
-                        onPress={() => handleMenuPress(usuario.rol === 'proveedor' ? 'productos' : 'informes')}
+                        onPress={() => handleMenuPress('productos')}
                       />
-
-                      {usuario.rol === 'proveedor' && (
-                        <MenuButton
-                          icon="create-outline"
-                          text="Editar inventario"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('editar-inventario')}
-                        />
-                      )}
-
-                      {usuario.rol === 'comerciante' && (
-                        <>
-                          <MenuButton
-                            icon="construct-outline"
-                            text="Sistema SAI"
-                            hasSubmenu={true}
-                            isOpen={subMenuSAIOpen}
-                            isSubitem={true}
-                            onPress={() => setSubMenuSAIOpen(!subMenuSAIOpen)}
-                          />
-
-                          {subMenuSAIOpen && (
-                            <View style={styles.subSubmenu}>
-                              <MenuButton
-                                icon="settings-outline"
-                                text="Usar estrategia"
-                                isSubitem={true}
-                                onPress={() => handleMenuPress('sai')}
-                              />
-                              <MenuButton
-                                icon="help-circle-outline"
-                                text="Ayuda"
-                                isSubitem={true}
-                                onPress={() => handleMenuPress('sai-help')}
-                              />
-                            </View>
-                          )}
-                        </>
-                      )}
-
                       <MenuButton
-                        icon={usuario.rol === 'proveedor' ? 'eye-outline' : 'car-outline'}
-                        text={usuario.rol === 'proveedor' ? 'Ver inventario' : 'Registrar movimiento'}
+                        icon="create-outline"
+                        text="Editar inventario"
                         isSubitem={true}
-                        onPress={() => handleMenuPress(usuario.rol === 'proveedor' ? 'ver-inventario' : 'movimientos')}
+                        onPress={() => handleMenuPress('editar-inventario')}
                       />
-                    </View>
-                  )}
+                      <MenuButton
+                        icon="eye-outline"
+                        text="Ver inventario"
+                        isSubitem={true}
+                        onPress={() => handleMenuPress('ver-inventario')}
+                      />
+                    </Animated.View>
                 </>
               )}
 
-              {/* Separador */}
-              {usuario.rol === 'comerciante' && <View style={styles.separator} />}
+              {/* Mis pedidos */}
+              <MenuButton
+                icon={usuario.rol === 'comerciante' ? 'basket-outline' : 'clipboard-outline'}
+                text="Mis pedidos"
+                onPress={() => handleMenuPress('mis-pedidos')}
+              />
 
-              {/* Mis pedidos (solo comerciantes) */}
+              {/* Favoritos (solo comerciantes) */}
               {usuario.rol === 'comerciante' && (
                 <MenuButton
-                  icon="basket-outline"
-                  text="Mis pedidos"
-                  onPress={() => handleMenuPress('mis-pedidos')}
+                  icon="star-outline"
+                  text="Favoritos"
+                  onPress={() => handleMenuPress('favoritos')}
                 />
               )}
-
-              {/* Favoritos / Mis pedidos (proveedor) */}
-              <MenuButton
-                icon={usuario.rol === 'proveedor' ? 'clipboard-outline' : 'star-outline'}
-                text={usuario.rol === 'proveedor' ? 'Mis pedidos' : 'Favoritos'}
-                onPress={() => handleMenuPress(usuario.rol === 'proveedor' ? 'mis-pedidos' : 'favoritos')}
-              />
 
               {/* Opciones específicas de proveedor */}
               {usuario.rol === 'proveedor' && (
@@ -311,17 +425,10 @@ const Profile = ({ onTabPress, onNavigate }) => {
                 text="Atención al cliente"
                 onPress={() => handleMenuPress('servicio')}
               />
+            </View>
 
-              {/* Dashboard de partners */}
-              {usuario.isPartner && (
-                <MenuButton
-                  icon="analytics-outline"
-                  text="Mi Dashboard"
-                  onPress={() => handleMenuPress('dashboard')}
-                />
-              )}
-
-              {/* Cerrar sesión */}
+            {/* Botón de cerrar sesión separado */}
+            <View style={styles.logoutContainer}>
               <MenuButton
                 icon="log-out-outline"
                 text="Cerrar sesión"
@@ -332,29 +439,63 @@ const Profile = ({ onTabPress, onNavigate }) => {
           </View>
         ) : (
           <View style={styles.noUserContainer}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="person-circle-outline" size={100} color="#fa7e17" style={styles.noUserIcon} />
-            </View>
+            <LinearGradient
+              colors={['#f8fafc', '#f1f5f9']}
+              style={styles.noUserBackground}
+            >
+              <View style={styles.noUserContent}>
+                <View style={styles.noUserIconContainer}>
+                  <LinearGradient
+                    colors={['#fa7e17', '#ff9a3d']}
+                    style={styles.iconGradient}
+                  >
+                    <Ionicons name="person" size={50} color="#fff" />
+                  </LinearGradient>
+                </View>
 
-            <Text style={styles.noUserTitle}>Inicia sesión</Text>
-            <Text style={styles.noUserText}>
-              Accede a tu cuenta para ver tus pedidos y favoritos
-            </Text>
+                <Text style={styles.noUserTitle}>¡Únete a Minymol!</Text>
+                <Text style={styles.noUserText}>
+                  Accede a tu cuenta para disfrutar de todas las funcionalidades
+                </Text>
 
-            <View style={styles.benefitsContainer}>
-              <View style={styles.benefitItem}>
-                <Ionicons name="heart-outline" size={22} color="#fa7e17" />
-                <Text style={styles.benefitText}>Guarda tus favoritos</Text>
+                <View style={styles.benefitsContainer}>
+                  <View style={styles.benefitItem}>
+                    <View style={styles.benefitIcon}>
+                      <Ionicons name="heart" size={20} color="#fa7e17" />
+                    </View>
+                    <Text style={styles.benefitText}>Guarda tus favoritos</Text>
+                  </View>
+                  <View style={styles.benefitItem}>
+                    <View style={styles.benefitIcon}>
+                      <Ionicons name="receipt" size={20} color="#fa7e17" />
+                    </View>
+                    <Text style={styles.benefitText}>Historial de pedidos</Text>
+                  </View>
+                  <View style={styles.benefitItem}>
+                    <View style={styles.benefitIcon}>
+                      <Ionicons name="notifications" size={20} color="#fa7e17" />
+                    </View>
+                    <Text style={styles.benefitText}>Notificaciones personalizadas</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+                  <LinearGradient
+                    colors={['#fa7e17', '#ff9a3d']}
+                    style={styles.loginButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.loginButtonText}>Iniciar sesión</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.loginButtonIcon} />
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.registerButton} onPress={handleLogin}>
+                  <Text style={styles.registerButtonText}>¿No tienes cuenta? Regístrate</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.benefitItem}>
-                <Ionicons name="receipt-outline" size={22} color="#fa7e17" />
-                <Text style={styles.benefitText}>Historial de pedidos</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Iniciar sesión / Registrarse</Text>
-            </TouchableOpacity>
+            </LinearGradient>
           </View>
         )}
       </ScrollView>
@@ -374,174 +515,290 @@ const Profile = ({ onTabPress, onNavigate }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8fafc',
+    paddingBottom: 75,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f8fafc',
   },
   loadingText: {
-    color: '#333',
-    marginTop: 10,
+    color: '#64748b',
+    marginTop: 16,
     fontSize: 16,
     fontFamily: getUbuntuFont('regular'),
   },
   profileContainer: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: '#f8fafc',
   },
   userContainer: {
-    padding: 20,
-    backgroundColor: 'white',
+    flex: 1,
+    backgroundColor: '#f8fafc',
   },
-  userInfo: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+  
+  // Header del usuario con gradiente
+  userHeaderGradient: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  userHeaderContent: {
+    padding: 24,
+  },
+  userTextInfo: {
+    width: '100%',
   },
   welcomeText: {
     fontSize: 16,
-    color: '#666',
+    color: 'rgba(255,255,255,0.9)',
     fontFamily: getUbuntuFont('regular'),
-    marginBottom: 5,
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 24,
-    color: '#333',
+    fontSize: 22,
+    color: '#ffffff',
     fontFamily: getUbuntuFont('bold'),
+    marginBottom: 8,
   },
-  menuContainer: {
-    backgroundColor: 'white',
+  userBadgeContainer: {
+    flexDirection: 'row',
+  },
+  roleBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
+  roleBadgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontFamily: getUbuntuFont('medium'),
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Container del menú
+  menuContainer: {
+    marginHorizontal: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  // Container especial para botones destacados (Mi catálogo, Abonos inteligentes)
+  specialContainer: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  
+  // Botones del menú
   menuButton: {
-    backgroundColor: 'white',
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#f1f5f9',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subMenuItem: {
-    backgroundColor: '#f8f8f8',
-    paddingLeft: 40,
+    backgroundColor: '#ffffff',
+    paddingLeft: 16,
+    borderBottomColor: '#e2e8f0',
+  },
+  specialButton: {
+    backgroundColor: '#fff7f0',
   },
   logoutButton: {
+    backgroundColor: '#fef2f2',
     borderBottomWidth: 0,
   },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    minHeight: 60,
   },
-  iconLeft: {
-    marginRight: 15,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    flexShrink: 0,
+  },
+  specialIconContainer: {
+    backgroundColor: '#fff7f0',
+  },
+  logoutIconContainer: {
+    backgroundColor: '#fef2f2',
   },
   buttonText: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#374151',
     fontFamily: getUbuntuFont('medium'),
+    lineHeight: 20,
+    textAlignVertical: 'center',
+  },
+  specialText: {
+    color: '#ea580c',
   },
   logoutText: {
-    color: '#ff4444',
+    color: '#dc2626',
   },
-  iconRight: {
-    marginLeft: 10,
+  chevronContainer: {
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  // Submenús
   submenu: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
   subSubmenu: {
-    backgroundColor: '#f0f0f0',
-    paddingLeft: 20,
+    backgroundColor: '#ffffff',
+    paddingLeft: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
+  
+  // Separadores
   separator: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 10,
+    height: 8,
+    backgroundColor: '#f1f5f9',
   },
+  
+  // Container del botón de logout
+  logoutContainer: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  // Estado sin usuario
   noUserContainer: {
     flex: 1,
+  },
+  noUserBackground: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+  },
+  noUserContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noUserIconContainer: {
+    marginBottom: 32,
+  },
+  iconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-    backgroundColor: 'white',
-  },
-  iconContainer: {
-    backgroundColor: '#fff8f5',
-    borderRadius: 60,
-    padding: 20,
-    marginBottom: 30,
-  },
-  noUserIcon: {
-    marginBottom: 0,
   },
   noUserTitle: {
     fontSize: 28,
     fontFamily: getUbuntuFont('bold'),
-    color: '#333',
-    marginBottom: 15,
+    color: '#1f2937',
+    marginBottom: 12,
     textAlign: 'center',
   },
   noUserText: {
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: getUbuntuFont('regular'),
-    color: '#666',
+    color: '#6b7280',
     textAlign: 'center',
-    marginBottom: 40,
     lineHeight: 24,
+    marginBottom: 40,
     paddingHorizontal: 20,
   },
+  
+  // Beneficios
   benefitsContainer: {
     width: '100%',
-    marginBottom: 50,
-    paddingHorizontal: 20,
+    marginBottom: 40,
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: '#fff8f5',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
+  },
+  benefitIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff7f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   benefitText: {
     fontSize: 16,
     fontFamily: getUbuntuFont('medium'),
-    color: '#333',
-    marginLeft: 15,
+    color: '#374151',
+    flex: 1,
   },
+  
+  // Botones de login
   loginButton: {
-    backgroundColor: '#fa7e17',
-    paddingVertical: 18,
-    borderRadius: 12,
     width: '100%',
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  loginButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
   },
   loginButtonText: {
-    color: 'white',
-    fontSize: 17,
+    color: '#ffffff',
+    fontSize: 16,
     fontFamily: getUbuntuFont('bold'),
+    marginRight: 8,
+  },
+  loginButtonIcon: {
+    marginLeft: 4,
+  },
+  registerButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  registerButtonText: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontFamily: getUbuntuFont('medium'),
+    textAlign: 'center',
   },
 });
 
