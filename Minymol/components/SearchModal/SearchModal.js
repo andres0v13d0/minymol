@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { shuffleProducts } from '../../utils/productUtils';
 import { searchHistoryStorage } from '../../utils/searchHistoryStorage';
 import Product from '../Product/Product';
 import ProductsSkeleton from '../ProductsSkeleton/ProductsSkeleton';
@@ -111,7 +112,12 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                 });
 
                 const previews = await previewsRes.json();
-                setSearchResults(previews);
+                
+                // 🎲 Randomizar resultados de búsqueda para consistencia
+                const shuffledPreviews = shuffleProducts(previews);
+                setSearchResults(shuffledPreviews);
+                
+                console.log(`✅ ${shuffledPreviews.length} resultados de búsqueda randomizados para: ${searchText}`);
             } else {
                 setSearchResults([]);
             }

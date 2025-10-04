@@ -87,30 +87,29 @@ function AppContent() {
     );
   }
 
-  const renderScreen = () => {
-    console.log('App: renderScreen llamado, currentScreen:', currentScreen);
-    switch (currentScreen) {
-      case 'productDetail':
-        console.log('App: Renderizando ProductDetail con producto:', selectedProduct);
-        return (
-          <ProductDetail 
-            route={{ params: { product: selectedProduct } }}
-            navigation={{ goBack: handleBackToHome }}
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-          />
-        );
-      case 'home':
-        return (
+  const renderAllScreens = () => {
+    console.log('App: renderAllScreens llamado, currentScreen:', currentScreen);
+    
+    return (
+      <>
+        {/* Home Screen */}
+        <View style={[
+          styles.screenContainer, 
+          { display: currentScreen === 'home' ? 'flex' : 'none' }
+        ]}>
           <Home 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
           />
-        );
-      case 'categories':
-        return (
+        </View>
+
+        {/* Categories Screen */}
+        <View style={[
+          styles.screenContainer, 
+          { display: currentScreen === 'categories' ? 'flex' : 'none' }
+        ]}>
           <Categories 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
@@ -118,34 +117,50 @@ function AppContent() {
             onCategoryPress={handleCategoryPress}
             onSearchPress={handleSearchPress}
           />
-        );
-      case 'profile':
-        return (
+        </View>
+
+        {/* Profile Screen */}
+        <View style={[
+          styles.screenContainer, 
+          { display: currentScreen === 'profile' ? 'flex' : 'none' }
+        ]}>
           <Profile 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
             onSearchPress={handleSearchPress}
           />
-        );
-      case 'cart':
-        return (
+        </View>
+
+        {/* Cart Screen */}
+        <View style={[
+          styles.screenContainer, 
+          { display: currentScreen === 'cart' ? 'flex' : 'none' }
+        ]}>
           <Cart 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
           />
-        );
-      default:
-        return (
-          <Home 
-            onProductPress={handleProductPress} 
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-          />
-        );
-    }
+        </View>
+
+        {/* Product Detail Screen */}
+        <View style={[
+          styles.screenContainer, 
+          { display: currentScreen === 'productDetail' ? 'flex' : 'none' }
+        ]}>
+          {selectedProduct && (
+            <ProductDetail 
+              route={{ params: { product: selectedProduct } }}
+              navigation={{ goBack: handleBackToHome }}
+              selectedTab={selectedTab}
+              onTabPress={handleTabPress}
+            />
+          )}
+        </View>
+      </>
+    );
   };
 
   // Determinar el estilo del SafeArea superior
@@ -167,7 +182,7 @@ function AppContent() {
       <StatusBar backgroundColor={statusBarBackground} barStyle={statusBarStyle} />
       
       <View style={styles.content}>
-        {renderScreen()}
+        {renderAllScreens()}
       </View>
       
       {/* SafeArea inferior */}
@@ -192,6 +207,14 @@ const styles = StyleSheet.create({
     // El backgroundColor se define dinámicamente
   },
   content: {
+    flex: 1,
+  },
+  screenContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     flex: 1,
   },
   bottomSafeArea: {

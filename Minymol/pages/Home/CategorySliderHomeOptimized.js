@@ -497,7 +497,10 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
     // Renderizar columna de masonry
     const renderMasonryColumn = useCallback((columnProducts, columnIndex) => (
-        <View key={columnIndex} style={styles.masonryColumn}>
+        <View key={columnIndex} style={[
+            styles.masonryColumn,
+            columnIndex === 0 ? styles.leftColumn : styles.rightColumn
+        ]}>
             {columnProducts.map((product, index) => (
                 <View key={`${product.uuid || product.id}-${columnIndex}-${index}`} style={styles.masonryItem}>
                     <Product
@@ -869,13 +872,21 @@ const styles = StyleSheet.create({
     },
     masonryColumn: {
         flex: 1,
-        paddingHorizontal: 4,
+        paddingLeft: 0,
+        paddingRight: 4,
+    },
+    leftColumn: {
+        paddingLeft: 0,
+        paddingRight: 2,
+    },
+    rightColumn: {
+        paddingLeft: 2,
+        paddingRight: 0,
     },
     masonryItem: {
         marginBottom: 8,
     },
     productsList: {
-        paddingHorizontal: 8,
         paddingTop: 10,
         paddingBottom: 100,
     },

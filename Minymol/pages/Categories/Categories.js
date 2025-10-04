@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    FlatList,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
+import ProductsModal from '../../components/ProductsModal';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -19,6 +20,10 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Estados para el modal de productos
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,6 +52,19 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
 
   const filteredSubCategories = categories.find(cat => cat.id === selectedCategoryId)?.subCategories || [];
 
+  // Función para manejar clic en subcategoría
+  const handleSubCategoryPress = (subcategory) => {
+    console.log('🔗 Subcategoría seleccionada:', subcategory);
+    setSelectedSubcategory(subcategory);
+    setModalVisible(true);
+  };
+
+  // Función para cerrar el modal
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedSubcategory(null);
+  };
+
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
       style={[
@@ -67,7 +85,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
   const renderSubCategoryItem = ({ item }) => (
     <TouchableOpacity
       style={styles.subCategoryItem}
-      onPress={() => onCategoryPress && onCategoryPress(item.slug)}
+      onPress={() => handleSubCategoryPress(item)}
     >
       <View style={styles.circleImage}>
         <Image 
@@ -144,6 +162,15 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
       </View>
 
       <NavInf selectedTab="categories" onTabPress={onTabPress} />
+      
+      {/* Modal de productos */}
+      <ProductsModal
+        visible={modalVisible}
+        onClose={handleCloseModal}
+        subcategorySlug={selectedSubcategory?.slug}
+        subcategoryName={selectedSubcategory?.name}
+        onProductPress={onProductPress}
+      />
     </View>
   );
 };
