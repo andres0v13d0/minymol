@@ -16,6 +16,7 @@ import CustomerModal from '../../components/CustomerModal';
 import NavInf from '../../components/NavInf/NavInf';
 import OrderRequestModal from '../../components/OrderRequestModal';
 import { useCart } from '../../contexts/CartContext';
+import { getUserData } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -313,9 +314,20 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     const [selectedProviderItems, setSelectedProviderItems] = useState([]);
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [customerData, setCustomerData] = useState(null);
+    const [userData, setUserData] = useState(null);
+    const [selectedProviderId, setSelectedProviderId] = useState(null);
 
     // Obtener items agrupados por proveedor
     const groupedItems = getGroupedItems();
+
+    // Cargar datos del usuario
+    useEffect(() => {
+        const loadUserData = async () => {
+            const user = await getUserData();
+            setUserData(user);
+        };
+        loadUserData();
+    }, []);
 
     // Obtener precio aplicable según cantidad
     const getApplicablePrice = (item) => {
@@ -375,12 +387,17 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
         console.log('🚀 ABRIENDO OrderRequestModal para proveedor:', providerName);
         console.log('🚀 Items seleccionados:', checkedItems.length);
         
+        // Obtener providerId del primer item (todos son del mismo proveedor)
+        const providerId = checkedItems[0]?.product?.providerId || checkedItems[0]?.providerId;
+        
         // Abrir el modal de solicitud de pedido
         setSelectedProvider(providerName);
         setSelectedProviderItems(checkedItems);
+        setSelectedProviderId(providerId);
         setShowOrderModal(true);
         
         console.log('🚀 Estados configurados - showOrderModal:', true);
+        console.log('🚀 ProviderId:', providerId);
     };
 
     // Manejar creación exitosa de orden
@@ -585,6 +602,7 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                 onCreateOrder={handleOrderCreated}
                 customerData={customerData}
                 onOpenCustomerModal={handleOpenCustomerModal}
+                onCustomerDataLoaded={handleCustomerDataSaved}
             />
             
             <CustomerModal
@@ -592,6 +610,8 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                 onClose={handleCloseCustomerModal}
                 onContinue={handleCustomerDataSaved}
                 initialData={customerData}
+                userData={userData}
+                providerId={selectedProviderId}
             />
         </View>
     );

@@ -14,6 +14,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { apiCall, getUserData } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -27,7 +28,8 @@ const OrderRequestModal = ({
     calculateSubtotal,
     onCreateOrder,
     customerData,
-    onOpenCustomerModal
+    onOpenCustomerModal,
+    onCustomerDataLoaded
 }) => {
     const insets = useSafeAreaInsets();
     const slideAnim = useRef(new Animated.Value(screenWidth)).current; // Cambiado de screenHeight a screenWidth
@@ -36,10 +38,60 @@ const OrderRequestModal = ({
     const [isCreatingOrder, setIsCreatingOrder] = useState(false);
     const [orderCreated, setOrderCreated] = useState(false);
     const [orderId, setOrderId] = useState(null);
+    const [loadingCustomerData, setLoadingCustomerData] = useState(false);
+    const [userData, setUserData] = useState(null);
 
     // Animaciones para los pasos
     const step1Anim = useRef(new Animated.Value(0)).current;
     const step2Anim = useRef(new Animated.Value(0)).current;
+
+    // Función para cargar datos del cliente desde el backend
+    const fetchCustomerData = async () => {
+        if (customerData) {
+            console.log('✅ Ya hay datos del cliente cargados');
+            return;
+        }
+
+        try {
+            setLoadingCustomerData(true);
+            console.log('🔄 Cargando datos del cliente desde el backend...');
+            
+            // Cargar datos del usuario desde AsyncStorage
+            const user = await getUserData();
+            setUserData(user);
+            console.log('👤 Datos del usuario cargados:', user);
+            
+            const response = await apiCall('https://api.minymol.com/customers/me');
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Datos del cliente cargados desde backend:', data);
+                
+                if (onCustomerDataLoaded) {
+                    onCustomerDataLoaded(data);
+                }
+            } else {
+                console.log('ℹ️ No se encontraron datos del cliente en el backend');
+                // Si no hay datos de cliente pero hay datos de usuario, pasar datos iniciales al modal
+                if (user && onCustomerDataLoaded) {
+                    const initialData = {
+                        nombre: user.nombre || '',
+                        celular: user.telefono || '',
+                        direccion: '',
+                        ciudad: user.ciudad || '',
+                        departamento: user.departamento || '',
+                        referencia: ''
+                    };
+                    console.log('📝 Usando datos del usuario como inicial:', initialData);
+                    // No llamamos onCustomerDataLoaded aquí porque aún no están guardados
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error al cargar datos del cliente:', error);
+        } finally {
+            setLoadingCustomerData(false);
+        }
+    };
 
     useEffect(() => {
         if (visible) {
@@ -55,6 +107,9 @@ const OrderRequestModal = ({
             setOrderCreated(false);
             setOrderId(null);
             setIsCreatingOrder(false);
+            
+            // Cargar datos del cliente desde el backend
+            fetchCustomerData();
         } else {
             // Resetear posición y TODOS los estados al cerrar
             slideAnim.setValue(screenWidth); // Cambiado de screenHeight a screenWidth
@@ -361,7 +416,12 @@ const OrderRequestModal = ({
                 opacity: step1Anim,
             }
         ]}>
-            {customerData ? (
+            {loadingCustomerData ? (
+                <View style={styles.loadingAddressContainer}>
+                    <ActivityIndicator size="small" color="#fa7e17" />
+                    <Text style={styles.loadingAddressText}>Cargando datos de entrega...</Text>
+                </View>
+            ) : customerData ? (
                 <View style={styles.addressDisplay}>
                     <View style={styles.addressInfo}>
                         <View style={styles.addressRow}>
@@ -785,6 +845,18 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     // Address section styles
+    loadingAddressContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    loadingAddressText: {
+        fontSize: 14,
+        fontFamily: getUbuntuFont('medium'),
+        color: '#666',
+        marginLeft: 12,
+    },
     addressDisplay: {
         padding: 16,
         backgroundColor: '#fff',

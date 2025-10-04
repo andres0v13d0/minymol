@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Animated,
     Dimensions,
+    Keyboard,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -15,7 +15,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { apiCall, getUserData } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { height: screenHeight } = Dimensions.get('window');
@@ -47,11 +48,8 @@ const DEPARTAMENTOS_CIUDADES = {
     'Valle del Cauca': ['Cali', 'Palmira', 'Buenaventura', 'Tulúa', 'Cartago', 'Buga'],
 };
 
-const CustomerModal = ({ visible, onClose, onContinue, initialData = null }) => {
-    console.log('CustomerModal rendered with visible:', visible);
-    
-    const insets = useSafeAreaInsets();
-    const translateY = useRef(new Animated.Value(screenHeight)).current;
+const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userData = null, providerId = null }) => {
+    const scrollViewRef = useRef(null);
     
     const [formData, setFormData] = useState({
         nombre: '',
@@ -66,36 +64,33 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null }) => 
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
     const [showCityPicker, setShowCityPicker] = useState(false);
     const [availableCities, setAvailableCities] = useState([]);
+    const [isCelularReadOnly, setIsCelularReadOnly] = useState(false);
 
     useEffect(() => {
-        console.log('CustomerModal visible state changed:', visible);
         if (visible) {
-            // Inicializar datos si se proporcionan
             if (initialData) {
-                console.log('Inicializando con datos:', initialData);
+                // Si hay datos iniciales (del backend), usarlos
                 setFormData(initialData);
+                setIsCelularReadOnly(false);
+            } else if (userData) {
+                // Si no hay datos iniciales pero hay userData, pre-llenar con datos del usuario
+                setFormData({
+                    nombre: userData.nombre || '',
+                    celular: userData.telefono || '',
+                    direccion: '',
+                    ciudad: userData.ciudad || '',
+                    departamento: userData.departamento || '',
+                    referencia: ''
+                });
+                // Hacer readonly el celular si viene de userData
+                setIsCelularReadOnly(!!userData.telefono);
             }
-            
-            // Animar entrada
-            Animated.timing(translateY, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-            }).start();
-        } else {
-            // Resetear posición
-            translateY.setValue(screenHeight);
         }
-    }, [visible, initialData]);
+    }, [visible, initialData, userData]);
 
     const handleClose = () => {
-        Animated.timing(translateY, {
-            toValue: screenHeight,
-            duration: 250,
-            useNativeDriver: true,
-        }).start(() => {
-            onClose();
-        });
+        Keyboard.dismiss();
+        onClose();
     };
 
     const handleInputChange = (field, value) => {
@@ -115,6 +110,8 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null }) => 
             }));
         }
     };
+
+
 
     const validateForm = () => {
         if (!formData.nombre.trim()) {
@@ -140,179 +137,228 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null }) => 
         return true;
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!validateForm()) return;
         
         setIsLoading(true);
         
-        // Simular guardado/procesamiento
-        setTimeout(() => {
-            setIsLoading(false);
-            onContinue(formData);
+        try {
+            // Guardar en el backend si no hay initialData (es decir, es la primera vez)
+            if (!initialData) {
+                console.log('💾 Guardando datos del cliente en el backend...');
+                
+                const user = await getUserData();
+                const body = {
+                    ...formData,
+                    providerId,
+                    userId: user?.id,
+                };
+
+                const response = await apiCall('https://api.minymol.com/customers/from-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body),
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Datos del cliente guardados:', data);
+                    onContinue(data);
+                } else {
+                    console.error('❌ Error al guardar datos del cliente');
+                    Alert.alert('Error', 'No se pudieron guardar los datos. Inténtalo nuevamente.');
+                }
+            } else {
+                // Si ya había datos, solo actualizar localmente
+                onContinue(formData);
+            }
+            
             handleClose();
-        }, 1000);
+        } catch (error) {
+            console.error('❌ Error en handleContinue:', error);
+            Alert.alert('Error', 'Ocurrió un error al guardar los datos.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    // Modal simple y funcional
-    if (!visible) {
-        console.log('CustomerModal NO visible, returning null');
-        return null;
-    }
+    // Renderizar contenido del modal (evita duplicación entre iOS y Android)
+    const renderModalContent = () => (
+        <>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
+                <View style={styles.header}>
+                    <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+                        <MaterialIcons name="chevron-left" size={28} color="#333" />
+                    </TouchableOpacity>
+                    <Text style={styles.title}>Datos de entrega</Text>
+                    <View style={styles.placeholderView} />
+                </View>
+            </SafeAreaView>
 
-    console.log('CustomerModal SÍ visible, renderizando modal');
+            <View style={styles.importantInfo}>
+                <MaterialIcons name="info" size={20} color="#fa7e17" />
+                <Text style={styles.importantInfoText}>
+                    Todos los campos marcados con * son obligatorios
+                </Text>
+            </View>
+
+            <ScrollView 
+                ref={scrollViewRef}
+                style={styles.content} 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View style={styles.form}>
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Nombre completo *</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={formData.nombre}
+                            onChangeText={(text) => handleInputChange('nombre', text)}
+                            placeholder="Ej: Juan Pérez"
+                            placeholderTextColor="#999"
+                            returnKeyType="next"
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Número de celular *</Text>
+                        <TextInput
+                            style={[styles.input, isCelularReadOnly && styles.inputReadOnly]}
+                            value={formData.celular}
+                            onChangeText={(text) => handleInputChange('celular', text)}
+                            placeholder="Ej: 3101234567"
+                            placeholderTextColor="#999"
+                            keyboardType="phone-pad"
+                            returnKeyType="next"
+                            maxLength={10}
+                            editable={!isCelularReadOnly}
+                        />
+                        {isCelularReadOnly && (
+                            <Text style={styles.readOnlyHint}>
+                                Este número está asociado a tu cuenta
+                            </Text>
+                        )}
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Dirección *</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={formData.direccion}
+                            onChangeText={(text) => handleInputChange('direccion', text)}
+                            placeholder="Ej: Calle 123 # 45-67"
+                            placeholderTextColor="#999"
+                            returnKeyType="done"
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Departamento *</Text>
+                        <TouchableOpacity 
+                            style={styles.selector}
+                            onPress={() => {
+                                Keyboard.dismiss();
+                                setShowDepartmentPicker(true);
+                            }}
+                        >
+                            <Text style={[styles.selectorText, !formData.departamento && styles.placeholderText]}>
+                                {formData.departamento || 'Selecciona tu departamento'}
+                            </Text>
+                            <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Ciudad *</Text>
+                        <TouchableOpacity 
+                            style={[styles.selector, !formData.departamento && styles.selectorDisabled]}
+                            onPress={() => {
+                                if (formData.departamento) {
+                                    Keyboard.dismiss();
+                                    setShowCityPicker(true);
+                                }
+                            }}
+                            disabled={!formData.departamento}
+                        >
+                            <Text style={[styles.selectorText, !formData.ciudad && styles.placeholderText]}>
+                                {formData.ciudad || (formData.departamento ? 'Selecciona tu ciudad' : 'Primero selecciona departamento')}
+                            </Text>
+                            <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Referencia (opcional)</Text>
+                        <TextInput
+                            style={[styles.input, styles.textArea]}
+                            value={formData.referencia}
+                            onChangeText={(text) => handleInputChange('referencia', text)}
+                            placeholder="Ej: Casa blanca con portón negro"
+                            placeholderTextColor="#999"
+                            multiline
+                            numberOfLines={3}
+                            textAlignVertical="top"
+                            returnKeyType="done"
+                        />
+                    </View>
+                </View>
+            </ScrollView>
+
+            <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
+                <View style={styles.footer}>
+                    <TouchableOpacity
+                        style={[styles.continueButton, isLoading && styles.continueButtonDisabled]}
+                        onPress={handleContinue}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? (
+                            <>
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text style={styles.continueButtonText}>Guardando...</Text>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={styles.continueButtonText}>Continuar</Text>
+                                <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        </>
+    );
     
     return (
         <Modal
             visible={visible}
             transparent={true}
-            animationType="none"
+            animationType="slide"
             onRequestClose={handleClose}
             presentationStyle="overFullScreen"
+            statusBarTranslucent
         >
             <View style={styles.overlay}>
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.keyboardView}
-                >
-                    <Animated.View
-                        style={[
-                            styles.container,
-                            {
-                                transform: [{ translateY }],
-                            }
-                        ]}
+                <TouchableOpacity 
+                    style={styles.overlayTouch}
+                    activeOpacity={1}
+                    onPress={handleClose}
+                />
+                {Platform.OS === 'ios' ? (
+                    <KeyboardAvoidingView 
+                        behavior="padding"
+                        style={styles.container}
+                        keyboardVerticalOffset={0}
                     >
-                        <SafeAreaView style={styles.safeArea} edges={['top']}>
-                            {/* Header */}
-                            <View style={styles.header}>
-                                <TouchableOpacity
-                                    style={styles.closeButton}
-                                    onPress={handleClose}
-                                >
-                                    <MaterialIcons name="chevron-left" size={28} color="#333" />
-                                </TouchableOpacity>
-                                <Text style={styles.title}>Datos de entrega</Text>
-                                <View style={styles.placeholder} />
-                            </View>
-                        </SafeAreaView>
-
-                        {/* Información importante */}
-                        <View style={styles.importantInfo}>
-                            <MaterialIcons name="info" size={20} color="#fa7e17" />
-                            <Text style={styles.importantInfoText}>
-                                Todos los campos marcados con * son obligatorios
-                            </Text>
-                        </View>
-
-                        {/* Content */}
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                            <View style={styles.form}>
-                                {/* Nombre */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Nombre completo *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={formData.nombre}
-                                        onChangeText={(text) => handleInputChange('nombre', text)}
-                                        placeholder="Ej: Juan Pérez"
-                                        placeholderTextColor="#999"
-                                    />
-                                </View>
-
-                                {/* Celular */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Número de celular *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={formData.celular}
-                                        onChangeText={(text) => handleInputChange('celular', text)}
-                                        placeholder="Ej: 3101234567"
-                                        placeholderTextColor="#999"
-                                        keyboardType="phone-pad"
-                                    />
-                                </View>
-
-                                {/* Dirección */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Dirección *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={formData.direccion}
-                                        onChangeText={(text) => handleInputChange('direccion', text)}
-                                        placeholder="Ej: Calle 123 # 45-67"
-                                        placeholderTextColor="#999"
-                                    />
-                                </View>
-
-                                {/* Departamento con selector */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Departamento *</Text>
-                                    <TouchableOpacity 
-                                        style={styles.selector}
-                                        onPress={() => setShowDepartmentPicker(true)}
-                                    >
-                                        <Text style={[styles.selectorText, !formData.departamento && styles.placeholder]}>
-                                            {formData.departamento || 'Selecciona tu departamento'}
-                                        </Text>
-                                        <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Ciudad con selector */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Ciudad *</Text>
-                                    <TouchableOpacity 
-                                        style={[styles.selector, !formData.departamento && styles.selectorDisabled]}
-                                        onPress={() => formData.departamento && setShowCityPicker(true)}
-                                        disabled={!formData.departamento}
-                                    >
-                                        <Text style={[styles.selectorText, !formData.ciudad && styles.placeholder]}>
-                                            {formData.ciudad || (formData.departamento ? 'Selecciona tu ciudad' : 'Primero selecciona departamento')}
-                                        </Text>
-                                        <MaterialIcons name="keyboard-arrow-down" size={24} color="#666" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Referencia */}
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Referencia (opcional)</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={formData.referencia}
-                                        onChangeText={(text) => handleInputChange('referencia', text)}
-                                        placeholder="Ej: Casa blanca con portón negro"
-                                        placeholderTextColor="#999"
-                                        multiline
-                                        numberOfLines={2}
-                                    />
-                                </View>
-                            </View>
-                        </ScrollView>
-
-                        {/* Footer */}
-                        <SafeAreaView style={styles.safeAreaBottom} edges={['bottom']}>
-                            <View style={styles.footer}>
-                                <TouchableOpacity
-                                    style={[styles.continueButton, isLoading && styles.continueButtonDisabled]}
-                                    onPress={handleContinue}
-                                    disabled={isLoading}
-                                >
-                                    {isLoading ? (
-                                        <>
-                                            <ActivityIndicator size="small" color="#fff" />
-                                            <Text style={styles.continueButtonText}>Guardando...</Text>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Text style={styles.continueButtonText}>Continuar</Text>
-                                            <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        </SafeAreaView>
-                    </Animated.View>
-                </KeyboardAvoidingView>
+                        {renderModalContent()}
+                    </KeyboardAvoidingView>
+                ) : (
+                    <View style={styles.container}>
+                        {renderModalContent()}
+                    </View>
+                )}
             </View>
 
             {/* Modal selector de departamentos */}
@@ -380,20 +426,20 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.7)',
         justifyContent: 'flex-end',
-        zIndex: 10000,
-        elevation: 10000,
     },
-    keyboardView: {
-        flex: 1,
-        justifyContent: 'flex-end',
+    overlayTouch: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
     container: {
         backgroundColor: '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
-        height: screenHeight * 0.9, // Exactamente 90% de la pantalla
-        zIndex: 10000,
-        elevation: 10000,
+        height: '90%',
+        overflow: 'hidden',
     },
     header: {
         flexDirection: 'row',
@@ -413,8 +459,11 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('bold'),
         color: '#333',
     },
-    placeholder: {
+    placeholderView: {
         width: 34,
+    },
+    placeholderText: {
+        color: '#999',
     },
     safeArea: {
         backgroundColor: '#fff',
@@ -469,6 +518,22 @@ const styles = StyleSheet.create({
         shadowRadius: 2,
         elevation: 1,
     },
+    inputReadOnly: {
+        backgroundColor: '#f0f0f0',
+        borderColor: '#d0d0d0',
+        color: '#666',
+    },
+    readOnlyHint: {
+        fontSize: 12,
+        fontFamily: getUbuntuFont('regular'),
+        color: '#999',
+        marginTop: 6,
+        fontStyle: 'italic',
+    },
+    textArea: {
+        minHeight: 80,
+        paddingTop: 14,
+    },
     selector: {
         borderWidth: 1.5,
         borderColor: '#e0e0e0',
@@ -494,9 +559,6 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('regular'),
         color: '#333',
         flex: 1,
-    },
-    placeholder: {
-        color: '#999',
     },
     footer: {
         padding: 20,
