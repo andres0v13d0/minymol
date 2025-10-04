@@ -299,6 +299,8 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     const {
         cartItems,
         loading,
+        syncInProgress,
+        user,
         updateQuantity,
         toggleItemCheck,
         removeItem,
@@ -465,6 +467,14 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
 
     return (
         <View style={styles.container}>
+            {/* Indicador sutil de sincronización en background */}
+            {syncInProgress && user && (
+                <View style={styles.syncIndicator}>
+                    <ActivityIndicator size="small" color="#fa7e17" />
+                    <Text style={styles.syncText}>Sincronizando...</Text>
+                </View>
+            )}
+            
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 {/* Header mejorado con estadísticas */}
                 <View style={styles.cartHeader}>
@@ -496,6 +506,16 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                             <MaterialIcons name="check-circle" size={16} color="#4CAF50" />
                             <Text style={styles.selectionText}>
                                 {checkedItems} de {totalItems} productos seleccionados
+                            </Text>
+                        </View>
+                    )}
+                    
+                    {/* Mensaje informativo si no está autenticado */}
+                    {!user && cartItems.length > 0 && (
+                        <View style={styles.offlineInfo}>
+                            <MaterialIcons name="cloud-off" size={16} color="#ff9800" />
+                            <Text style={styles.offlineText}>
+                                Inicia sesión para sincronizar tu carrito
                             </Text>
                         </View>
                     )}
@@ -582,6 +602,32 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f5f7fa',
     },
+    syncIndicator: {
+        position: 'absolute',
+        top: 10,
+        right: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(250, 126, 23, 0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        zIndex: 1000,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
+    },
+    syncText: {
+        fontSize: 12,
+        fontFamily: getUbuntuFont('medium'),
+        color: '#fa7e17',
+        marginLeft: 6,
+    },
     cartHeader: {
         backgroundColor: '#fff',
         marginHorizontal: 16,
@@ -648,12 +694,31 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: '#c8e6c9',
+        marginTop: 12,
     },
     selectionText: {
         fontSize: 14,
         fontFamily: getUbuntuFont('medium'),
         color: '#2e7d32',
         marginLeft: 6,
+    },
+    offlineInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff8e1',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ffe082',
+        marginTop: 12,
+    },
+    offlineText: {
+        fontSize: 13,
+        fontFamily: getUbuntuFont('medium'),
+        color: '#f57c00',
+        marginLeft: 6,
+        flex: 1,
     },
     scrollView: {
         flex: 1,

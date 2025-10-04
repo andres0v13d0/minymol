@@ -12,6 +12,11 @@ import Home from './pages/Home/Home';
 import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
 import Profile from './pages/Profile/Profile';
 
+// Cargar utilidades de debug en desarrollo
+if (__DEV__) {
+  require('./utils/cartDebug');
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>

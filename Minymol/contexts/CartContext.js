@@ -1,12 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { auth } from '../config/firebase';
 import { isAuthenticated } from '../utils/apiUtils';
 import {
     loadCartFromBackend,
     syncAddToCart,
     syncRemoveItem,
     syncToggleCheck,
-    syncUpdateQuantity
+    syncUpdateQuantity,
+    triggerSync
 } from '../utils/cartSync';
 
 // Crear el contexto
@@ -25,52 +29,61 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
+    const appState = useRef(AppState.currentState);
+    const [syncInProgress, setSyncInProgress] = useState(false);
 
     // Cargar carrito desde AsyncStorage y sincronizar con backend
-    const loadCart = useCallback(async () => {
+    const loadCart = useCallback(async (forceSync = false) => {
         try {
+            console.log('📦 Cargando carrito...');
+            
             // 1. Cargar primero desde AsyncStorage para respuesta inmediata
             const cartString = await AsyncStorage.getItem('cart');
             const localCart = cartString ? JSON.parse(cartString) : [];
             setCartItems(localCart);
             setLoading(false); // Mostrar datos locales inmediatamente
             
+            console.log(`✅ Datos locales cargados: ${localCart.length} items`);
+            
             // 2. Si el usuario está autenticado, sincronizar con backend en background
-            if (isAuthenticated()) {
-                console.log('Usuario autenticado, sincronizando con backend...');
+            if (user && isAuthenticated()) {
+                console.log('🔄 Usuario autenticado, sincronizando con backend...');
+                setSyncInProgress(true);
                 
                 try {
                     const backendCart = await loadCartFromBackend();
                     
-                    // 3. Merge inteligente: priorizar backend pero mantener cambios locales recientes
-                    const mergedCart = mergeCartData(localCart, backendCart);
+                    // 3. Merge inteligente: priorizar backend si tiene datos
+                    const mergedCart = backendCart.length > 0 ? backendCart : localCart;
                     
-                    // 4. Actualizar tanto AsyncStorage como estado
+                    // 4. Actualizar tanto AsyncStorage como estado si hay cambios
                     if (JSON.stringify(mergedCart) !== JSON.stringify(localCart)) {
                         await AsyncStorage.setItem('cart', JSON.stringify(mergedCart));
                         setCartItems(mergedCart);
-                        console.log('Carrito sincronizado con backend');
+                        console.log('✅ Carrito sincronizado con backend');
+                    } else {
+                        console.log('✓ Carrito ya está sincronizado');
                     }
+                    
+                    // Procesar cola de operaciones pendientes
+                    await triggerSync();
+                    
                 } catch (syncError) {
-                    console.warn('Error sincronizando con backend, usando datos locales:', syncError);
+                    console.warn('⚠️ Error sincronizando con backend, usando datos locales:', syncError.message);
                     // Mantener datos locales si hay error de sincronización
+                } finally {
+                    setSyncInProgress(false);
                 }
             } else {
-                console.log('Usuario no autenticado, usando solo datos locales');
+                console.log('✋ Usuario no autenticado, usando solo datos locales');
             }
         } catch (error) {
-            console.error('Error cargando carrito:', error);
+            console.error('❌ Error cargando carrito:', error);
             setCartItems([]);
             setLoading(false);
         }
-    }, []);
-
-    // Función para merge inteligente de datos local vs backend
-    const mergeCartData = (localCart, backendCart) => {
-        // Por ahora, priorizar backend pero esto se puede mejorar
-        // TODO: Implementar lógica más sofisticada basada en timestamps
-        return backendCart.length > 0 ? backendCart : localCart;
-    };
+    }, [user]);
 
     // Guardar carrito en AsyncStorage
     const saveCart = useCallback(async (cart) => {
@@ -78,7 +91,7 @@ export const CartProvider = ({ children }) => {
             await AsyncStorage.setItem('cart', JSON.stringify(cart));
             setCartItems(cart);
         } catch (error) {
-            console.error('Error guardando carrito:', error);
+            console.error('❌ Error guardando carrito:', error);
         }
     }, []);
 
@@ -106,28 +119,31 @@ export const CartProvider = ({ children }) => {
                 updatedCart = [...existingCart, {
                     ...product,
                     id: `${product.productId}-${product.color || 'nocolor'}-${product.talla || 'nosize'}-${Date.now()}`,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    isChecked: false // Por defecto no seleccionado
                 }];
             }
 
             // 1. Actualizar inmediatamente AsyncStorage y estado (UX fluida)
             await saveCart(updatedCart);
+            console.log('✅ Producto agregado al carrito local');
 
             // 2. Sincronizar con backend en background (sin bloquear UI)
-            if (isAuthenticated()) {
+            if (user && isAuthenticated()) {
                 // No awaiteamos para no bloquear la UI
                 syncAddToCart(product).catch(error => {
-                    console.warn('Error en sync background al agregar:', error);
-                    // TODO: Implementar cola de reintento para casos offline
+                    console.warn('⚠️ Error en sync background al agregar:', error.message);
                 });
+            } else {
+                console.log('✋ Sin sincronización: usuario no autenticado');
             }
 
             return true;
         } catch (error) {
-            console.error('Error añadiendo al carrito:', error);
+            console.error('❌ Error añadiendo al carrito:', error);
             return false;
         }
-    }, [saveCart]);
+    }, [saveCart, user]);
 
     // Actualizar cantidad de un item con sincronización en background
     const updateQuantity = useCallback(async (itemId, newQuantity) => {
@@ -140,20 +156,21 @@ export const CartProvider = ({ children }) => {
 
             // 1. Actualizar inmediatamente (UX fluida)
             await saveCart(updatedCart);
+            console.log('✅ Cantidad actualizada localmente');
 
             // 2. Sincronizar con backend en background
-            if (isAuthenticated()) {
+            if (user && isAuthenticated()) {
                 syncUpdateQuantity(itemId, newQuantity).catch(error => {
-                    console.warn('Error en sync background al actualizar cantidad:', error);
+                    console.warn('⚠️ Error en sync background al actualizar cantidad:', error.message);
                 });
             }
 
             return true;
         } catch (error) {
-            console.error('Error actualizando cantidad:', error);
+            console.error('❌ Error actualizando cantidad:', error);
             return false;
         }
-    }, [cartItems, saveCart]);
+    }, [cartItems, saveCart, user]);
 
     // Alternar estado de selección de un item con sincronización en background
     const toggleItemCheck = useCallback(async (itemId) => {
@@ -166,23 +183,24 @@ export const CartProvider = ({ children }) => {
 
             // 1. Actualizar inmediatamente (UX fluida)
             await saveCart(updatedCart);
+            console.log('✅ Selección actualizada localmente');
 
             // 2. Sincronizar con backend en background
-            if (isAuthenticated()) {
+            if (user && isAuthenticated()) {
                 const item = updatedCart.find(i => i.id === itemId);
                 if (item) {
                     syncToggleCheck(itemId, item.isChecked).catch(error => {
-                        console.warn('Error en sync background al togglear check:', error);
+                        console.warn('⚠️ Error en sync background al togglear check:', error.message);
                     });
                 }
             }
 
             return true;
         } catch (error) {
-            console.error('Error actualizando selección:', error);
+            console.error('❌ Error actualizando selección:', error);
             return false;
         }
-    }, [cartItems, saveCart]);
+    }, [cartItems, saveCart, user]);
 
     // Eliminar item del carrito con sincronización en background
     const removeItem = useCallback(async (itemId) => {
@@ -191,20 +209,21 @@ export const CartProvider = ({ children }) => {
             
             // 1. Actualizar inmediatamente (UX fluida)
             await saveCart(updatedCart);
+            console.log('✅ Item eliminado localmente');
 
             // 2. Sincronizar con backend en background
-            if (isAuthenticated()) {
+            if (user && isAuthenticated()) {
                 syncRemoveItem(itemId).catch(error => {
-                    console.warn('Error en sync background al eliminar:', error);
+                    console.warn('⚠️ Error en sync background al eliminar:', error.message);
                 });
             }
 
             return true;
         } catch (error) {
-            console.error('Error eliminando item:', error);
+            console.error('❌ Error eliminando item:', error);
             return false;
         }
-    }, [cartItems, saveCart]);
+    }, [cartItems, saveCart, user]);
 
     // Limpiar carrito
     const clearCart = useCallback(async () => {
@@ -250,9 +269,52 @@ export const CartProvider = ({ children }) => {
         loadCart();
     }, [loadCart]);
 
+    // Listener de autenticación Firebase
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            setUser(firebaseUser);
+            
+            // Si el usuario se autentica, recargar carrito para sincronizar
+            if (firebaseUser) {
+                console.log('👤 Usuario autenticado, recargando carrito...');
+                loadCart();
+            } else {
+                console.log('👤 Usuario no autenticado');
+            }
+        });
+
+        return () => unsubscribe();
+    }, [loadCart]);
+
+    // Listener para cuando la app vuelve a primer plano
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', nextAppState => {
+            if (
+                appState.current.match(/inactive|background/) &&
+                nextAppState === 'active'
+            ) {
+                console.log('📱 App en primer plano, sincronizando...');
+                
+                // Sincronizar cuando la app vuelve a estar activa
+                if (user && isAuthenticated()) {
+                    triggerSync().catch(error => {
+                        console.warn('⚠️ Error sincronizando al volver a primer plano:', error);
+                    });
+                }
+            }
+            appState.current = nextAppState;
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [user]);
+
     const value = {
         cartItems,
         loading,
+        syncInProgress,
+        user,
         addToCart,
         updateQuantity,
         toggleItemCheck,

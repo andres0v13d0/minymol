@@ -324,36 +324,6 @@ const UploadVideoModal = ({
             // Pequeña pausa para que el usuario vea el mensaje
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Subir el video con validaciones adicionales
-            console.log('🚀 Starting upload with data:', {
-                uri: processedFile.uri,
-                name: processedFile.name,
-                size: processedFile.size,
-                sizeMB: (processedFile.size / (1024 * 1024)).toFixed(1),
-                type: 'video/mp4',
-                duration: processedFile.duration,
-                dimensions: `${processedFile.width}x${processedFile.height}`
-            });
-
-            console.log('🔥 =====================================================');
-            console.log('🔥 MENSAJE PARA EL BACKEND:');
-            console.log('🔥 El frontend está enviando un archivo VÁLIDO:');
-            console.log('🔥 ✅ Tamaño: ' + (processedFile.size / (1024 * 1024)).toFixed(1) + 'MB');
-            console.log('🔥 ✅ Tipo: video/mp4');
-            console.log('🔥 ✅ Nombre: ' + processedFile.name);
-            console.log('🔥 ✅ URI válida: ' + processedFile.uri);
-            console.log('🔥 ✅ Duración: ' + (processedFile.duration / 1000).toFixed(1) + 's');
-            console.log('🔥 ');
-            console.log('🔥 SI AWS MediaConvert da ERROR 1010:');
-            console.log('🔥 "No parser found for container"');
-            console.log('🔥 ');
-            console.log('🔥 ❌ EL PROBLEMA ESTÁ EN EL BACKEND ❌');
-            console.log('🔥 - Revisar FormData construction');
-            console.log('🔥 - Revisar S3 upload integrity');
-            console.log('🔥 - Revisar Content-Type headers');
-            console.log('🔥 - El archivo se corrompe en el servidor');
-            console.log('🔥 =====================================================');
-
             await onUpload(
                 processedFile.uri,
                 processedFile.name,
@@ -365,15 +335,6 @@ const UploadVideoModal = ({
             setProcessingStep('Error, subiendo archivo original...');
 
             try {
-                // Fallback: subir original si hay error en procesamiento
-                console.log('🔥 =====================================================');
-                console.log('🔥 FALLBACK: Subiendo archivo original sin procesamiento');
-                console.log('🔥 ✅ Archivo validado por frontend como correcto');
-                console.log('🔥 ✅ Tamaño: ' + (selectedFile.size / (1024 * 1024)).toFixed(1) + 'MB');
-                console.log('🔥 ✅ Tipo: video/mp4 (forzado)');
-                console.log('🔥 ✅ Nombre: ' + selectedFile.name);
-                console.log('🔥 ❌ SI FALLA = PROBLEMA EN BACKEND ❌');
-                console.log('🔥 =====================================================');
 
                 await onUpload(
                     selectedFile.uri,

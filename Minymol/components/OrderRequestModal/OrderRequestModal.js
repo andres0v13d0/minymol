@@ -6,6 +6,7 @@ import {
     Animated,
     Dimensions,
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -516,7 +517,7 @@ const OrderRequestModal = ({
                             styles.container,
                             {
                                 transform: [{ translateX: slideAnim }], // Cambiado de translateY a translateX
-                                paddingTop: insets.top,
+                                paddingTop: Platform.OS === 'ios' ? 0 : insets.top,
                                 paddingBottom: insets.bottom,
                             }
                         ]}
@@ -537,7 +538,7 @@ const OrderRequestModal = ({
                             styles.container,
                             {
                                 transform: [{ translateX: slideAnim }], // Cambiado de translateY a translateX
-                                paddingTop: insets.top,
+                                paddingTop: Platform.OS === 'ios' ? 0 : insets.top,
                                 paddingBottom: insets.bottom,
                             }
                         ]}

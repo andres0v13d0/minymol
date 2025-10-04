@@ -1,25 +1,124 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiCall, isAuthenticated } from './apiUtils';
 
 /**
  * Servicio de sincronización del carrito con el backend
  * Mantiene la experiencia visual fluida mientras sincroniza en background
+ * Implementa cola de operaciones para casos offline
  */
 
 const API_BASE_URL = 'https://api.minymol.com';
+const SYNC_QUEUE_KEY = 'cart_sync_queue';
+
+/**
+ * Cola de operaciones pendientes de sincronización
+ */
+let syncQueue = [];
+let isSyncing = false;
+
+/**
+ * Agregar operación a la cola de sincronización
+ */
+const addToSyncQueue = async (operation) => {
+    try {
+        const queueStr = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+        const queue = queueStr ? JSON.parse(queueStr) : [];
+        queue.push({
+            ...operation,
+            timestamp: Date.now(),
+            retries: 0
+        });
+        await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+        
+        // Intentar procesar la cola inmediatamente
+        processSyncQueue();
+    } catch (error) {
+        console.error('Error agregando a cola de sincronización:', error);
+    }
+};
+
+/**
+ * Procesar cola de operaciones pendientes
+ */
+const processSyncQueue = async () => {
+    if (isSyncing || !isAuthenticated()) {
+        return;
+    }
+
+    isSyncing = true;
+
+    try {
+        const queueStr = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+        const queue = queueStr ? JSON.parse(queueStr) : [];
+
+        if (queue.length === 0) {
+            isSyncing = false;
+            return;
+        }
+
+        const successfulOps = [];
+
+        for (const operation of queue) {
+            try {
+                let success = false;
+
+                switch (operation.type) {
+                    case 'add':
+                        success = await syncAddToCartInternal(operation.data);
+                        break;
+                    case 'update_quantity':
+                        success = await syncUpdateQuantityInternal(operation.data.itemId, operation.data.quantity);
+                        break;
+                    case 'toggle_check':
+                        success = await syncToggleCheckInternal(operation.data.itemId, operation.data.isChecked);
+                        break;
+                    case 'remove':
+                        success = await syncRemoveItemInternal(operation.data.itemId);
+                        break;
+                }
+
+                if (success) {
+                    successfulOps.push(operation);
+                } else if (operation.retries >= 3) {
+                    // Después de 3 reintentos, descartar
+                    console.warn('Operación descartada después de 3 reintentos:', operation.type);
+                    successfulOps.push(operation);
+                }
+            } catch (error) {
+                console.warn('Error procesando operación de cola:', operation.type, error);
+            }
+        }
+
+        // Remover operaciones exitosas de la cola
+        const remainingQueue = queue.filter(op => !successfulOps.includes(op));
+        await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(remainingQueue));
+
+    } catch (error) {
+        console.error('Error procesando cola de sincronización:', error);
+    } finally {
+        isSyncing = false;
+    }
+};
 
 /**
  * Cargar carrito desde el backend
+ * Retorna array vacío si el usuario no está autenticado (sin error)
  */
 export const loadCartFromBackend = async () => {
     try {
         if (!isAuthenticated()) {
-            console.log('Usuario no autenticado, no se puede cargar carrito del backend');
+            console.log('✋ Usuario no autenticado, omitiendo carga desde backend');
             return [];
         }
 
+        console.log('📦 Cargando carrito desde backend...');
         const response = await apiCall(`${API_BASE_URL}/cart`);
 
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                console.log('🔒 No autorizado, usando solo datos locales');
+                return [];
+            }
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
@@ -69,38 +168,39 @@ export const loadCartFromBackend = async () => {
             })
         );
 
-        console.log('Carrito cargado desde backend:', enrichedItems.length, 'items');
+        console.log(`✅ Carrito cargado desde backend: ${enrichedItems.length} items`);
+        
+        // Procesar cola de sincronización pendiente después de cargar
+        processSyncQueue();
+        
         return enrichedItems;
 
     } catch (error) {
-        console.error('Error cargando carrito desde backend:', error);
+        // No loggear como error si es problema de autenticación
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+            console.log('⚠️ Sin acceso al carrito en backend, usando datos locales');
+        } else {
+            console.error('❌ Error cargando carrito desde backend:', error);
+        }
         return []; // Retornar array vacío en caso de error
     }
 };
 
 /**
- * Sincronizar adición de producto al carrito en background
+ * Función interna para sincronizar adición (usada por la cola)
  */
-export const syncAddToCart = async (product) => {
+const syncAddToCartInternal = async (product) => {
     try {
-        if (!isAuthenticated()) {
-            console.log('Usuario no autenticado, no se sincroniza con backend');
-            return false;
-        }
-
         const requestBody = {
             productId: product.productId,
             quantity: product.cantidad || product.quantity,
             priceSnapshot: parseFloat(product.precio),
             colorSnapshot: product.color || null,
             sizeSnapshot: product.talla || null,
-            // Snapshots adicionales para mantener consistencia
             productNameSnapshot: product.productNameSnapshot || product.nombre,
             imageUrlSnapshot: product.imageUrlSnapshot || product.image,
             providerNameSnapshot: product.providerNameSnapshot
         };
-
-        console.log('Sincronizando adición al carrito en background:', requestBody);
 
         const response = await apiCall(`${API_BASE_URL}/cart`, {
             method: 'POST',
@@ -113,27 +213,47 @@ export const syncAddToCart = async (product) => {
         }
 
         const result = await response.json();
-        console.log('Producto sincronizado exitosamente con backend:', result.id);
-        return result;
+        console.log('✅ Producto sincronizado con backend:', result.id);
+        return true;
 
     } catch (error) {
-        console.error('Error sincronizando adición al carrito:', error);
+        console.warn('⚠️ Error sincronizando adición:', error.message);
         return false;
     }
 };
 
 /**
- * Sincronizar actualización de cantidad en background
+ * Sincronizar adición de producto al carrito en background
+ * Si no hay conexión, agrega a cola para sincronizar después
  */
-export const syncUpdateQuantity = async (itemId, newQuantity) => {
+export const syncAddToCart = async (product) => {
+    if (!isAuthenticated()) {
+        console.log('✋ Usuario no autenticado, no se sincroniza adición');
+        return false;
+    }
+
+    console.log('🔄 Sincronizando adición al carrito en background...');
+
+    // Intentar sincronización inmediata
+    const success = await syncAddToCartInternal(product);
+    
+    // Si falla, agregar a cola para reintentar
+    if (!success) {
+        await addToSyncQueue({
+            type: 'add',
+            data: product
+        });
+        console.log('📋 Adición agregada a cola de sincronización');
+    }
+    
+    return success;
+};
+
+/**
+ * Función interna para actualizar cantidad (usada por la cola)
+ */
+const syncUpdateQuantityInternal = async (itemId, newQuantity) => {
     try {
-        if (!isAuthenticated()) {
-            console.log('Usuario no autenticado, no se sincroniza actualización de cantidad');
-            return false;
-        }
-
-        console.log('Sincronizando actualización de cantidad en background:', itemId, newQuantity);
-
         const response = await apiCall(`${API_BASE_URL}/cart/${itemId}`, {
             method: 'PATCH',
             body: JSON.stringify({ quantity: newQuantity })
@@ -143,27 +263,44 @@ export const syncUpdateQuantity = async (itemId, newQuantity) => {
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
-        console.log('Cantidad actualizada exitosamente en backend');
+        console.log('✅ Cantidad actualizada en backend:', itemId);
         return true;
 
     } catch (error) {
-        console.error('Error sincronizando actualización de cantidad:', error);
+        console.warn('⚠️ Error actualizando cantidad:', error.message);
         return false;
     }
 };
 
 /**
- * Sincronizar cambio de estado de check en background
+ * Sincronizar actualización de cantidad en background
  */
-export const syncToggleCheck = async (itemId, isChecked) => {
+export const syncUpdateQuantity = async (itemId, newQuantity) => {
+    if (!isAuthenticated()) {
+        console.log('✋ Usuario no autenticado, no se sincroniza cantidad');
+        return false;
+    }
+
+    console.log('🔄 Sincronizando cantidad en background:', newQuantity);
+
+    const success = await syncUpdateQuantityInternal(itemId, newQuantity);
+    
+    if (!success) {
+        await addToSyncQueue({
+            type: 'update_quantity',
+            data: { itemId, quantity: newQuantity }
+        });
+        console.log('📋 Actualización de cantidad en cola');
+    }
+    
+    return success;
+};
+
+/**
+ * Función interna para cambiar estado de check (usada por la cola)
+ */
+const syncToggleCheckInternal = async (itemId, isChecked) => {
     try {
-        if (!isAuthenticated()) {
-            console.log('Usuario no autenticado, no se sincroniza estado de check');
-            return false;
-        }
-
-        console.log('Sincronizando cambio de check en background:', itemId, isChecked);
-
         const response = await apiCall(`${API_BASE_URL}/cart/${itemId}/check`, {
             method: 'PATCH',
             body: JSON.stringify({ isChecked })
@@ -173,27 +310,44 @@ export const syncToggleCheck = async (itemId, isChecked) => {
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
-        console.log('Estado de check actualizado exitosamente en backend');
+        console.log('✅ Check actualizado en backend:', itemId, isChecked);
         return true;
 
     } catch (error) {
-        console.error('Error sincronizando estado de check:', error);
+        console.warn('⚠️ Error actualizando check:', error.message);
         return false;
     }
 };
 
 /**
- * Sincronizar eliminación de item en background
+ * Sincronizar cambio de estado de check en background
  */
-export const syncRemoveItem = async (itemId) => {
+export const syncToggleCheck = async (itemId, isChecked) => {
+    if (!isAuthenticated()) {
+        console.log('✋ Usuario no autenticado, no se sincroniza check');
+        return false;
+    }
+
+    console.log('🔄 Sincronizando check en background:', isChecked);
+
+    const success = await syncToggleCheckInternal(itemId, isChecked);
+    
+    if (!success) {
+        await addToSyncQueue({
+            type: 'toggle_check',
+            data: { itemId, isChecked }
+        });
+        console.log('📋 Toggle check en cola');
+    }
+    
+    return success;
+};
+
+/**
+ * Función interna para eliminar item (usada por la cola)
+ */
+const syncRemoveItemInternal = async (itemId) => {
     try {
-        if (!isAuthenticated()) {
-            console.log('Usuario no autenticado, no se sincroniza eliminación');
-            return false;
-        }
-
-        console.log('Sincronizando eliminación de item en background:', itemId);
-
         const response = await apiCall(`${API_BASE_URL}/cart/${itemId}`, {
             method: 'DELETE'
         });
@@ -202,11 +356,46 @@ export const syncRemoveItem = async (itemId) => {
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
-        console.log('Item eliminado exitosamente del backend');
+        console.log('✅ Item eliminado del backend:', itemId);
         return true;
 
     } catch (error) {
-        console.error('Error sincronizando eliminación de item:', error);
+        console.warn('⚠️ Error eliminando item:', error.message);
         return false;
+    }
+};
+
+/**
+ * Sincronizar eliminación de item en background
+ */
+export const syncRemoveItem = async (itemId) => {
+    if (!isAuthenticated()) {
+        console.log('✋ Usuario no autenticado, no se sincroniza eliminación');
+        return false;
+    }
+
+    console.log('🔄 Sincronizando eliminación en background...');
+
+    const success = await syncRemoveItemInternal(itemId);
+    
+    if (!success) {
+        await addToSyncQueue({
+            type: 'remove',
+            data: { itemId }
+        });
+        console.log('📋 Eliminación en cola');
+    }
+    
+    return success;
+};
+
+/**
+ * Exportar función para procesar cola manualmente
+ * Útil para llamar cuando la app regresa de background o recupera conexión
+ */
+export const triggerSync = async () => {
+    if (isAuthenticated()) {
+        console.log('🔄 Procesando cola de sincronización manualmente...');
+        await processSyncQueue();
     }
 };
