@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     Animated,
     Dimensions,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUbuntuFont } from '../../utils/fonts';
+import ProviderRegistrationModal from '../ProviderRegistrationModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -24,6 +25,9 @@ const CustomerServiceModal = ({ visible, onClose }) => {
     // Animaciones
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(screenWidth)).current;
+
+    // Estado para controlar el modal de registro de proveedor
+    const [showProviderModal, setShowProviderModal] = useState(false);
 
     // Calcular el padding superior
     const getTopPadding = () => {
@@ -129,9 +133,7 @@ const CustomerServiceModal = ({ visible, onClose }) => {
 
     // Función para navegar a solicitud de proveedor
     const handleProveedorClick = () => {
-        // Aquí puedes implementar la navegación o abrir un formulario
-        console.log('Navegar a solicitud de proveedor');
-        // Ejemplo: Linking.openURL('https://minymol.com/solicitud-proveedor');
+        setShowProviderModal(true);
     };
 
     return (
@@ -285,6 +287,12 @@ const CustomerServiceModal = ({ visible, onClose }) => {
                     </View>
                 </Animated.View>
             </View>
+
+            {/* Modal de registro de proveedor */}
+            <ProviderRegistrationModal
+                visible={showProviderModal}
+                onClose={() => setShowProviderModal(false)}
+            />
         </Modal>
     );
 };
