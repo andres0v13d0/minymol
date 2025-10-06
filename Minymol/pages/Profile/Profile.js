@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
 import NavInf from '../../components/NavInf/NavInf';
+import ProvidersModal from '../../components/ProvidersModal';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const Profile = ({ onTabPress, onNavigate }) => {
@@ -26,6 +27,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authType, setAuthType] = useState('login'); // 'login' o 'register'
   const [refreshing, setRefreshing] = useState(false);
+  const [showProvidersModal, setShowProvidersModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -96,6 +98,13 @@ const Profile = ({ onTabPress, onNavigate }) => {
 
   const handleMenuPress = (action, params = {}) => {
     console.log('Acción:', action, 'Parámetros:', params);
+    
+    // Manejar la acción de proveedores
+    if (action === 'proveedores') {
+      setShowProvidersModal(true);
+      return;
+    }
+    
     // Aquí puedes implementar la navegación según la acción
     if (onNavigate) {
       onNavigate(action, params);
@@ -532,6 +541,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
         showRegister={showAuthModal && authType === 'register'}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={handleAuthSuccess}
+      />
+
+      {/* Providers Modal */}
+      <ProvidersModal
+        visible={showProvidersModal}
+        onClose={() => setShowProvidersModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />
