@@ -47,6 +47,7 @@ function AppContent() {
 
   const handleNavigate = (action, params = {}) => {
     console.log('Navegando a:', action, 'con parámetros:', params);
+    
     // Aquí puedes implementar la lógica de navegación según la acción
     // Por ejemplo, para login, configuración, etc.
   };

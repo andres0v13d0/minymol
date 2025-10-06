@@ -22,6 +22,7 @@ import ProvidersModal from '../../components/ProvidersModal';
 import SAIHelpModal from '../../components/SAIHelpModal';
 import SAIModal from '../../components/SAIModal';
 import { getUbuntuFont } from '../../utils/fonts';
+import Configuracion from '../Configuracion';
 
 const Profile = ({ onTabPress, onNavigate }) => {
   const [usuario, setUsuario] = useState(null);
@@ -36,6 +37,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showSAIHelpModal, setShowSAIHelpModal] = useState(false);
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
+  const [showConfiguracion, setShowConfiguracion] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -134,6 +136,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de favoritos
     if (action === 'favoritos') {
       setShowFavoritesModal(true);
+      return;
+    }
+
+    // Manejar la acción de configuración
+    if (action === 'configuracion') {
+      setShowConfiguracion(true);
       return;
     }
     
@@ -607,6 +615,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
           // Aquí puedes manejar la navegación al detalle del producto si es necesario
           console.log('Producto seleccionado:', product);
         }}
+      />
+
+      {/* Configuracion Modal */}
+      <Configuracion
+        visible={showConfiguracion}
+        onClose={() => setShowConfiguracion(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />

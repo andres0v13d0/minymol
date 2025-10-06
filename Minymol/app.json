@@ -20,6 +20,16 @@
       "./assets/fonts/Ubuntu-Light.ttf",
       "./assets/fonts/Ubuntu-Medium.ttf"
     ],
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/favicon.png",
+          "color": "#fa7e17",
+          "sounds": []
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.minymol.app",
@@ -34,7 +44,11 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.minymol.app",
-      "versionCode": 1
+      "versionCode": 1,
+      "googleServicesFile": "./android/app/google-services.json",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
