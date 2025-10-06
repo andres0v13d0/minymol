@@ -20,6 +20,7 @@ import FavoritesModal from '../../components/FavoritesModal';
 import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
 import ProvidersModal from '../../components/ProvidersModal';
+import ReportsModal from '../../components/ReportsModal';
 import SAIHelpModal from '../../components/SAIHelpModal';
 import SAIModal from '../../components/SAIModal';
 import { getUbuntuFont } from '../../utils/fonts';
@@ -40,6 +41,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
   const [showConfiguracion, setShowConfiguracion] = useState(false);
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
+  const [showReportsModal, setShowReportsModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -150,6 +152,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de servicio al cliente
     if (action === 'servicio') {
       setShowCustomerServiceModal(true);
+      return;
+    }
+    
+    // Manejar la acción de informes
+    if (action === 'informes') {
+      setShowReportsModal(true);
       return;
     }
     
@@ -635,6 +643,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <CustomerServiceModal
         visible={showCustomerServiceModal}
         onClose={() => setShowCustomerServiceModal(false)}
+      />
+
+      {/* Reports Modal */}
+      <ReportsModal
+        visible={showReportsModal}
+        onClose={() => setShowReportsModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />

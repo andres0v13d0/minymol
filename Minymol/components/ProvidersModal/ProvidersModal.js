@@ -351,6 +351,7 @@ const ProvidersModal = ({ visible, onClose }) => {
                             >
                                 <Ionicons name="chevron-back" size={24} color="#333" />
                             </TouchableOpacity>
+                            <Text style={styles.headerTitle}>Proveedores</Text>
                         </View>
 
                         {/* Contenido del modal */}
@@ -652,9 +653,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         paddingVertical: 10,
         backgroundColor: '#f8fafc',
+        justifyContent: 'center',
+        position: 'relative',
     },
     backButton: {
         padding: 8,
+        position: 'absolute',
+        left: 10,
+        zIndex: 1,
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontFamily: getUbuntuFont('bold'),
+        color: '#1f2937',
     },
     content: {
         flex: 1,

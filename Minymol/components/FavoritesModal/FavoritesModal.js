@@ -321,7 +321,7 @@ const FavoritesModal = ({
 
                             <View style={styles.titleContainer}>
                                 <Text style={styles.title} numberOfLines={1}>
-                                    Mis Favoritos
+                                    Favoritos
                                 </Text>
                             </View>
 
