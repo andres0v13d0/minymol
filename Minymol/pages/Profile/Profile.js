@@ -17,6 +17,7 @@ import {
 import AuthManager from '../../components/AuthManager';
 import NavInf from '../../components/NavInf/NavInf';
 import ProvidersModal from '../../components/ProvidersModal';
+import SAIModal from '../../components/SAIModal';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const Profile = ({ onTabPress, onNavigate }) => {
@@ -28,6 +29,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [authType, setAuthType] = useState('login'); // 'login' o 'register'
   const [refreshing, setRefreshing] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
+  const [showSAIModal, setShowSAIModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -102,6 +104,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de proveedores
     if (action === 'proveedores') {
       setShowProvidersModal(true);
+      return;
+    }
+    
+    // Manejar la acción de SAI
+    if (action === 'sai') {
+      setShowSAIModal(true);
       return;
     }
     
@@ -547,6 +555,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <ProvidersModal
         visible={showProvidersModal}
         onClose={() => setShowProvidersModal(false)}
+      />
+
+      {/* SAI Modal */}
+      <SAIModal
+        visible={showSAIModal}
+        onClose={() => setShowSAIModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />

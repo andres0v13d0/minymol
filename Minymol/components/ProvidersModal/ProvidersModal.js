@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
     Animated,
     Dimensions,
     KeyboardAvoidingView,
@@ -22,6 +21,57 @@ import { apiCall } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Componente Skeleton animado
+const SkeletonLoader = () => {
+    const pulseAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 0,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }, []);
+
+    const opacity = pulseAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.3, 0.7],
+    });
+
+    return (
+        <View style={styles.skeletonContainer}>
+            {/* Skeleton de cards de proveedores */}
+            {[1, 2, 3, 4].map((item) => (
+                <View key={item} style={styles.skeletonProviderCard}>
+                    <View style={styles.skeletonProviderHeader}>
+                        <Animated.View style={[styles.skeletonIconCircle, { opacity }]} />
+                        <View style={styles.skeletonProviderInfo}>
+                            <Animated.View style={[styles.skeletonProviderName, { opacity }]} />
+                            <Animated.View style={[styles.skeletonProviderPhone, { opacity }]} />
+                        </View>
+                    </View>
+                    <Animated.View style={[styles.skeletonDivider, { opacity }]} />
+                    <Animated.View style={[styles.skeletonDetail, { opacity }]} />
+                    <Animated.View style={[styles.skeletonDetailSmall, { opacity }]} />
+                    <View style={styles.skeletonActions}>
+                        <Animated.View style={[styles.skeletonActionButton, { opacity }]} />
+                        <Animated.View style={[styles.skeletonActionButton, { opacity }]} />
+                    </View>
+                </View>
+            ))}
+        </View>
+    );
+};
 
 const ProvidersModal = ({ visible, onClose }) => {
     const insets = useSafeAreaInsets();
@@ -337,10 +387,7 @@ const ProvidersModal = ({ visible, onClose }) => {
 
                             {/* Lista de proveedores */}
                             {loading && !refreshing ? (
-                                <View style={styles.loadingContainer}>
-                                    <ActivityIndicator size="large" color="#fa7e17" />
-                                    <Text style={styles.loadingText}>Cargando proveedores...</Text>
-                                </View>
+                                <SkeletonLoader />
                             ) : (
                                 <ScrollView
                                     style={styles.scrollContainer}
@@ -661,18 +708,79 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    loadingContainer: {
+
+    // Skeleton loader
+    skeletonContainer: {
         flex: 1,
-        justifyContent: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 10,
+    },
+    skeletonProviderCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    skeletonProviderHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingTop: 40,
+        marginBottom: 12,
     },
-    loadingText: {
-        color: '#666',
-        fontSize: 14,
-        fontFamily: getUbuntuFont('regular'),
-        marginTop: 12,
+    skeletonIconCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#e5e7eb',
+        marginRight: 12,
     },
+    skeletonProviderInfo: {
+        flex: 1,
+    },
+    skeletonProviderName: {
+        height: 18,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 4,
+        marginBottom: 8,
+        width: '70%',
+    },
+    skeletonProviderPhone: {
+        height: 16,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 4,
+        width: '50%',
+    },
+    skeletonDivider: {
+        height: 1,
+        backgroundColor: '#f3f4f6',
+        marginBottom: 12,
+    },
+    skeletonDetail: {
+        height: 16,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 4,
+        marginBottom: 8,
+        width: '85%',
+    },
+    skeletonDetailSmall: {
+        height: 14,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 4,
+        marginBottom: 12,
+        width: '60%',
+    },
+    skeletonActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    skeletonActionButton: {
+        flex: 1,
+        height: 36,
+        backgroundColor: '#e5e7eb',
+        borderRadius: 8,
+    },
+
     scrollContainer: {
         flex: 1,
         paddingHorizontal: 16,
