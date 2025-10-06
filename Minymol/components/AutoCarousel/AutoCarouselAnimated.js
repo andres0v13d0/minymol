@@ -71,6 +71,19 @@ const AutoCarouselAnimated = ({
     return () => clearInterval(interval);
   }, [autoScrollInterval, providerGroups.length]);
 
+  // Componente skeleton para tarjeta de proveedor
+  const ProviderCardSkeleton = () => (
+    <View style={styles.providerCard}>
+      <View style={[styles.logoContainer, styles.skeletonLogo]}>
+        <View style={styles.skeletonCircle} />
+      </View>
+      <View style={styles.skeletonTextContainer}>
+        <View style={styles.skeletonText} />
+        <View style={[styles.skeletonText, styles.skeletonTextShort]} />
+      </View>
+    </View>
+  );
+
   // Componente para mostrar una tarjeta de proveedor
   const ProviderCard = ({ provider }) => (
     <TouchableOpacity 
@@ -94,8 +107,10 @@ const AutoCarouselAnimated = ({
   if (loading) {
     return (
       <View style={[styles.container, { height: carouselHeight }]}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Cargando proveedores...</Text>
+        <View style={[styles.groupContainer, { width: screenWidth }]}>
+          <ProviderCardSkeleton />
+          <ProviderCardSkeleton />
+          <ProviderCardSkeleton />
         </View>
       </View>
     );
@@ -230,6 +245,32 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  // Estilos para skeleton
+  skeletonLogo: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#e0e0e0',
+  },
+  skeletonCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#e0e0e0',
+  },
+  skeletonTextContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  skeletonText: {
+    width: '90%',
+    height: 14,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  skeletonTextShort: {
+    width: '70%',
   },
 });
 
