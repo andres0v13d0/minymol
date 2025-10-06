@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
+import CustomerServiceModal from '../../components/CustomerServiceModal';
 import FavoritesModal from '../../components/FavoritesModal';
 import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
@@ -38,6 +39,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [showFavoritesModal, setShowFavoritesModal] = useState(false);
   const [showConfiguracion, setShowConfiguracion] = useState(false);
+  const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -142,6 +144,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de configuración
     if (action === 'configuracion') {
       setShowConfiguracion(true);
+      return;
+    }
+    
+    // Manejar la acción de servicio al cliente
+    if (action === 'servicio') {
+      setShowCustomerServiceModal(true);
       return;
     }
     
@@ -621,6 +629,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <Configuracion
         visible={showConfiguracion}
         onClose={() => setShowConfiguracion(false)}
+      />
+
+      {/* Customer Service Modal */}
+      <CustomerServiceModal
+        visible={showCustomerServiceModal}
+        onClose={() => setShowCustomerServiceModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />
