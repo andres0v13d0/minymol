@@ -15,8 +15,10 @@ import {
   View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
+import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
 import ProvidersModal from '../../components/ProvidersModal';
+import SAIHelpModal from '../../components/SAIHelpModal';
 import SAIModal from '../../components/SAIModal';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -30,6 +32,8 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
   const [showSAIModal, setShowSAIModal] = useState(false);
+  const [showSAIHelpModal, setShowSAIHelpModal] = useState(false);
+  const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -110,6 +114,18 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de SAI
     if (action === 'sai') {
       setShowSAIModal(true);
+      return;
+    }
+    
+    // Manejar la acción de ayuda SAI
+    if (action === 'sai-help') {
+      setShowSAIHelpModal(true);
+      return;
+    }
+    
+    // Manejar la acción de mis pedidos
+    if (action === 'mis-pedidos') {
+      setShowMyOrdersModal(true);
       return;
     }
     
@@ -561,6 +577,18 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <SAIModal
         visible={showSAIModal}
         onClose={() => setShowSAIModal(false)}
+      />
+
+      {/* SAI Help Modal */}
+      <SAIHelpModal
+        visible={showSAIHelpModal}
+        onClose={() => setShowSAIHelpModal(false)}
+      />
+
+      {/* My Orders Modal */}
+      <MyOrdersModal
+        visible={showMyOrdersModal}
+        onClose={() => setShowMyOrdersModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />
