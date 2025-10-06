@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import PrivacyPolicyModal from '../../components/PrivacyPolicyModal';
+import TermsAndConditionsModal from '../../components/TermsAndConditionsModal';
 import useNotifications from '../../hooks/useNotifications';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -28,6 +30,8 @@ const Configuracion = ({ visible, onClose }) => {
     const { notificationsEnabled, toggleNotifications } = useNotifications();
     const [loading, setLoading] = useState(false);
     const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+    const [showPrivacyPolicyModal, setShowPrivacyPolicyModal] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
 
     // Detectar si está en Expo Go
     const isExpoGo = Constants.appOwnership === 'expo';
@@ -203,7 +207,7 @@ const Configuracion = ({ visible, onClose }) => {
                                     <View style={styles.expoGoBannerContent}>
                                         <Text style={styles.expoGoBannerTitle}>Usando Expo Go</Text>
                                         <Text style={styles.expoGoBannerText}>
-                                            Las notificaciones push no funcionan en Expo Go. 
+                                            Las notificaciones push no funcionan en Expo Go.
                                             Necesitas crear un Development Build para probarlas.
                                         </Text>
                                     </View>
@@ -221,8 +225,8 @@ const Configuracion = ({ visible, onClose }) => {
                                             isExpoGo
                                                 ? 'No disponible en Expo Go. Toca para más información.'
                                                 : notificationsEnabled
-                                                ? 'Recibirás notificaciones de pedidos, ofertas y más'
-                                                : 'Activa las notificaciones para estar al día'
+                                                    ? 'Recibirás notificaciones de pedidos, ofertas y más'
+                                                    : 'Activa las notificaciones para estar al día'
                                         }
                                         showChevron={false}
                                         rightComponent={
@@ -276,25 +280,13 @@ const Configuracion = ({ visible, onClose }) => {
                                     <SettingItem
                                         icon="shield-checkmark-outline"
                                         title="Política de privacidad"
-                                        onPress={() => {
-                                            Alert.alert(
-                                                'Política de privacidad',
-                                                'Próximamente disponible en nuestra web',
-                                                [{ text: 'OK' }]
-                                            );
-                                        }}
+                                        onPress={() => setShowPrivacyPolicyModal(true)}
                                     />
                                     <View style={styles.separator} />
                                     <SettingItem
                                         icon="document-text-outline"
                                         title="Términos y condiciones"
-                                        onPress={() => {
-                                            Alert.alert(
-                                                'Términos y condiciones',
-                                                'Próximamente disponible en nuestra web',
-                                                [{ text: 'OK' }]
-                                            );
-                                        }}
+                                        onPress={() => setShowTermsModal(true)}
                                     />
                                 </View>
                             </View>
@@ -307,6 +299,18 @@ const Configuracion = ({ visible, onClose }) => {
             <ChangePasswordModal
                 visible={showChangePasswordModal}
                 onClose={() => setShowChangePasswordModal(false)}
+            />
+
+            {/* Modal de política de privacidad */}
+            <PrivacyPolicyModal
+                visible={showPrivacyPolicyModal}
+                onClose={() => setShowPrivacyPolicyModal(false)}
+            />
+
+            {/* Modal de términos y condiciones */}
+            <TermsAndConditionsModal
+                visible={showTermsModal}
+                onClose={() => setShowTermsModal(false)}
             />
         </Modal>
     );
