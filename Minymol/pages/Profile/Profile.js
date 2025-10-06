@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
+import FavoritesModal from '../../components/FavoritesModal';
 import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
 import ProvidersModal from '../../components/ProvidersModal';
@@ -34,6 +35,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showSAIModal, setShowSAIModal] = useState(false);
   const [showSAIHelpModal, setShowSAIHelpModal] = useState(false);
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -126,6 +128,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de mis pedidos
     if (action === 'mis-pedidos') {
       setShowMyOrdersModal(true);
+      return;
+    }
+    
+    // Manejar la acción de favoritos
+    if (action === 'favoritos') {
+      setShowFavoritesModal(true);
       return;
     }
     
@@ -589,6 +597,16 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <MyOrdersModal
         visible={showMyOrdersModal}
         onClose={() => setShowMyOrdersModal(false)}
+      />
+
+      {/* Favorites Modal */}
+      <FavoritesModal
+        visible={showFavoritesModal}
+        onClose={() => setShowFavoritesModal(false)}
+        onProductPress={(product) => {
+          // Aquí puedes manejar la navegación al detalle del producto si es necesario
+          console.log('Producto seleccionado:', product);
+        }}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />

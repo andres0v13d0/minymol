@@ -5,6 +5,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import SearchModal from './components/SearchModal/SearchModal';
 import { AppStateProvider } from './contexts/AppStateContext';
 import { CartProvider } from './contexts/CartContext';
+import { FavoritesProvider } from './hooks/useFavorites';
 import { useFonts } from './hooks/useFonts';
 import Cart from './pages/Cart/Cart';
 import Categories from './pages/Categories/Categories';
@@ -22,7 +23,9 @@ export default function App() {
     <SafeAreaProvider>
       <AppStateProvider>
         <CartProvider>
-          <AppContent />
+          <FavoritesProvider>
+            <AppContent />
+          </FavoritesProvider>
         </CartProvider>
       </AppStateProvider>
     </SafeAreaProvider>

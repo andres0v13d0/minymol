@@ -1,22 +1,61 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import { Dimensions, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFavorites } from '../../hooks/useFavorites';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false }) => {
+const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, showProvider = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [imageHeight, setImageHeight] = useState(200); // altura por defecto
   const [showPricesModal, setShowPricesModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmpresa, setUserEmpresa] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+
+  // Usar el hook centralizado de favoritos
+  const { isFavorite: isFavoriteGlobal, toggleFavorite: toggleFavoriteGlobal } = useFavorites();
 
   // Obtener el precio principal (primer precio)
   const mainPrice = product.prices && product.prices.length > 0 ? product.prices[0] : null;
   
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // Aquí puedes agregar la lógica para manejar favoritos con API
+  // Verificar si el usuario está logueado y obtener su empresa y rol
+  useEffect(() => {
+    const checkUserStatus = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('usuario');
+        if (userData) {
+          const usuario = JSON.parse(userData);
+          setIsLoggedIn(true);
+          setUserEmpresa(usuario?.proveedorInfo?.nombre_empresa);
+          setUserRole(usuario?.rol);
+        }
+      } catch (error) {
+        console.error('Error verificando usuario:', error);
+      }
+    };
+    checkUserStatus();
+  }, []);
+
+  // Determinar si este es producto propio
+  const isOwnProductByProvider = userEmpresa && product.provider && userEmpresa === product.provider;
+  
+  // Verificar si el producto es favorito usando el hook global
+  const productId = product.uuid || product.id;
+  const isFavorite = isFavoriteGlobal(productId);
+
+  // Determinar si mostrar el botón de favoritos
+  // Solo mostrar si es comerciante logueado y no es producto propio
+  const shouldShowFavoriteButton = isLoggedIn && userRole === 'comerciante' && !isOwnProductByProvider && !isOwnProduct;
+  
+  const toggleFavorite = async (e) => {
+    e?.stopPropagation();
+    if (!productId) return;
+    
+    // Usar la función del hook centralizado
+    await toggleFavoriteGlobal(productId);
   };
 
   const handleProductPress = () => {
@@ -86,18 +125,20 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
 
   return (
     <TouchableOpacity style={styles.container} onPress={handleProductPress} activeOpacity={0.8}>
-      {/* Botón de favoritos */}
-      <TouchableOpacity
-        style={styles.favoriteButton}
-        onPress={toggleFavorite}
-        activeOpacity={0.7}
-      >
-        <Ionicons
-          name={isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-          color={isFavorite ? '#e0245e' : '#666'}
-        />
-      </TouchableOpacity>
+      {/* Botón de favoritos - Solo mostrar si es comerciante logueado y no es producto propio */}
+      {shouldShowFavoriteButton && (
+        <TouchableOpacity
+          style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+          onPress={toggleFavorite}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isFavorite ? 'heart' : 'heart-outline'}
+            size={20}
+            color={isFavorite ? '#e0245e' : '#666'}
+          />
+        </TouchableOpacity>
+      )}
 
       {/* Imagen del producto */}
       <View style={styles.imageWrapper}>
@@ -117,11 +158,11 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false })
 
       {/* Etiqueta de nuevo */}
       {isNew() && (
-        <View style={styles.newBadge}>
-          <View style={styles.newBadgeTextWrapper}>
-            <Text style={styles.newBadgeText}>NEW</Text>
-          </View>
-        </View>
+        <Image
+          source={require('../../assets/nuevo.png')}
+          style={styles.newBadge}
+          resizeMode="contain"
+        />
       )}
 
       {/* Información del producto */}
@@ -227,6 +268,17 @@ const styles = StyleSheet.create({
     height: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  favoriteButtonActive: {
+    backgroundColor: 'rgba(224, 36, 94, 0.1)',
   },
   imageWrapper: {
     width: '100%',
@@ -253,33 +305,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 0,
-    height: 0,
-    borderRightWidth: 60,
-    borderBottomWidth: 60,
-    borderRightColor: 'transparent',
-    borderBottomColor: '#078fff',
+    width: 60,
+    height: 60,
     zIndex: 5,
-    transform: [{ rotate: '90deg' }],
-  },
-  newBadgeTextWrapper: {
-    position: 'absolute',
-    top: 20,
-    left: 0,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ rotate: '-135deg' }],
-  },
-  newBadgeText: {
-    color: 'white',
-    fontSize: 13,
-    fontFamily: getUbuntuFont('bold'),
-    textAlign: 'center',
-    includeFontPadding: false,
-    lineHeight: 11,
-    letterSpacing: 0.5,
   },
   productInfo: {
     padding: 8,
