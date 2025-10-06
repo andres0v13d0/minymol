@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { auth } from '../../config/firebase';
+import { apiCall } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 import latinCountries from '../../utils/latinCountries';
 import CodigoInput from '../CodigoInput';
@@ -163,37 +164,55 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
 
     const sendVerificationCode = async (phone) => {
         try {
-            await axios.post('https://api.minymol.com/auth/send-verification', {
+            console.log('📤 Enviando código de verificación a:', phone);
+            const response = await axios.post('https://api.minymol.com/notifications/verify/resend', {
+                channel: 'whatsapp',
+                type: 'verify_phone',
                 phoneNumber: phone
             });
+            console.log('✅ Respuesta envío código:', response.data);
             return true;
         } catch (error) {
-            console.error('Error enviando código:', error);
+            console.error('❌ Error enviando código:', error.response?.data || error.message);
+            console.error('📞 Número:', phone);
             throw error;
         }
     };
 
     const verifyCode = async (phone, code) => {
         try {
-            const response = await axios.post('https://api.minymol.com/auth/verify-code', {
+            console.log('🔍 Verificando código...');
+            console.log('📞 Número:', phone);
+            console.log('🔑 Código:', code);
+            
+            const response = await axios.post('https://api.minymol.com/notifications/verify/confirm', {
+                channel: 'whatsapp',
+                type: 'verify_phone',
                 phoneNumber: phone,
                 code: code
             });
-            return response.data.verified === true;
+            
+            console.log('✅ Respuesta verificación:', response.data);
+            
+            // ✅ FIX: El backend responde con {message: "Verificación exitosa"}, no con {verified: true}
+            // Si la petición tiene éxito (status 200) y no lanza error, es válido
+            return true;
         } catch (error) {
-            console.error('Error verificando código:', error);
+            console.error('❌ Error verificando código:', error.response?.status, error.response?.data || error.message);
+            console.error('📞 Número que falló:', phone);
+            console.error('🔑 Código que falló:', code);
             return false;
         }
     };
 
     const registerUserInBackend = async (userData, token) => {
         try {
-            const response = await axios.post(
-                'https://api.minymol.com/auth/register',
-                {
-                    token,
-                    ...userData
-                },
+            console.log('🔐 Enviando token al backend para login...');
+            
+            // Primer paso: Login con el token de Firebase (igual que la web)
+            const loginResponse = await axios.post(
+                'https://api.minymol.com/auth/login',
+                { token },
                 {
                     headers: {
                         'Content-Type': 'application/json',
@@ -201,10 +220,44 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
                 }
             );
 
-            return response.data;
+            console.log('✅ Login exitoso:', loginResponse.data);
+
+            // Segundo paso: Completar perfil del usuario
+            console.log('📝 Completando perfil de usuario...');
+            
+            await axios.post(
+                'https://api.minymol.com/users/complete-profile',
+                {
+                    nombre: `${userData.firstName} ${userData.lastName}`,
+                    telefono: userData.phoneNumber,
+                    departamento: userData.department || null,
+                    ciudad: userData.city || null,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+
+            console.log('✅ Perfil completado');
+
+            // Tercer paso: Obtener los datos actualizados del usuario usando apiCall
+            console.log('🔄 Obteniendo datos actualizados del usuario...');
+            
+            const updatedUserResponse = await apiCall(
+                'https://api.minymol.com/users/me',
+                { method: 'GET' }
+            );
+
+            const updatedUserData = await updatedUserResponse.json();
+            console.log('✅ Datos actualizados obtenidos:', updatedUserData);
+
+            return updatedUserData;
 
         } catch (error) {
-            console.error('Error en registro backend:', error);
+            console.error('❌ Error en registro backend:', error.response?.status, error.response?.data || error.message);
             throw error;
         }
     };
