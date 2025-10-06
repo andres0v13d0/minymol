@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import LoginModal from '../../components/LoginModal';
+import AuthManager from '../../components/AuthManager';
 import NavInf from '../../components/NavInf/NavInf';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -23,7 +23,8 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [subMenuOpen, setSubMenuOpen] = useState(false);
   const [subMenuSAIOpen, setSubMenuSAIOpen] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authType, setAuthType] = useState('login'); // 'login' o 'register'
   const [refreshing, setRefreshing] = useState(false);
 
   // Animaciones
@@ -102,19 +103,20 @@ const Profile = ({ onTabPress, onNavigate }) => {
   };
 
   const handleLogin = () => {
-    setShowLoginModal(true);
+    setAuthType('login');
+    setShowAuthModal(true);
   };
 
-  const handleLoginSuccess = async (userData, token) => {
+  const handleAuthSuccess = async (userData, token) => {
     try {
-      // Los datos ya fueron guardados en AsyncStorage por el LoginModal
+      // Los datos ya fueron guardados en AsyncStorage
       // Solo necesitamos actualizar el estado local
       setUsuario(userData);
-      setShowLoginModal(false);
+      setShowAuthModal(false);
 
-      console.log('Login exitoso:', userData.nombre || userData.proveedorInfo?.nombre_empresa);
+      console.log('Autenticación exitosa:', userData.nombre || userData.proveedorInfo?.nombre_empresa);
     } catch (error) {
-      console.error('Error manejando login exitoso:', error);
+      console.error('Error manejando autenticación exitosa:', error);
     }
   };
 
@@ -471,10 +473,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
           </View>
         ) : (
           <View style={styles.noUserContainer}>
-            <LinearGradient
-              colors={['#f8fafc', '#f1f5f9']}
-              style={styles.noUserBackground}
-            >
+            <View style={styles.noUserBackground}>
               <View style={styles.noUserContent}>
                 <View style={styles.noUserIconContainer}>
                   <LinearGradient
@@ -518,25 +517,21 @@ const Profile = ({ onTabPress, onNavigate }) => {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <Text style={styles.loginButtonText}>Iniciar sesión</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.loginButtonIcon} />
+                    <Text style={styles.loginButtonText}>Iniciar sesión / Registrarse</Text>
                   </LinearGradient>
                 </TouchableOpacity>
-
-                <TouchableOpacity style={styles.registerButton} onPress={handleLogin}>
-                  <Text style={styles.registerButtonText}>¿No tienes cuenta? Regístrate</Text>
-                </TouchableOpacity>
               </View>
-            </LinearGradient>
+            </View>
           </View>
         )}
       </ScrollView>
 
-      {/* Login Modal */}
-      <LoginModal
-        visible={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        onLoginSuccess={handleLoginSuccess}
+      {/* Auth Modal */}
+      <AuthManager
+        showLogin={showAuthModal && authType === 'login'}
+        showRegister={showAuthModal && authType === 'register'}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={handleAuthSuccess}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />
@@ -772,6 +767,7 @@ const styles = StyleSheet.create({
   },
   noUserBackground: {
     flex: 1,
+    backgroundColor: '#f8fafc',
     paddingHorizontal: 24,
     paddingTop: 40,
   },
@@ -858,19 +854,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: getUbuntuFont('bold'),
     marginRight: 8,
-  },
-  loginButtonIcon: {
-    marginLeft: 4,
-  },
-  registerButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  registerButtonText: {
-    color: '#6b7280',
-    fontSize: 14,
-    fontFamily: getUbuntuFont('medium'),
-    textAlign: 'center',
   },
 });
 
