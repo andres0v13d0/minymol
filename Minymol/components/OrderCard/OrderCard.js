@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { apiCall } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
+import OrderDetailModal from '../OrderDetailModal';
 
 const statusLabels = {
     pending: 'Pendiente',
@@ -28,6 +29,7 @@ const OrderCard = ({ id, status, total, cantidad, images, onPress }) => {
     const [ordenNumProveedor, setOrdenNumProveedor] = useState('');
     const [loading, setLoading] = useState(true);
     const [imageErrors, setImageErrors] = useState({});
+    const [showDetailModal, setShowDetailModal] = useState(false);
     const pulseAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -94,12 +96,21 @@ const OrderCard = ({ id, status, total, cantidad, images, onPress }) => {
 
     const statusColor = statusColors[status] || '#6b7280';
 
+    const handlePress = () => {
+        if (onPress) {
+            onPress(id);
+        } else {
+            setShowDetailModal(true);
+        }
+    };
+
     return (
-        <TouchableOpacity
-            style={styles.orderCard}
-            onPress={() => onPress && onPress(id)}
-            activeOpacity={0.7}
-        >
+        <>
+            <TouchableOpacity
+                style={styles.orderCard}
+                onPress={handlePress}
+                activeOpacity={0.7}
+            >
             {/* Header con fecha y estado */}
             <View style={styles.orderHeader}>
                 <View style={styles.orderTime}>
@@ -180,6 +191,14 @@ const OrderCard = ({ id, status, total, cantidad, images, onPress }) => {
                 </View>
             </View>
         </TouchableOpacity>
+
+        {/* Modal de detalles */}
+        <OrderDetailModal
+            visible={showDetailModal}
+            orderId={id}
+            onClose={() => setShowDetailModal(false)}
+        />
+    </>
     );
 };
 

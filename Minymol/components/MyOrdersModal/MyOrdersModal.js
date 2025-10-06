@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    Alert,
     Animated,
     Dimensions,
     FlatList,
@@ -221,12 +220,6 @@ const MyOrdersModal = ({ visible, onClose }) => {
         setRefreshing(false);
     };
 
-    const handleOrderPress = (orderId) => {
-        console.log('Orden presionada:', orderId);
-        // Aquí puedes navegar a los detalles de la orden
-        Alert.alert('Orden', `Ver detalles de la orden #${orderId}`);
-    };
-
     const handleClose = () => {
         Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -275,7 +268,6 @@ const MyOrdersModal = ({ visible, onClose }) => {
                     renderItem={({ item }) => (
                         <OrderCard
                             {...item}
-                            onPress={handleOrderPress}
                         />
                     )}
                     keyExtractor={(item) => item.id.toString()}
@@ -297,7 +289,7 @@ const MyOrdersModal = ({ visible, onClose }) => {
                 />
             </View>
         );
-    }, [getFilteredOrders, handleOrderPress, refreshing, onRefresh, insets.bottom, currentStatusIndex]);
+    }, [getFilteredOrders, refreshing, onRefresh, insets.bottom, currentStatusIndex]);
 
     return (
         <Modal
