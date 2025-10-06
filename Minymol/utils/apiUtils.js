@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../config/firebase';
 
-// Cache para peticiones y throttling
-const requestCache = new Map();
+// Throttling para evitar spam de peticiones
 const requestTimestamps = new Map();
 const THROTTLE_DELAY = 1000; // 1 segundo entre peticiones similares
 const MAX_RETRIES = 3;
@@ -56,17 +55,9 @@ const handleQuotaError = async (error, retryCount = 0) => {
 export const apiCall = async (url, options = {}, retryCount = 0) => {
     const method = options.method || 'GET';
     
-    // Verificar throttling
+    // Verificar throttling (solo esperar, no usar caché de respuestas)
     if (shouldThrottleRequest(url, method)) {
         console.log(`Petición throttled: ${method} ${url}`);
-        
-        // Retornar respuesta desde caché si existe
-        const cacheKey = `${method}:${url}`;
-        const cachedResponse = requestCache.get(cacheKey);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        
         // Esperar el throttle delay
         await new Promise(resolve => setTimeout(resolve, THROTTLE_DELAY));
     }
@@ -119,18 +110,8 @@ export const apiCall = async (url, options = {}, retryCount = 0) => {
             headers
         });
 
-        // Cachear respuesta exitosa para GET requests con cache específico por URL completa
-        if (method === 'GET' && response.ok) {
-            const cacheKey = `${method}:${url}`;
-            requestCache.set(cacheKey, response.clone());
-            
-            // Limpiar caché después de 2 minutos para productos (más rápido que antes)
-            const cacheTimeout = url.includes('/products/') ? 2 * 60 * 1000 : 5 * 60 * 1000;
-            setTimeout(() => {
-                requestCache.delete(cacheKey);
-                console.log(`🗑️ Cache eliminado para: ${cacheKey}`);
-            }, cacheTimeout);
-        }
+        // ✅ No cachear el response.clone() porque causa "Already read"
+        // El caché se maneja a nivel de throttling para evitar peticiones duplicadas
 
         // Si el token está vencido (401), intentar renovar
         if (response.status === 401 && user && retryCount < MAX_RETRIES) {
