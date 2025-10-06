@@ -17,6 +17,7 @@ import {
 import AuthManager from '../../components/AuthManager';
 import CustomerServiceModal from '../../components/CustomerServiceModal';
 import FavoritesModal from '../../components/FavoritesModal';
+import MovementsModal from '../../components/MovementsModal';
 import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
 import ProvidersModal from '../../components/ProvidersModal';
@@ -42,6 +43,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
   const [showConfiguracion, setShowConfiguracion] = useState(false);
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
   const [showReportsModal, setShowReportsModal] = useState(false);
+  const [showMovementsModal, setShowMovementsModal] = useState(false);
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -158,6 +160,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
     // Manejar la acción de informes
     if (action === 'informes') {
       setShowReportsModal(true);
+      return;
+    }
+    
+    // Manejar la acción de movimientos
+    if (action === 'movimientos') {
+      setShowMovementsModal(true);
       return;
     }
     
@@ -649,6 +657,12 @@ const Profile = ({ onTabPress, onNavigate }) => {
       <ReportsModal
         visible={showReportsModal}
         onClose={() => setShowReportsModal(false)}
+      />
+
+      {/* Movements Modal */}
+      <MovementsModal
+        visible={showMovementsModal}
+        onClose={() => setShowMovementsModal(false)}
       />
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} />
