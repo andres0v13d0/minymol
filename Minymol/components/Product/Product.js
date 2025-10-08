@@ -47,8 +47,8 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
   const isFavorite = isFavoriteGlobal(productId);
 
   // Determinar si mostrar el botón de favoritos
-  // Solo mostrar si es comerciante logueado y no es producto propio
-  const shouldShowFavoriteButton = isLoggedIn && userRole === 'comerciante' && !isOwnProductByProvider && !isOwnProduct;
+  // Solo mostrar si está logueado y no es producto propio
+  const shouldShowFavoriteButton = isLoggedIn && !isOwnProductByProvider && !isOwnProduct;
   
   const toggleFavorite = async (e) => {
     e?.stopPropagation();

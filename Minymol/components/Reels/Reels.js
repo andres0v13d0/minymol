@@ -13,7 +13,6 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
 import { auth } from '../../config/firebase';
 import { useCache } from '../../hooks/useCache';
 import { apiCall } from '../../utils/apiUtils';
@@ -461,24 +460,6 @@ const Reels = ({ onEmpty }) => {
                 contentContainerStyle={styles.scrollContainer}
                 style={styles.scrollView}
             >
-                {/* Botón de agregar historia - solo para proveedores */}
-                {user && isProvider && (
-                    <TouchableOpacity
-                        style={styles.storyItem}
-                        onPress={() => setShowUploadModal(true)}
-                        activeOpacity={0.8}
-                    >
-                        <View style={[styles.storyThumbnail, styles.addStoryThumbnail]}>
-                            <View style={styles.addStoryContent}>
-                                <View style={styles.addStoryCircle}>
-                                    <Icon name="add" size={20} color="white" />
-                                </View>
-                                <Text style={styles.addStoryText}>Tu historia</Text>
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-                )}
-
                 {/* Mis historias (solo si tengo historias) */}
                 {user && myStories.length > 0 && (
                     <TouchableOpacity

@@ -18,7 +18,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getUbuntuFont } from '../../utils/fonts';
-import DeleteConfirmModal from './DeleteConfirmModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -402,14 +401,6 @@ const ProviderStories = ({ visible, provider, onClose, isOwner = false, onDelete
                             </View>
                         </View>
                         <View style={styles.headerActions}>
-                            {isOwner && (
-                                <TouchableOpacity
-                                    style={styles.deleteButton}
-                                    onPress={() => confirmDeleteReel(currentReel)}
-                                >
-                                    <Icon name="delete" size={18} color="white" />
-                                </TouchableOpacity>
-                            )}
                             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                                 <Icon name="close" size={20} color="white" />
                             </TouchableOpacity>
@@ -505,16 +496,6 @@ const ProviderStories = ({ visible, provider, onClose, isOwner = false, onDelete
                         </View>
                     </View>
                 </View>
-
-                {/* Modal de confirmación de eliminación */}
-                {showDeleteModal && reelToDelete && (
-                    <DeleteConfirmModal
-                        visible={showDeleteModal}
-                        reel={reelToDelete}
-                        onConfirm={handleDeleteReel}
-                        onCancel={cancelDeleteReel}
-                    />
-                )}
             </View>
         </Modal>
     );

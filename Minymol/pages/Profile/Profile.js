@@ -295,11 +295,7 @@ const Profile = ({ onTabPress, onNavigate }) => {
                 <View style={styles.userInfoRow}>
                   <View style={styles.userIconCircle}>
                     <Ionicons 
-                      name={
-                        usuario.rol === 'proveedor' ? 'business' : 
-                        usuario.rol === 'admin' ? 'shield-checkmark' : 
-                        'person'
-                      } 
+                      name="person"
                       size={32} 
                       color="#fff" 
                     />
@@ -308,51 +304,15 @@ const Profile = ({ onTabPress, onNavigate }) => {
                   <View style={styles.userTextInfo}>
                     <Text style={styles.welcomeText}>¡Hola!</Text>
                     <Text style={styles.userName}>
-                      {usuario.rol === 'proveedor'
-                        ? usuario.proveedorInfo?.nombre_empresa
-                        : usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'
-                      }
+                      {usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'}
                     </Text>
-                    <View style={styles.userBadgeContainer}>
-                      <View style={styles.roleBadge}>
-                        <Ionicons 
-                          name={
-                            usuario.rol === 'proveedor' ? 'briefcase' : 
-                            usuario.rol === 'admin' ? 'shield' : 
-                            'storefront'
-                          } 
-                          size={12} 
-                          color="#fff" 
-                          style={styles.badgeIcon}
-                        />
-                        <Text style={styles.roleBadgeText}>
-                          {usuario.rol === 'proveedor' ? 'Proveedor' : 
-                           usuario.rol === 'admin' ? 'Administrador' : 'Comerciante'}
-                        </Text>
-                      </View>
-                    </View>
                   </View>
                 </View>
               </View>
             </LinearGradient>
 
-            {/* Panel de administrador / Mi catálogo - Contenedor separado */}
-            {usuario.rol !== 'comerciante' && (
-              <View style={styles.specialContainer}>
-                <MenuButton
-                  icon={usuario.rol === 'admin' ? 'clipboard-outline' : 'shirt-outline'}
-                  text={usuario.rol === 'admin' ? 'Panel de administrador' : 'Mi catálogo'}
-                  isSpecial={true}
-                  onPress={() => handleMenuPress(usuario.rol === 'admin' ? 'admin' : 'catalog', {
-                    id: usuario.proveedorInfo?.id
-                  })}
-                />
-              </View>
-            )}
-
-            {/* Abonos inteligentes - Contenedor separado solo para comerciantes */}
-            {usuario.rol === 'comerciante' && (
-              <View style={styles.specialContainer}>
+            {/* Abonos inteligentes - Contenedor separado */}
+            <View style={styles.specialContainer}>
                 <MenuButton
                   icon="trending-up-outline"
                   text="Abonos inteligentes"
@@ -435,89 +395,23 @@ const Profile = ({ onTabPress, onNavigate }) => {
                       onPress={() => handleMenuPress('movimientos')}
                     />
                 </Animated.View>
-              </View>
-            )}
+            </View>
 
             {/* Botones del menú principal */}
             <View style={styles.menuContainer}>
-              {/* Mi inventario (solo proveedores) */}
-              {usuario.rol === 'proveedor' && (
-                <>
-                  <MenuButton
-                    icon="cube-outline"
-                    text="Mi inventario"
-                    hasSubmenu={true}
-                    isOpen={subMenuOpen}
-                    onPress={() => setSubMenuOpen(!subMenuOpen)}
-                  />
-
-                  {/* Submenú de Mi inventario */}
-                  <Animated.View
-                    style={[
-                      styles.submenu,
-                      {
-                        maxHeight: subMenuAnimation.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, 500],
-                        }),
-                        opacity: subMenuAnimation,
-                        overflow: 'hidden',
-                      },
-                    ]}
-                  >
-                      <MenuButton
-                        icon="archive-outline"
-                        text="Mis productos"
-                        isSubitem={true}
-                        onPress={() => handleMenuPress('productos')}
-                      />
-                      <MenuButton
-                        icon="create-outline"
-                        text="Editar inventario"
-                        isSubitem={true}
-                        onPress={() => handleMenuPress('editar-inventario')}
-                      />
-                      <MenuButton
-                        icon="eye-outline"
-                        text="Ver inventario"
-                        isSubitem={true}
-                        onPress={() => handleMenuPress('ver-inventario')}
-                      />
-                    </Animated.View>
-                </>
-              )}
-
               {/* Mis pedidos */}
               <MenuButton
-                icon={usuario.rol === 'comerciante' ? 'basket-outline' : 'clipboard-outline'}
+                icon="basket-outline"
                 text="Mis pedidos"
                 onPress={() => handleMenuPress('mis-pedidos')}
               />
 
-              {/* Favoritos (solo comerciantes) */}
-              {usuario.rol === 'comerciante' && (
-                <MenuButton
-                  icon="star-outline"
-                  text="Favoritos"
-                  onPress={() => handleMenuPress('favoritos')}
-                />
-              )}
-
-              {/* Opciones específicas de proveedor */}
-              {usuario.rol === 'proveedor' && (
-                <>
-                  <MenuButton
-                    icon="people-outline"
-                    text="Mis clientes"
-                    onPress={() => handleMenuPress('mis-clientes')}
-                  />
-                  <MenuButton
-                    icon="storefront-outline"
-                    text="Mi tienda"
-                    onPress={() => handleMenuPress('mi-tienda')}
-                  />
-                </>
-              )}
+              {/* Favoritos */}
+              <MenuButton
+                icon="star-outline"
+                text="Favoritos"
+                onPress={() => handleMenuPress('favoritos')}
+              />
 
               {/* Configuración */}
               <MenuButton
