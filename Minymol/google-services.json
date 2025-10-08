@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1059238915929",
+    "project_id": "minymolapp",
+    "storage_bucket": "minymolapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059238915929:android:986966d813df57211c6648",
+        "android_client_info": {
+          "package_name": "com.minymol.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXd8CuPSjmIDLSlFfPYCCdgj8VOdCaK1A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
