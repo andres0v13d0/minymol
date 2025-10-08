@@ -22,6 +22,14 @@
           "color": "#fa7e17",
           "sounds": []
         }
+      ],
+      [
+        "@react-native-firebase/app",
+        {
+          "android": {
+            "googleServicesFile": "./android/app/google-services.json"
+          }
+        }
       ]
     ],
     "ios": {
@@ -39,7 +47,6 @@
       },
       "package": "com.minymol.app",
       "versionCode": 1,
-      "googleServicesFile": "./android/app/google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS"
       ]
