@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
-import { Dimensions, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFavorites } from '../../hooks/useFavorites';
 import { getUbuntuFont } from '../../utils/fonts';
 
@@ -89,7 +90,7 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
   };
 
   const handleImageLoad = (event) => {
-    const { width, height } = event.nativeEvent.source;
+    const { width, height } = event.source;
     // Calcular la altura basada en el ancho del contenedor
     const getColumnsCount = () => {
       if (screenWidth >= 1600) return 6;
@@ -147,7 +148,10 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
           style={[styles.image, { height: imageHeight }, !imageLoaded && styles.imageHidden]}
           onLoad={handleImageLoad}
           onError={handleImageError}
-          resizeMode="cover"
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
         />
         {!imageLoaded && (
           <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
@@ -452,4 +456,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Product;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders innecesarios
+export default React.memo(Product);

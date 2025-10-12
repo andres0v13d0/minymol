@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -39,48 +39,52 @@ function AppContent() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const fontsLoaded = useFonts();
 
-  const handleCategoryPress = (categorySlug) => {
+  // ✅ OPTIMIZADO: useCallback para evitar re-renders de componentes hijos
+  const handleCategoryPress = useCallback((categorySlug) => {
     console.log('Categoría seleccionada:', categorySlug);
     // Aquí podrías navegar a una página de productos de esa categoría
     // o implementar la lógica que necesites
-  };
+  }, []);
 
-  const handleNavigate = (action, params = {}) => {
+  const handleNavigate = useCallback((action, params = {}) => {
     console.log('Navegando a:', action, 'con parámetros:', params);
     
     // Aquí puedes implementar la lógica de navegación según la acción
     // Por ejemplo, para login, configuración, etc.
-  };
+  }, []);
 
-  const handleTabPress = (tab) => {
+  // ✅ MEGA OPTIMIZADO: Actualización instantánea del estado sin delay
+  const handleTabPress = useCallback((tab) => {
+    console.log('Tab seleccionado:', tab);
+    
+    // Actualizar estados directamente para cambio instantáneo
     setSelectedTab(tab);
     setCurrentScreen(tab);
     setSelectedProduct(null);
-    console.log('Tab seleccionado:', tab);
-  };
+  }, []);
 
-  const handleProductPress = (product) => {
+  const handleProductPress = useCallback((product) => {
     console.log('App: handleProductPress llamado con:', product);
     setSelectedProduct(product);
     setCurrentScreen('productDetail');
     console.log('App: Estado actualizado, currentScreen:', 'productDetail');
-  };
+  }, []);
 
-  const handleBackToHome = () => {
+  const handleBackToHome = useCallback(() => {
     setCurrentScreen('home');
     setSelectedProduct(null);
     setSelectedTab('home');
-  };
+  }, []);
 
-  const handleSearchPress = () => {
+  const handleSearchPress = useCallback(() => {
     console.log('App: handleSearchPress llamado, abriendo modal');
     setShowSearchModal(true);
-  };
+  }, []);
 
-  const handleCloseSearch = () => {
+  const handleCloseSearch = useCallback(() => {
     console.log('App: handleCloseSearch llamado, cerrando modal');
     setShowSearchModal(false);
-  };
+  }, []);
 
   // Mostrar loading mientras cargan las fuentes
   if (!fontsLoaded) {
@@ -104,20 +108,21 @@ function AppContent() {
         {/* Home Screen */}
         <View style={[
           styles.screenContainer, 
-          { display: currentScreen === 'home' ? 'flex' : 'none' }
+          currentScreen === 'home' ? styles.visible : styles.hidden
         ]}>
           <Home 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'home'}
           />
         </View>
 
         {/* Categories Screen */}
         <View style={[
           styles.screenContainer, 
-          { display: currentScreen === 'categories' ? 'flex' : 'none' }
+          currentScreen === 'categories' ? styles.visible : styles.hidden
         ]}>
           <Categories 
             onProductPress={handleProductPress} 
@@ -125,39 +130,42 @@ function AppContent() {
             onTabPress={handleTabPress}
             onCategoryPress={handleCategoryPress}
             onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'categories'}
           />
         </View>
 
         {/* Profile Screen */}
         <View style={[
           styles.screenContainer, 
-          { display: currentScreen === 'profile' ? 'flex' : 'none' }
+          currentScreen === 'profile' ? styles.visible : styles.hidden
         ]}>
           <Profile 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
             onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'profile'}
           />
         </View>
 
         {/* Cart Screen */}
         <View style={[
           styles.screenContainer, 
-          { display: currentScreen === 'cart' ? 'flex' : 'none' }
+          currentScreen === 'cart' ? styles.visible : styles.hidden
         ]}>
           <Cart 
             onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'cart'}
           />
         </View>
 
         {/* Product Detail Screen */}
         <View style={[
           styles.screenContainer, 
-          { display: currentScreen === 'productDetail' ? 'flex' : 'none' }
+          currentScreen === 'productDetail' ? styles.visible : styles.hidden
         ]}>
           {selectedProduct && (
             <ProductDetail 
@@ -225,6 +233,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     flex: 1,
+  },
+  // ✅ OPTIMIZADO: Estilos estáticos en lugar de inline para cambio instantáneo
+  visible: {
+    display: 'flex',
+    opacity: 1,
+    zIndex: 1,
+  },
+  hidden: {
+    display: 'none',
+    opacity: 0,
+    zIndex: -1,
   },
   bottomSafeArea: {
     backgroundColor: '#14144b',

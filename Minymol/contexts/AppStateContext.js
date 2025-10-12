@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useReducer } from 'react';
+import { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
 import { apiCall } from '../utils/apiUtils';
 import { shuffleProducts } from '../utils/productUtils';
 import subCategoriesManager from '../utils/SubCategoriesManager';
@@ -152,13 +152,19 @@ export const AppStateProvider = ({ children }) => {
         }
     }, []);
 
+    // ✅ OPTIMIZADO: Solo hacer dispatch si el índice realmente cambia
     const changeCategory = useCallback((index) => {
-        dispatch({ type: AppStateActionTypes.SET_CURRENT_CATEGORY, payload: index });
-    }, []);
+        if (state.currentCategoryIndex !== index) {
+            dispatch({ type: AppStateActionTypes.SET_CURRENT_CATEGORY, payload: index });
+        }
+    }, [state.currentCategoryIndex]);
 
+    // ✅ OPTIMIZADO: Solo hacer dispatch si el índice realmente cambia
     const changeSubCategory = useCallback((index) => {
-        dispatch({ type: AppStateActionTypes.SET_CURRENT_SUBCATEGORY, payload: index });
-    }, []);
+        if (state.currentSubCategoryIndex !== index) {
+            dispatch({ type: AppStateActionTypes.SET_CURRENT_SUBCATEGORY, payload: index });
+        }
+    }, [state.currentSubCategoryIndex]);
 
     const setHomeInitialized = useCallback((initialized) => {
         dispatch({ type: AppStateActionTypes.SET_HOME_INITIALIZED, payload: initialized });
@@ -214,9 +220,16 @@ export const AppStateProvider = ({ children }) => {
                 const allIds = idsData.map(p => p.product_id).filter(id => id);
                 console.log(`📋 ${allIds.length} IDs válidos extraídos para HOME (${requestId})`);
                 
-                // Randomizar TODOS los IDs (paso clave de la Opción 3)
-                const shuffledIds = shuffleProducts(allIds);
-                console.log(`🎲 IDs randomizados para HOME (${requestId})`);
+                // ⚡ OPTIMIZACIÓN TEMPORAL: Limitar a 100 productos máximo
+                const MAX_PRODUCTS = 100;
+                const limitedIds = allIds.slice(0, MAX_PRODUCTS);
+                if (allIds.length > MAX_PRODUCTS) {
+                    console.log(`⚡ OPTIMIZACIÓN: Limitando HOME de ${allIds.length} a ${MAX_PRODUCTS} productos (${requestId})`);
+                }
+                
+                // Randomizar los IDs limitados (paso clave de la Opción 3)
+                const shuffledIds = shuffleProducts(limitedIds);
+                console.log(`🎲 IDs randomizados para HOME: ${shuffledIds.length} productos (${requestId})`);
                 
                 // Obtener TODOS los previews de una vez (como la web)
                 const previewsUrl = 'https://api.minymol.com/products/previews';
@@ -311,11 +324,19 @@ export const AppStateProvider = ({ children }) => {
 
             // Extraer TODOS los IDs (sin paginación como la web)
             const allIds = idsData.map(p => p.product_id).filter(id => id);
-            console.log(`� ${allIds.length} IDs válidos extraídos para categoría (${requestId})`);
+            console.log(`📋 ${allIds.length} IDs válidos extraídos para categoría (${requestId})`);
             
-            // Randomizar TODOS los IDs de la categoría
-            const shuffledIds = shuffleProducts(allIds);
-            console.log(`🎲 IDs randomizados para categoría ${categorySlug} (${requestId})`);
+            // ⚡ OPTIMIZACIÓN TEMPORAL: Limitar a 100 productos máximo
+            // Esto reduce drasticamente el consumo de datos y memoria
+            const MAX_PRODUCTS = 100;
+            const limitedIds = allIds.slice(0, MAX_PRODUCTS);
+            if (allIds.length > MAX_PRODUCTS) {
+                console.log(`⚡ OPTIMIZACIÓN: Limitando de ${allIds.length} a ${MAX_PRODUCTS} productos para mejor rendimiento (${requestId})`);
+            }
+            
+            // Randomizar los IDs limitados
+            const shuffledIds = shuffleProducts(limitedIds);
+            console.log(`🎲 IDs randomizados para categoría ${categorySlug}: ${shuffledIds.length} productos (${requestId})`);
 
             // Obtener TODOS los previews de una vez (como la web)
             const previewsUrl = `https://api.minymol.com/products/previews`;
@@ -374,7 +395,8 @@ export const AppStateProvider = ({ children }) => {
         return false;
     }, [state.currentCategoryIndex]);
 
-    const value = {
+    // ✅ OPTIMIZADO: Memoizar el value del contexto para evitar re-renders innecesarios
+    const value = useMemo(() => ({
         ...state,
         setUser,
         setLoading,
@@ -388,7 +410,21 @@ export const AppStateProvider = ({ children }) => {
         loadCategoryProducts,
         getCurrentCategory,
         isCategoryLoading,
-    };
+    }), [
+        state,
+        setUser,
+        setLoading,
+        setError,
+        clearError,
+        loadCategories,
+        changeCategory,
+        changeSubCategory,
+        setHomeInitialized,
+        getCategoryProducts,
+        loadCategoryProducts,
+        getCurrentCategory,
+        isCategoryLoading,
+    ]);
 
     return (
         <AppStateContext.Provider value={value}>

@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
@@ -257,4 +257,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Categories;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
+export default memo(Categories);

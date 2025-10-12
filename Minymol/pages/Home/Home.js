@@ -1,15 +1,18 @@
+import { memo } from 'react';
 import CategorySliderHomeOptimized from './CategorySliderHomeOptimized';
 
-const Home = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress }) => {
+const Home = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress, isActive = true }) => {
   return (
     <CategorySliderHomeOptimized 
       onProductPress={onProductPress}
       selectedTab={selectedTab}
       onTabPress={onTabPress}
       onSearchPress={onSearchPress}
+      isActive={isActive}
     />
   );
 };
 
-export default Home;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
+export default memo(Home);
 

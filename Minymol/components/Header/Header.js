@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Search from '../Search/Search';
 
@@ -168,4 +168,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Header;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders innecesarios
+export default React.memo(Header);

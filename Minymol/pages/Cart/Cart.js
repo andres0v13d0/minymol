@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -1049,4 +1049,5 @@ const styles = StyleSheet.create({
     },
 });
 
-export default Cart;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
+export default memo(Cart);

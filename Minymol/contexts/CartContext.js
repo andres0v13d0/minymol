@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { auth } from '../config/firebase';
 import { isAuthenticated } from '../utils/apiUtils';
@@ -310,7 +310,8 @@ export const CartProvider = ({ children }) => {
         };
     }, [user]);
 
-    const value = {
+    // ✅ OPTIMIZADO: Memoizar el value del contexto para evitar re-renders innecesarios
+    const value = useMemo(() => ({
         cartItems,
         loading,
         syncInProgress,
@@ -324,7 +325,21 @@ export const CartProvider = ({ children }) => {
         getTotalPrice,
         getGroupedItems,
         loadCart,
-    };
+    }), [
+        cartItems,
+        loading,
+        syncInProgress,
+        user,
+        addToCart,
+        updateQuantity,
+        toggleItemCheck,
+        removeItem,
+        clearCart,
+        getTotalItems,
+        getTotalPrice,
+        getGroupedItems,
+        loadCart,
+    ]);
 
     return (
         <CartContext.Provider value={value}>

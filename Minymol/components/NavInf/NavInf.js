@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CartIcon from '../Cart/Cart';
 
@@ -106,4 +107,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NavInf;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders innecesarios
+export default React.memo(NavInf);

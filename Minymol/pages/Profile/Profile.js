@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
 import CustomerServiceModal from '../../components/CustomerServiceModal';
@@ -882,4 +882,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Profile;
+// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
+export default memo(Profile);

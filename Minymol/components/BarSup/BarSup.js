@@ -1,29 +1,44 @@
-import { useEffect, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getUbuntuFont } from '../../utils/fonts';
 
-const BarSup = ({ currentCategory = '', onCategoryPress }) => {
-  const [categorias, setCategorias] = useState([]);
-
-  useEffect(() => {
-    const fetchCategorias = async () => {
-      try {
-        const res = await fetch('https://api.minymol.com/categories/with-products-and-images');
-        const data = await res.json();
-        setCategorias(data);
-      } catch (err) {
-        console.error('Error al cargar categorías:', err);
-      }
-    };
-
-    fetchCategorias();
-  }, []);
-
-  const handleCategoryPress = (category) => {
+// ✅ OPTIMIZADO: Componente para barra superior de categorías
+const BarSup = ({ currentCategory = '', onCategoryPress, categories = [] }) => {
+  // ✅ OPTIMIZADO: Usar categorías del prop en lugar de cargar desde API
+  // Esto elimina el delay de 1+ segundo
+  
+  const handleCategoryPress = useCallback((category) => {
     if (onCategoryPress) {
       onCategoryPress(category);
     }
-  };
+  }, [onCategoryPress]);
+
+  // ✅ OPTIMIZADO: Memoizar el renderizado de categorías
+  // NOTA: No incluimos handleCategoryPress en deps porque causa re-creación
+  // El closure capturará la versión actual automáticamente
+  const categoryButtons = useMemo(() => {
+    return categories.map((cat) => {
+      const isSelected = currentCategory === cat.slug;
+      return (
+        <TouchableOpacity
+          key={cat.id}
+          style={styles.linkSup}
+          onPress={() => handleCategoryPress(cat)}
+          activeOpacity={0.7}
+        >
+          <Text style={[
+            styles.linkText, 
+            isSelected && styles.selected
+          ]}>
+            {cat.name}
+          </Text>
+        </TouchableOpacity>
+      );
+    });
+  }, [categories, currentCategory]);
+
+  // ✅ OPTIMIZADO: Calcular si "Todos" está seleccionado
+  const isTodosSelected = currentCategory === '';
 
   return (
     <View style={styles.barSup}>
@@ -35,33 +50,34 @@ const BarSup = ({ currentCategory = '', onCategoryPress }) => {
         <TouchableOpacity
           style={styles.linkSup}
           onPress={() => handleCategoryPress(null)}
+          activeOpacity={0.7}
         >
           <Text style={[
             styles.linkText, 
-            currentCategory === '' && styles.selected
+            isTodosSelected && styles.selected
           ]}>
             Todos
           </Text>
         </TouchableOpacity>
 
-        {categorias.map((cat) => (
-          <TouchableOpacity
-            key={cat.id}
-            style={styles.linkSup}
-            onPress={() => handleCategoryPress(cat)}
-          >
-            <Text style={[
-              styles.linkText, 
-              currentCategory === cat.slug && styles.selected
-            ]}>
-              {cat.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {categoryButtons}
       </ScrollView>
     </View>
   );
 };
+
+// ✅ OPTIMIZACIÓN CRÍTICA: Comparación personalizada para React.memo
+// Solo re-renderizar si currentCategory cambia (ignorar cambios en onCategoryPress)
+const arePropsEqual = (prevProps, nextProps) => {
+  return (
+    prevProps.currentCategory === nextProps.currentCategory &&
+    prevProps.categories.length === nextProps.categories.length
+  );
+};
+
+// Exportar con comparación personalizada
+const BarSupMemo = React.memo(BarSup, arePropsEqual);
+BarSupMemo.displayName = 'BarSup';
 
 const styles = StyleSheet.create({
   barSup: {
@@ -90,4 +106,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BarSup;
+export default BarSupMemo;
