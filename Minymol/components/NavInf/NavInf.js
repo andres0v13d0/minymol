@@ -7,11 +7,29 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
   // Si estamos en ProductInfo, no mostrar ningún tab como seleccionado
   const activeTab = isProductInfo ? null : selectedTab;
   
+  // 🔍 DEBUG: Medir tiempo de respuesta del click
+  const handleTabPress = (tab) => {
+    const clickTime = performance.now();
+    console.log('🖱️  ========================================');
+    console.log('🖱️  NAVINF CLICK en tab:', tab);
+    console.log('🖱️  Click timestamp:', clickTime.toFixed(2), 'ms');
+    
+    if (onTabPress) {
+      onTabPress(tab);
+      
+      // Medir cuánto tarda en ejecutarse el callback
+      requestAnimationFrame(() => {
+        const callbackTime = performance.now();
+        console.log('🖱️  Callback ejecutado en:', (callbackTime - clickTime).toFixed(2), 'ms');
+      });
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onTabPress && onTabPress('home')}
+        onPress={() => handleTabPress('home')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -27,7 +45,7 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onTabPress && onTabPress('categories')}
+        onPress={() => handleTabPress('categories')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -43,7 +61,7 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onTabPress && onTabPress('profile')}
+        onPress={() => handleTabPress('profile')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
@@ -59,7 +77,7 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => onTabPress && onTabPress('cart')}
+        onPress={() => handleTabPress('cart')}
       >
         <View style={styles.iconContainer}>
           <CartIcon isSelected={activeTab === 'cart'} />
@@ -107,5 +125,14 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ OPTIMIZADO: React.memo para evitar re-renders innecesarios
-export default React.memo(NavInf);
+// ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada
+// NavInf solo debe re-renderizar cuando cambia selectedTab
+const NavInfOptimized = React.memo(NavInf, (prevProps, nextProps) => {
+  return (
+    prevProps.selectedTab === nextProps.selectedTab &&
+    prevProps.isProductInfo === nextProps.isProductInfo &&
+    prevProps.onTabPress === nextProps.onTabPress
+  );
+});
+
+export default NavInfOptimized;

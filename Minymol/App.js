@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { startTransition, useCallback, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +37,7 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false); // ✅ Flag de transición
   const fontsLoaded = useFonts();
 
   // ✅ OPTIMIZADO: useCallback para evitar re-renders de componentes hijos
@@ -54,13 +55,33 @@ function AppContent() {
   }, []);
 
   // ✅ MEGA OPTIMIZADO: Actualización instantánea del estado sin delay
+  // Usando startTransition para hacer el update no-bloqueante
   const handleTabPress = useCallback((tab) => {
-    console.log('Tab seleccionado:', tab);
+    const startTime = performance.now();
+    console.log('🔵 ========================================');
+    console.log('🔵 TAB PRESS INICIADO:', tab);
+    console.log('🔵 Timestamp:', startTime.toFixed(2), 'ms');
     
-    // Actualizar estados directamente para cambio instantáneo
-    setSelectedTab(tab);
-    setCurrentScreen(tab);
-    setSelectedProduct(null);
+    // 🚀 SOLUCIÓN: Usar startTransition para hacer el cambio no-bloqueante
+    // Esto permite que React priorice la UI y procese los updates en segundo plano
+    startTransition(() => {
+      setSelectedTab(tab);
+      setCurrentScreen(tab);
+      setSelectedProduct(null);
+    });
+    
+    // Medir cuánto tomó el setState
+    requestAnimationFrame(() => {
+      const afterStateTime = performance.now();
+      console.log('🟢 setState INICIADO en:', (afterStateTime - startTime).toFixed(2), 'ms');
+      
+      // Medir cuándo termina el render completo
+      requestAnimationFrame(() => {
+        const endTime = performance.now();
+        console.log('🟢 RENDER COMPLETO en:', (endTime - startTime).toFixed(2), 'ms');
+        console.log('🔵 ========================================');
+      });
+    });
   }, []);
 
   const handleProductPress = useCallback((product) => {
@@ -101,7 +122,14 @@ function AppContent() {
   }
 
   const renderAllScreens = () => {
-    console.log('App: renderAllScreens llamado, currentScreen:', currentScreen);
+    console.log('🎨 renderAllScreens llamado, currentScreen:', currentScreen);
+    const renderStart = performance.now();
+    
+    // Medir tiempo de render
+    requestAnimationFrame(() => {
+      const renderEnd = performance.now();
+      console.log('🎨 Tiempo de renderAllScreens:', (renderEnd - renderStart).toFixed(2), 'ms');
+    });
     
     return (
       <>
@@ -234,16 +262,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     flex: 1,
   },
-  // ✅ OPTIMIZADO: Estilos estáticos en lugar de inline para cambio instantáneo
+  // ✅ ULTRA OPTIMIZADO: Estilos con hardware acceleration para cambio instantáneo
   visible: {
-    display: 'flex',
     opacity: 1,
     zIndex: 1,
+    pointerEvents: 'auto',
   },
   hidden: {
-    display: 'none',
     opacity: 0,
     zIndex: -1,
+    pointerEvents: 'none',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   bottomSafeArea: {
     backgroundColor: '#14144b',

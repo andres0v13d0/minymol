@@ -27,7 +27,7 @@ import SAIModal from '../../components/SAIModal';
 import { getUbuntuFont } from '../../utils/fonts';
 import Configuracion from '../Configuracion';
 
-const Profile = ({ onTabPress, onNavigate }) => {
+const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
   const [usuario, setUsuario] = useState(null);
   const [loading, setLoading] = useState(true);
   const [subMenuOpen, setSubMenuOpen] = useState(false);
@@ -48,6 +48,24 @@ const Profile = ({ onTabPress, onNavigate }) => {
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
   const subMenuSAIAnimation = useRef(new Animated.Value(0)).current;
+
+  // 🔍 DEBUG: Medir cuándo se activa/desactiva Profile
+  useEffect(() => {
+    const timestamp = performance.now();
+    console.log(`👤 PROFILE isActive cambió a: ${isActive} - Time: ${timestamp.toFixed(2)}ms`);
+    
+    if (isActive) {
+      const activationStart = performance.now();
+      console.log('🟢 PROFILE ACTIVÁNDOSE...');
+      
+      requestAnimationFrame(() => {
+        const activationEnd = performance.now();
+        console.log('🟢 PROFILE ACTIVADO en:', (activationEnd - activationStart).toFixed(2), 'ms');
+      });
+    } else {
+      console.log('🔴 PROFILE DESACTIVÁNDOSE...');
+    }
+  }, [isActive]);
 
   // Animar submenú principal
   useEffect(() => {
@@ -882,5 +900,23 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
-export default memo(Profile);
+// ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada para evitar re-renders
+const ProfileOptimized = memo(Profile, (prevProps, nextProps) => {
+  // Si se desactiva, NO re-renderizar (ya está oculto)
+  if (!nextProps.isActive && !prevProps.isActive) {
+    return true; // Son iguales, no re-renderizar
+  }
+  
+  // Si cambia isActive, sí re-renderizar
+  if (prevProps.isActive !== nextProps.isActive) {
+    return false; // Son diferentes, re-renderizar
+  }
+  
+  // Si está activo, verificar props críticas
+  return (
+    prevProps.onTabPress === nextProps.onTabPress &&
+    prevProps.onNavigate === nextProps.onNavigate
+  );
+});
+
+export default ProfileOptimized;

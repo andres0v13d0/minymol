@@ -16,7 +16,7 @@ import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress }) => {
+const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress, isActive = true }) => {
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +24,24 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
   // Estados para el modal de productos
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+
+  // 🔍 DEBUG: Medir cuándo se activa/desactiva Categories
+  useEffect(() => {
+    const timestamp = performance.now();
+    console.log(`📂 CATEGORIES isActive cambió a: ${isActive} - Time: ${timestamp.toFixed(2)}ms`);
+    
+    if (isActive) {
+      const activationStart = performance.now();
+      console.log('🟢 CATEGORIES ACTIVÁNDOSE...');
+      
+      requestAnimationFrame(() => {
+        const activationEnd = performance.now();
+        console.log('🟢 CATEGORIES ACTIVADO en:', (activationEnd - activationStart).toFixed(2), 'ms');
+      });
+    } else {
+      console.log('🔴 CATEGORIES DESACTIVÁNDOSE...');
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -257,5 +275,25 @@ const styles = StyleSheet.create({
   },
 });
 
-// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
-export default memo(Categories);
+// ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada para evitar re-renders
+const CategoriesOptimized = memo(Categories, (prevProps, nextProps) => {
+  // Si se desactiva, NO re-renderizar (ya está oculto)
+  if (!nextProps.isActive && !prevProps.isActive) {
+    return true; // Son iguales, no re-renderizar
+  }
+  
+  // Si cambia isActive, sí re-renderizar
+  if (prevProps.isActive !== nextProps.isActive) {
+    return false; // Son diferentes, re-renderizar
+  }
+  
+  // Si está activo, verificar props críticas
+  return (
+    prevProps.onTabPress === nextProps.onTabPress &&
+    prevProps.onProductPress === nextProps.onProductPress &&
+    prevProps.onCategoryPress === nextProps.onCategoryPress &&
+    prevProps.onSearchPress === nextProps.onSearchPress
+  );
+});
+
+export default CategoriesOptimized;

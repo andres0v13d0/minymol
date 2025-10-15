@@ -1049,5 +1049,25 @@ const styles = StyleSheet.create({
     },
 });
 
-// ✅ OPTIMIZADO: React.memo para evitar re-renders cuando no cambian las props
-export default memo(Cart);
+// ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada para evitar re-renders
+const CartOptimized = memo(Cart, (prevProps, nextProps) => {
+  // Si se desactiva, NO re-renderizar (ya está oculto)
+  if (!nextProps.isActive && !prevProps.isActive) {
+    return true; // Son iguales, no re-renderizar
+  }
+  
+  // Si cambia isActive, sí re-renderizar
+  if (prevProps.isActive !== nextProps.isActive) {
+    return false; // Son diferentes, re-renderizar
+  }
+  
+  // Si está activo, verificar props críticas
+  return (
+    prevProps.selectedTab === nextProps.selectedTab &&
+    prevProps.onTabPress === nextProps.onTabPress &&
+    prevProps.onProductPress === nextProps.onProductPress &&
+    prevProps.onSearchPress === nextProps.onSearchPress
+  );
+});
+
+export default CartOptimized;
