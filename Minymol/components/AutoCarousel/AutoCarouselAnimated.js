@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getProvidersForCarousel } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
+import ProviderProductsModal from '../ProviderProductsModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const AutoCarouselAnimated = ({ 
   autoScrollInterval = 4000,
   onProviderPress = () => {},
+  onProductPress = () => {}, // Nuevo prop para manejar click en productos
 }) => {
   const scrollViewRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -15,6 +17,10 @@ const AutoCarouselAnimated = ({
   const [providerGroups, setProviderGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [carouselHeight] = useState(200); // Altura ajustada para el nuevo diseño circular
+  
+  // Estado para el modal de productos del proveedor
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [providerModalVisible, setProviderModalVisible] = useState(false);
 
   // Función para agrupar proveedores de 3 en 3
   const groupProviders = (providersArray) => {
@@ -88,7 +94,12 @@ const AutoCarouselAnimated = ({
   const ProviderCard = ({ provider }) => (
     <TouchableOpacity 
       style={styles.providerCard}
-      onPress={() => onProviderPress(provider)}
+      onPress={() => {
+        setSelectedProvider(provider);
+        setProviderModalVisible(true);
+        // También llamar al callback original si existe
+        onProviderPress(provider);
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.logoContainer}>
@@ -159,6 +170,17 @@ const AutoCarouselAnimated = ({
           ))}
         </View>
       )}
+      
+      {/* Modal de productos del proveedor */}
+      <ProviderProductsModal
+        visible={providerModalVisible}
+        onClose={() => {
+          setProviderModalVisible(false);
+          setSelectedProvider(null);
+        }}
+        provider={selectedProvider}
+        onProductPress={onProductPress}
+      />
     </View>
   );
 };

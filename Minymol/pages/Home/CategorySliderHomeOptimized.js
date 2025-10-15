@@ -31,6 +31,10 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     // Esto permite que la UI base se monte PRIMERO, y luego se cargue el contenido pesado
     const [isReady, setIsReady] = useState(false);
     
+    // ✅ NUEVO: Loader global para carga inicial (Carousel + Reels + Productos)
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const hasHiddenLoaderRef = useRef(false); // Ref para evitar ocultar el loader múltiples veces
+    
     useEffect(() => {
         if (isActive) {
             // Esperar a que terminen todas las interacciones actuales
@@ -41,6 +45,19 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             return () => task.cancel();
         }
     }, [isActive]);
+
+    // ✅ NUEVO: Timeout de seguridad para ocultar el loader después de 3 segundos máximo
+    useEffect(() => {
+        if (isActive && isInitialLoading && !hasHiddenLoaderRef.current) {
+            const safetyTimeout = setTimeout(() => {
+                console.log('⏱️ Timeout de seguridad: ocultando loader global');
+                hasHiddenLoaderRef.current = true;
+                setIsInitialLoading(false);
+            }, 3000); // 3 segundos máximo
+            
+            return () => clearTimeout(safetyTimeout);
+        }
+    }, [isActive, isInitialLoading]);
     
     // Verificar que onProductPress existe
     if (!onProductPress) {
@@ -109,6 +126,19 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             changeSubCategory(subCategoryIndex);
         }
     }, [currentCategoryIndex, changeSubCategory]);
+
+    // ✅ NUEVO: Ocultar loader cuando los productos se inicializan (sin esperar carousel/reels)
+    useEffect(() => {
+        const categoryState = categoryProducts[0];
+        if (categoryState?.initialized && !hasHiddenLoaderRef.current) {
+            const timer = setTimeout(() => {
+                console.log('✅ Productos inicializados: ocultando loader global');
+                hasHiddenLoaderRef.current = true;
+                setIsInitialLoading(false);
+            }, 500); // Pequeño delay para que se vean los componentes
+            return () => clearTimeout(timer);
+        }
+    }, [categoryProducts]);
 
     // Hook para forzar re-render cuando se actualizan las subcategorías
     const [, forceUpdate] = useState({});
@@ -887,12 +917,8 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 >
                     {/* ✅ MEGA OPTIMIZACIÓN: Reels solo para categoría "Todos" con lazy loading */}
                     {categoryIndex === 0 && isActive && (
-                        <View style={styles.reelsContainer}>
-                            <Suspense fallback={
-                                <View style={styles.lazyLoadingContainer}>
-                                    <ActivityIndicator size="small" color="#fa7e17" />
-                                </View>
-                            }>
+                        <View style={[styles.reelsContainer, isInitialLoading && styles.hiddenContent]}>
+                            <Suspense fallback={null}>
                                 <Reels />
                             </Suspense>
                         </View>
@@ -900,13 +926,11 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
                     {/* ✅ MEGA OPTIMIZACIÓN: AutoCarousel solo para categoría "Todos" con lazy loading */}
                     {categoryIndex === 0 && isActive && (
-                        <View style={styles.autoCarouselContainer}>
-                            <Suspense fallback={
-                                <View style={styles.lazyLoadingContainer}>
-                                    <ActivityIndicator size="small" color="#fa7e17" />
-                                </View>
-                            }>
-                                <AutoCarousel onProviderPress={handleProviderPress} />
+                        <View style={[styles.autoCarouselContainer, isInitialLoading && styles.hiddenContent]}>
+                            <Suspense fallback={null}>
+                                <AutoCarousel 
+                                    onProviderPress={handleProviderPress}
+                                />
                             </Suspense>
                         </View>
                     )}
@@ -1045,6 +1069,14 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         <View style={styles.container}>
             <Header selectedTab={selectedTab} onTabPress={onTabPress} onProductPress={onProductPress} onSearchPress={onSearchPress} isHome={true} />
 
+            {/* ✅ NUEVO: Loader global para carga inicial */}
+            {isInitialLoading && (
+                <View style={styles.globalLoadingOverlay}>
+                    <ActivityIndicator size="large" color="#fa7e17" />
+                    <Text style={styles.globalLoadingText}>Cargando contenido...</Text>
+                </View>
+            )}
+
             {/* ✅ OPTIMIZADO: BarSup inline con actualización instantánea - Renderizado directo sin memoización */}
             {renderBarSup()}
 
@@ -1081,6 +1113,28 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: 'white',
+    },
+    globalLoadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 70, // Espacio para NavInf
+        backgroundColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+    },
+    globalLoadingText: {
+        color: '#333',
+        marginTop: 12,
+        fontSize: 16,
+        fontFamily: getUbuntuFont('regular'),
+    },
+    hiddenContent: {
+        opacity: 0,
+        position: 'absolute',
+        left: -9999,
     },
     loadingContainer: {
         flex: 1,

@@ -5,6 +5,7 @@ import {
     Alert,
     Animated,
     Dimensions,
+    Image,
     Modal,
     Platform,
     ScrollView,
@@ -14,21 +15,17 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUbuntuFont } from '../../utils/fonts';
 import Product from '../Product/Product';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const ProductsModal = ({
+const ProviderProductsModal = ({
     visible,
     onClose,
-    subcategorySlug,
-    subcategoryName,
+    provider, // { id, nombre_empresa, logo_url, banner_url }
     onProductPress
 }) => {
-    const insets = useSafeAreaInsets();
-    
     // ✅ OPTIMIZADO: Estado simplificado con cursor pagination
     const [products, setProducts] = useState([]);
     const [nextCursor, setNextCursor] = useState(null);
@@ -44,16 +41,14 @@ const ProductsModal = ({
     const slideAnim = useRef(new Animated.Value(screenWidth)).current; // Desde la derecha
     const scrollThrottleRef = useRef(null); // Para throttling del scroll infinito
     
-    // Calcular el padding superior como SearchModal
+    // Calcular el padding superior sin SafeAreaProvider
     const getTopPadding = () => {
         if (Platform.OS === 'ios') {
-            return insets.top || 50;
+            return 50; // Padding fijo para iOS
         } else {
             return (StatusBar.currentHeight || 24) + 10;
         }
-    };
-
-    const PRODUCTS_PER_PAGE = 20;
+    };    const PRODUCTS_PER_PAGE = 20;
 
     // Manejar animaciones cuando el modal se abre/cierra
     useEffect(() => {
@@ -80,7 +75,7 @@ const ProductsModal = ({
 
     // ✅ MEGA OPTIMIZACIÓN: Cargar productos con nuevo endpoint /products/feed
     const loadProducts = useCallback(async (cursor = null) => {
-        if (!subcategorySlug) return;
+        if (!provider?.id) return;
 
         try {
             setLoading(true);
@@ -90,14 +85,14 @@ const ProductsModal = ({
             const params = new URLSearchParams();
             params.append('seed', feedSeed);
             params.append('limit', '20');
-            params.append('subCategorySlug', subcategorySlug);
-            
+            params.append('providerId', provider.id.toString());
+
             if (cursor) {
                 params.append('cursor', cursor);
             }
 
             const url = `https://api.minymol.com/products/feed?${params.toString()}`;
-            console.log(`🚀 ProductsModal - Cargando desde /feed:`, url);
+            console.log(`🚀 ProviderProductsModal - Cargando desde /feed:`, url);
 
             const response = await fetch(url);
 
@@ -109,7 +104,7 @@ const ProductsModal = ({
 
             const { data, nextCursor: newCursor, hasMore: more } = await response.json();
 
-            console.log(`✅ Feed cargado: ${data.length} productos, hasMore: ${more}, nextCursor: ${newCursor}`);
+            console.log(`✅ Feed cargado: ${data.length} productos del proveedor ${provider.nombre_empresa}, hasMore: ${more}, nextCursor: ${newCursor}`);
 
             if (cursor) {
                 // Cargar más: concatenar productos
@@ -118,24 +113,24 @@ const ProductsModal = ({
                 // Primera carga: reemplazar
                 setProducts(data);
             }
-            
+
             setNextCursor(newCursor);
             setHasMore(more);
 
         } catch (err) {
-            console.error('❌ Error cargando productos:', err);
+            console.error('❌ Error cargando productos del proveedor:', err);
             setError(err.message);
 
             // Mostrar alerta de error al usuario
             Alert.alert(
                 'Error',
-                'No se pudieron cargar los productos. Verifica tu conexión e intenta nuevamente.',
+                'No se pudieron cargar los productos del proveedor. Verifica tu conexión e intenta nuevamente.',
                 [{ text: 'OK' }]
             );
         } finally {
             setLoading(false);
         }
-    }, [subcategorySlug, feedSeed]);
+    }, [provider, feedSeed]);
 
     // Función para cerrar con animación
     const handleClose = () => {
@@ -155,9 +150,9 @@ const ProductsModal = ({
         });
     };
 
-    // Cargar productos cuando se abre el modal o cambia el slug
+    // Cargar productos cuando se abre el modal o cambia el proveedor
     useEffect(() => {
-        if (visible && subcategorySlug) {
+        if (visible && provider?.id) {
             // Reset estado al abrir
             setProducts([]);
             setNextCursor(null);
@@ -166,32 +161,32 @@ const ProductsModal = ({
             // Cargar primera página
             loadProducts(null);
         }
-    }, [visible, subcategorySlug, loadProducts]);
+    }, [visible, provider?.id, loadProducts]);
 
     // ✅ OPTIMIZADO: Función para cargar más productos con cursor pagination
     const handleLoadMore = useCallback(() => {
         if (!hasMore || loading || !nextCursor) return;
 
-        console.log(`🔄 Cargando más productos con cursor: ${nextCursor}`);
+        console.log(`🔄 Cargando más productos del proveedor con cursor: ${nextCursor}`);
         loadProducts(nextCursor);
     }, [hasMore, loading, nextCursor, loadProducts]);
 
     // ✅ OPTIMIZADO: Manejar scroll infinito con cursor pagination
     const handleScroll = useCallback((event) => {
         const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-        
+
         // Calcular el porcentaje de scroll
         const scrollPercentage = (contentOffset.y / (contentSize.height - layoutMeasurement.height)) * 100;
-        
+
         // Carga anticipada al 70%
         const preloadThreshold = 70;
-        
+
         // Verificar si necesitamos cargar más productos
-        const shouldLoadMore = scrollPercentage >= preloadThreshold && 
-                              hasMore && 
-                              !loading &&
-                              nextCursor &&
-                              contentSize.height > layoutMeasurement.height;
+        const shouldLoadMore = scrollPercentage >= preloadThreshold &&
+            hasMore &&
+            !loading &&
+            nextCursor &&
+            contentSize.height > layoutMeasurement.height;
 
         if (shouldLoadMore) {
             // Throttling: solo ejecutar si han pasado al menos 300ms desde la última carga
@@ -207,18 +202,18 @@ const ProductsModal = ({
     // Función para distribuir productos en columnas tipo masonry
     const distributeProductsInColumns = (products) => {
         const columns = [[], []]; // 2 columnas
-        
+
         products.forEach((product, index) => {
             const columnIndex = index % 2;
             columns[columnIndex].push(product);
         });
-        
+
         return columns;
     };
 
     const renderMasonryColumn = (columnProducts, columnIndex) => (
-        <View 
-            key={`column-${columnIndex}`} 
+        <View
+            key={`column-${columnIndex}`}
             style={[
                 styles.masonryColumn,
                 columnIndex === 0 ? { marginRight: 5 } : { marginLeft: 5 }
@@ -226,18 +221,16 @@ const ProductsModal = ({
         >
             {columnProducts.map((product, index) => (
                 <View key={`${product.id || product.uuid}-${index}`} style={styles.productContainer}>
-                    <Product 
-                        product={product} 
-                        onPress={() => onProductPress && onProductPress(product)}
+                    <Product
+                        product={product}
+                        onProductPress={onProductPress}
                         index={index}
-                        showProvider={true}
+                        showProvider={false} // No mostrar proveedor ya que todos son del mismo
                     />
                 </View>
             ))}
         </View>
     );
-
-
 
     // Renderizar footer de carga
     const renderFooter = useCallback(() => {
@@ -249,11 +242,11 @@ const ProductsModal = ({
                 </View>
             );
         }
-        
+
         if (!hasMore && products.length > 0) {
             return (
                 <View style={styles.endMessageContainer}>
-                    <Text style={styles.endMessageText}>¡Has visto todos los productos!</Text>
+                    <Text style={styles.endMessageText}>¡Has visto todos los productos del proveedor!</Text>
                 </View>
             );
         }
@@ -268,7 +261,7 @@ const ProductsModal = ({
             <View style={styles.emptyState}>
                 <Text style={styles.emptyTitle}>No hay productos</Text>
                 <Text style={styles.emptySubtitle}>
-                    No se encontraron productos en esta categoría
+                    Este proveedor aún no tiene productos disponibles
                 </Text>
                 <TouchableOpacity
                     style={styles.retryButton}
@@ -301,59 +294,65 @@ const ProductsModal = ({
                     ]}
                 >
                     <View style={styles.container}>
-                        {/* Header del modal */}
-                        <View style={styles.header}>
+                        {/* Header del modal con banner del proveedor */}
+                        <View style={styles.headerWrapper}>
+                            {/* Botón de cerrar a la izquierda */}
                             <TouchableOpacity
-                                style={styles.backButton}
+                                style={styles.closeButton}
                                 onPress={handleClose}
                             >
-                                <Ionicons name="chevron-back" size={24} color="#333" />
+                                <Ionicons name="chevron-back" size={26} color="#333" />
                             </TouchableOpacity>
-
-                            <View style={styles.titleContainer}>
-                                <Text style={styles.title} numberOfLines={1}>
-                                    {subcategoryName || 'Productos'}
-                                </Text>
-                            </View>
                             
-                            <View style={styles.headerSpacer} />
-                        </View>
-
-                {/* Contenido del modal */}
-                <View style={styles.content}>
-                    {loading && products.length === 0 ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#fa7e17" />
-                        </View>
-                    ) : error ? (
-                        <View style={styles.errorContainer}>
-                            <Text style={styles.errorTitle}>Error</Text>
-                            <Text style={styles.errorText}>{error}</Text>
-                            <TouchableOpacity
-                                style={styles.retryButton}
-                                onPress={() => loadProducts(null)}
-                            >
-                                <Text style={styles.retryButtonText}>Reintentar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <ScrollView 
-                            style={styles.resultsContainer}
-                            showsVerticalScrollIndicator={false}
-                            contentContainerStyle={styles.productsContainer}
-                            onScroll={handleScroll}
-                            scrollEventThrottle={16}
-                        >
-                            <View style={styles.masonryContainer}>
-                                {distributeProductsInColumns(products).map((columnProducts, columnIndex) =>
-                                    renderMasonryColumn(columnProducts, columnIndex)
+                            {/* Banner del proveedor */}
+                            <View style={styles.headerContainer}>
+                                {provider?.banner_url && (
+                                    <Image
+                                        source={{ uri: provider.banner_url }}
+                                        style={styles.bannerImage}
+                                        resizeMode="contain"
+                                    />
                                 )}
                             </View>
-                            
-                            {/* Footer con loader o mensaje final */}
-                            {renderFooter()}
-                        </ScrollView>
-                    )}
+                        </View>
+
+                        {/* Contenido del modal */}
+                        <View style={styles.content}>
+                            {loading && products.length === 0 ? (
+                                <View style={styles.loadingContainer}>
+                                    <ActivityIndicator size="large" color="#fa7e17" />
+                                </View>
+                            ) : error ? (
+                                <View style={styles.errorContainer}>
+                                    <Text style={styles.errorTitle}>Error</Text>
+                                    <Text style={styles.errorText}>{error}</Text>
+                                    <TouchableOpacity
+                                        style={styles.retryButton}
+                                        onPress={() => loadProducts(null)}
+                                    >
+                                        <Text style={styles.retryButtonText}>Reintentar</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : products.length === 0 ? (
+                                renderEmptyState()
+                            ) : (
+                                <ScrollView
+                                    style={styles.resultsContainer}
+                                    showsVerticalScrollIndicator={false}
+                                    contentContainerStyle={styles.productsContainer}
+                                    onScroll={handleScroll}
+                                    scrollEventThrottle={16}
+                                >
+                                    <View style={styles.masonryContainer}>
+                                        {distributeProductsInColumns(products).map((columnProducts, columnIndex) =>
+                                            renderMasonryColumn(columnProducts, columnIndex)
+                                        )}
+                                    </View>
+
+                                    {/* Footer con loader o mensaje final */}
+                                    {renderFooter()}
+                                </ScrollView>
+                            )}
                         </View>
                     </View>
                 </Animated.View>
@@ -376,33 +375,33 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'white',
     },
-    header: {
+    headerWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 10,
-        backgroundColor: 'transparent',
+        backgroundColor: 'white',
         borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
+        borderBottomColor: '#e0e0e0',
+        paddingVertical: 8,
+        paddingRight: 8,
     },
-    backButton: {
+    closeButton: {
         padding: 8,
-        marginRight: 4,
-    },
-    titleContainer: {
-        flex: 1,
+        marginLeft: 4,
+        marginRight: 8,
+        justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 16,
     },
-    title: {
-        color: '#333',
-        fontSize: 18,
-        fontFamily: getUbuntuFont('bold'),
-        textAlign: 'center',
+    headerContainer: {
+        flex: 1,
+        height: 100,
+        backgroundColor: '#ffffff',
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-
-    headerSpacer: {
-        width: 40,
+    bannerImage: {
+        width: '100%',
+        height: '100%',
     },
     content: {
         flex: 1,
@@ -411,6 +410,8 @@ const styles = StyleSheet.create({
     },
     loadingContainer: {
         flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
         paddingTop: 20,
     },
     resultsContainer: {
@@ -431,7 +432,6 @@ const styles = StyleSheet.create({
     productContainer: {
         marginBottom: 15,
     },
-
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -463,7 +463,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: getUbuntuFont('bold'),
     },
-
     footerLoader: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -509,4 +508,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default ProductsModal;
+export default ProviderProductsModal;

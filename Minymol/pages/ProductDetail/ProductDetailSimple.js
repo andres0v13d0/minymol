@@ -261,6 +261,20 @@ const QuantitySelector = memo(({ quantity, availableQuantities, onQuantityChange
     </View>
   );
 });
+
+// ✅ Función helper para optimizar URLs de imágenes con parámetros de CDN
+const optimizeImageUrl = (url, width = 800, quality = 80) => {
+  if (!url) return url;
+  
+  // Si la imagen es de cdn.minymol.com, agregar parámetros de optimización
+  if (url.includes('cdn.minymol.com')) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}w=${width}&q=${quality}&fm=webp`;
+  }
+  
+  return url;
+};
+
 const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageMode, setImageMode] = useState('contain'); // modo de redimensionamiento dinámico
@@ -281,9 +295,11 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     if (images && images.length > 0) {
       images.forEach((img, index) => {
         if (img?.imageUrl) {
-          Image.prefetch(img.imageUrl).catch(() => {});
+          // Prefetch con URL optimizada
+          const optimizedUrl = optimizeImageUrl(img.imageUrl, 1200, 85);
+          Image.prefetch(optimizedUrl).catch(() => {});
           
-          // Obtener dimensiones de la imagen
+          // Obtener dimensiones de la imagen original (para calcular aspect ratio)
           Image.getSize(
             img.imageUrl,
             (width, height) => {
@@ -350,12 +366,16 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     }
   }, [images.length]);
 
-  const renderImageItem = useCallback(({ item }) => (
+  const renderImageItem = useCallback(({ item, index }) => (
     <Animated.View style={[styles.instagramSlide, { height: animatedHeight }]}>
       <Image
-        source={{ uri: item.imageUrl }}
+        source={{ uri: optimizeImageUrl(item.imageUrl, 1200, 85) }}
         style={[styles.instagramImage, { height: '100%' }]}
-        resizeMode={imageMode}
+        contentFit={imageMode}
+        placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+        priority={index === 0 ? 'high' : 'normal'}
+        transition={200}
+        cachePolicy="memory-disk"
       />
     </Animated.View>
   ), [animatedHeight, imageMode]);
@@ -367,9 +387,13 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     return (
       <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
         <Image 
-          source={{ uri: 'https://cdn.minymol.com/uploads/logoblanco.webp' }}
+          source={{ uri: optimizeImageUrl('https://cdn.minymol.com/uploads/logoblanco.webp', 600, 85) }}
           style={[styles.instagramImage, { height: '100%' }]}
-          resizeMode={imageMode}
+          contentFit={imageMode}
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+          priority="high"
+          transition={200}
+          cachePolicy="memory-disk"
         />
       </Animated.View>
     );
@@ -380,9 +404,13 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     return (
       <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
         <Image 
-          source={{ uri: images[0].imageUrl }}
+          source={{ uri: optimizeImageUrl(images[0].imageUrl, 1200, 85) }}
           style={[styles.instagramImage, { height: '100%' }]}
-          resizeMode={imageMode}
+          contentFit={imageMode}
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+          priority="high"
+          transition={200}
+          cachePolicy="memory-disk"
         />
       </Animated.View>
     );
@@ -458,7 +486,8 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   const [subCategories, setSubCategories] = useState([]);
   const [loadingMoreProducts, setLoadingMoreProducts] = useState(false);
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
-  const [allRelatedProducts, setAllRelatedProducts] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null); // Para paginación con cursor
+  const [feedSeed] = useState(() => Math.random().toString(36).substring(2, 10)); // Seed único para esta vista
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -524,45 +553,37 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
         const providerData = await providerRes.json();
         setProvider(providerData);
 
-        // Cargar productos relacionados
-        const relatedRes = await fetch(`https://api.minymol.com/products/by-provider/${productApiData.providerId}`);
-        const resIds = await relatedRes.json();
+        // ✅ OPTIMIZACIÓN: Usar API feed con filtro de proveedor
+        const params = new URLSearchParams({
+          seed: feedSeed,
+          limit: '20', // Carga inicial más grande
+          providerId: productApiData.providerId.toString(),
+        });
 
-        if (Array.isArray(resIds) && resIds.length > 0) {
-          const ids = resIds.map(p => p.product_id).filter(Boolean);
+        const feedUrl = `https://api.minymol.com/products/feed?${params.toString()}`;
+        console.log('🚀 Cargando productos relacionados desde /feed:', feedUrl);
 
-          if (ids.length > 0) {
-            setAllRelatedProducts(ids); // Guardar todos los IDs
-            
-            // Cargar los primeros productos
-            const initialIds = ids.slice(0, Math.min(2, ids.length));
-            const previewsRes = await fetch('https://api.minymol.com/products/previews', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids: initialIds }),
-            });
+        const feedRes = await fetch(feedUrl);
+        const { data: feedProducts, nextCursor: cursor, hasMore } = await feedRes.json();
 
-            const previews = await previewsRes.json();
-            if (Array.isArray(previews)) {
-              const activos = previews.filter(prod => !prod.isInactive);
-              setRelatedProducts(activos);
-              
-              // Verificar si hay más productos para cargar
-              setHasMoreProducts(ids.length > 2);
-              
-              // Extraer subcategorías
-              const categoryMap = new Map();
-              activos.forEach(p => {
-                if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
-                  categoryMap.set(p.subCategory.slug, p.subCategory);
-                }
-              });
-              setSubCategories(Array.from(categoryMap.values()));
+        if (Array.isArray(feedProducts) && feedProducts.length > 0) {
+          // Filtrar productos activos y excluir el producto actual
+          const activos = feedProducts.filter(p => !p.isInactive && p.uuid !== productId);
+          setRelatedProducts(activos);
+          setNextCursor(cursor);
+          setHasMoreProducts(hasMore);
+          
+          // Extraer subcategorías únicas
+          const categoryMap = new Map();
+          activos.forEach(p => {
+            if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
+              categoryMap.set(p.subCategory.slug, p.subCategory);
             }
-          }
+          });
+          setSubCategories(Array.from(categoryMap.values()));
         } else {
           setRelatedProducts([]);
-          setAllRelatedProducts([]);
+          setNextCursor(null);
           setHasMoreProducts(false);
         }
 
@@ -681,48 +702,51 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
     return filtered;
   }, [relatedProducts, selectedSubcat]);
 
-  // Función para cargar más productos
+  // Función para cargar más productos con cursor pagination
   const loadMoreProducts = useCallback(async () => {
-    if (loadingMoreProducts || !hasMoreProducts) return;
+    if (loadingMoreProducts || !hasMoreProducts || !nextCursor || !provider) return;
     
     setLoadingMoreProducts(true);
     
     try {
-      const currentCount = relatedProducts.length;
-      const nextBatch = allRelatedProducts.slice(currentCount, currentCount + 6);
-      
-      if (nextBatch.length > 0) {
-        const previewsRes = await fetch('https://api.minymol.com/products/previews', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: nextBatch }),
-        });
+      const params = new URLSearchParams({
+        seed: feedSeed,
+        limit: '20',
+        providerId: provider.id.toString(),
+        cursor: nextCursor,
+      });
 
-        const newPreviews = await previewsRes.json();
-        if (Array.isArray(newPreviews)) {
-          const newActivos = newPreviews.filter(prod => !prod.isInactive);
-          setRelatedProducts(prev => [...prev, ...newActivos]);
-          
-          // Actualizar subcategorías
-          const categoryMap = new Map();
-          [...relatedProducts, ...newActivos].forEach(p => {
-            if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
-              categoryMap.set(p.subCategory.slug, p.subCategory);
-            }
-          });
-          setSubCategories(Array.from(categoryMap.values()));
-        }
+      const feedUrl = `https://api.minymol.com/products/feed?${params.toString()}`;
+      console.log('🚀 Cargando más productos desde /feed:', feedUrl);
+
+      const feedRes = await fetch(feedUrl);
+      const { data: newProducts, nextCursor: newCursor, hasMore } = await feedRes.json();
+
+      if (Array.isArray(newProducts) && newProducts.length > 0) {
+        // Filtrar productos activos y excluir el producto actual
+        const newActivos = newProducts.filter(p => !p.isInactive && p.uuid !== productId);
+        setRelatedProducts(prev => [...prev, ...newActivos]);
+        setNextCursor(newCursor);
+        setHasMoreProducts(hasMore);
+        
+        // Actualizar subcategorías
+        const categoryMap = new Map();
+        [...relatedProducts, ...newActivos].forEach(p => {
+          if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
+            categoryMap.set(p.subCategory.slug, p.subCategory);
+          }
+        });
+        setSubCategories(Array.from(categoryMap.values()));
+      } else {
+        setHasMoreProducts(false);
       }
-      
-      // Verificar si hay más productos
-      setHasMoreProducts(currentCount + nextBatch.length < allRelatedProducts.length);
       
     } catch (error) {
       console.warn('Error cargando más productos:', error);
     } finally {
       setLoadingMoreProducts(false);
     }
-  }, [loadingMoreProducts, hasMoreProducts, relatedProducts, allRelatedProducts]);
+  }, [loadingMoreProducts, hasMoreProducts, nextCursor, feedSeed, provider, relatedProducts, productId]);
 
   // Detectar cuando el usuario ha scrolleado al 70%
   const handleScroll = useCallback((event) => {
@@ -860,10 +884,18 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
         <View style={styles.headerBannerContainer}>
           <Image
             source={{ 
-              uri: provider.banner_url || 'https://cdn.minymol.com/uploads/logoblanco.webp' 
+              uri: optimizeImageUrl(
+                provider.banner_url || 'https://cdn.minymol.com/uploads/logoblanco.webp',
+                1200,
+                80
+              )
             }}
             style={styles.headerBanner}
-            resizeMode="cover"
+            contentFit="cover"
+            placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+            priority="high"
+            transition={200}
+            cachePolicy="memory-disk"
           />
         </View>
       )}
@@ -891,6 +923,7 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
       
       <ScrollView 
         style={styles.scrollView} 
+        contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={400}
@@ -1027,10 +1060,18 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
             <View style={styles.providerHeader}>
               <Image
                 source={{ 
-                  uri: provider.logo_url || 'https://cdn.minymol.com/uploads/logoblanco.webp' 
+                  uri: optimizeImageUrl(
+                    provider.logo_url || 'https://cdn.minymol.com/uploads/logoblanco.webp',
+                    300,
+                    85
+                  )
                 }}
                 style={styles.providerLogo}
-                resizeMode="cover"
+                contentFit="cover"
+                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+                priority="high"
+                transition={200}
+                cachePolicy="memory-disk"
               />
               <View style={styles.providerDetails}>
                 <Text style={styles.providerName}>{provider.nombre_empresa}</Text>
@@ -1203,6 +1244,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 100, // Espacio para NavInf
   },
   loadingContainer: {
     flex: 1,
