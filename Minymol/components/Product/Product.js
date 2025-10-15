@@ -1,15 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFavorites } from '../../hooks/useFavorites';
 import { getUbuntuFont } from '../../utils/fonts';
+import {
+  getOptimalColumnsCount,
+  getOptimalImageConfig,
+  optimizeImageUrl
+} from '../../utils/imageUtils';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, showProvider = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [imageHeight, setImageHeight] = useState(200); // altura por defecto
   const [showPricesModal, setShowPricesModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -18,6 +24,23 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
 
   // Usar el hook centralizado de favoritos
   const { isFavorite: isFavoriteGlobal, toggleFavorite: toggleFavoriteGlobal } = useFavorites();
+
+  // Memoizar configuración de imagen para evitar re-cálculos
+  const imageConfig = useMemo(() => getOptimalImageConfig(), []);
+  
+  // Memoizar URL optimizada de la imagen
+  const optimizedImageUrl = useMemo(() => {
+    const columnsCount = getOptimalColumnsCount();
+    const paddingBetweenColumns = 4;
+    const totalPadding = paddingBetweenColumns * columnsCount;
+    const availableWidth = screenWidth - totalPadding;
+    const containerWidth = availableWidth / columnsCount;
+    
+    return optimizeImageUrl(product.image, {
+      width: Math.ceil(containerWidth),
+      quality: imageConfig.quality,
+    });
+  }, [product.image, imageConfig.quality]);
 
   // Obtener el precio principal (primer precio)
   const mainPrice = product.prices && product.prices.length > 0 ? product.prices[0] : null;
@@ -90,27 +113,33 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
   };
 
   const handleImageLoad = (event) => {
-    const { width, height } = event.source;
-    // Calcular la altura basada en el ancho del contenedor
-    const getColumnsCount = () => {
-      if (screenWidth >= 1600) return 6;
-      if (screenWidth >= 1200) return 5;
-      if (screenWidth >= 768) return 3;
-      return 2; // móvil
-    };
-    
-    const columnsCount = getColumnsCount();
-    const paddingBetweenColumns = 4; // 2px padding a cada lado de cada columna
-    const totalPadding = paddingBetweenColumns * columnsCount;
-    const availableWidth = screenWidth - totalPadding;
-    const containerWidth = availableWidth / columnsCount;
-    const aspectRatio = height / width;
-    const calculatedHeight = containerWidth * aspectRatio;
-    setImageHeight(calculatedHeight);
-    setImageLoaded(true);
+    try {
+      const { width, height } = event.source;
+      if (!width || !height) {
+        setImageLoaded(true);
+        return;
+      }
+      
+      // Calcular la altura basada en el ancho del contenedor
+      const columnsCount = getOptimalColumnsCount();
+      const paddingBetweenColumns = 4;
+      const totalPadding = paddingBetweenColumns * columnsCount;
+      const availableWidth = screenWidth - totalPadding;
+      const containerWidth = availableWidth / columnsCount;
+      const aspectRatio = height / width;
+      const calculatedHeight = Math.min(containerWidth * aspectRatio, 400); // Límite máximo
+      setImageHeight(calculatedHeight);
+      setImageLoaded(true);
+      setImageError(false);
+    } catch (error) {
+      console.warn('Error calculando altura de imagen:', error);
+      setImageLoaded(true);
+    }
   };
 
   const handleImageError = () => {
+    console.warn('Error cargando imagen del producto:', product?.name);
+    setImageError(true);
     setImageLoaded(true);
   };
 
@@ -143,20 +172,36 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
 
       {/* Imagen del producto */}
       <View style={styles.imageWrapper}>
-        <Image 
-          source={{ uri: product.image || 'https://via.placeholder.com/150' }} 
-          style={[styles.image, { height: imageHeight }, !imageLoaded && styles.imageHidden]}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          contentFit="cover"
-          transition={200}
-          cachePolicy="memory-disk"
-          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-        />
-        {!imageLoaded && (
+        {imageError ? (
           <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
-            <Ionicons name="image-outline" size={30} color="#ccc" />
+            <Ionicons name="image-outline" size={40} color="#ccc" />
+            <Text style={styles.errorText}>Error al cargar</Text>
           </View>
+        ) : (
+          <>
+            <Image 
+              source={{ 
+                uri: optimizedImageUrl || 'https://via.placeholder.com/400/f5f5f5/999999?text=Sin+Imagen',
+                // Optimizaciones para gama baja
+                headers: {
+                  'Cache-Control': 'max-age=31536000'
+                }
+              }} 
+              style={[styles.image, { height: imageHeight }, !imageLoaded && styles.imageHidden]}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              {...imageConfig}
+              // Optimizaciones adicionales
+              recyclingKey={product.uuid || product.id}
+              responsivePolicy="initial"
+            />
+            {!imageLoaded && (
+              <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
+                <Ionicons name="image-outline" size={30} color="#ccc" />
+                <Text style={styles.loadingText}>Cargando...</Text>
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -303,7 +348,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    fontSize: 11,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#999',
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 11,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#e74c3c',
+    marginTop: 8,
   },
   newBadge: {
     position: 'absolute',

@@ -45,6 +45,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
 
     useEffect(() => {
         if (visible) {
+            console.log('🔍 SearchModal ABIERTO - visible:', visible, 'initialText:', initialText);
             setText(initialText);
             setHasSearched(false);
             setSearchResults([]);
@@ -69,6 +70,7 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                 textInputRef.current?.focus();
             }, 250);
         } else {
+            console.log('❌ SearchModal CERRADO');
             // Resetear animaciones
             fadeAnim.setValue(0);
             slideAnim.setValue(50);
@@ -244,24 +246,23 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
     return (
         <Modal
             visible={visible}
-            transparent={true}
+            transparent={false}
             animationType="none"
             onRequestClose={handleClose}
             statusBarTranslucent={true}
         >
             <StatusBar backgroundColor="white" barStyle="dark-content" />
-            <View style={styles.modalOverlay}>
-                <Animated.View
-                    style={[
-                        styles.modalContainer,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }],
-                            paddingTop: getTopPadding(),
-                        },
-                    ]}
-                >
-                    <View style={styles.container}>
+            <Animated.View
+                style={[
+                    styles.modalContainer,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: slideAnim }],
+                        paddingTop: getTopPadding(),
+                    },
+                ]}
+            >
+                <View style={styles.container}>
                         {/* Header con input de búsqueda */}
                         <View style={styles.header}>
                             <TouchableOpacity style={styles.backButton} onPress={handleClose}>
@@ -361,16 +362,11 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                         </Animated.View>
                     </View>
                 </Animated.View>
-            </View>
-        </Modal>
-    );
-};
+            </Modal>
+        );
+    };
 
 const styles = StyleSheet.create({
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    },
     modalContainer: {
         flex: 1,
         backgroundColor: 'white',

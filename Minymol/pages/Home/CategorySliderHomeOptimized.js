@@ -83,12 +83,14 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     // Función para manejar cuando se presiona un proveedor
     const handleProviderPress = useCallback((provider) => {
         console.log('Proveedor seleccionado:', provider);
-        // Aquí puedes agregar navegación específica para el proveedor
-        // Por ejemplo, filtrar productos por proveedor o navegar a una página del proveedor
-        if (onSearchPress) {
-            onSearchPress(provider.nombre_empresa);
-        }
-    }, [onSearchPress]);
+        // TODO: Aquí debería abrirse un modal de proveedor o navegar a la página del proveedor
+        // NO debe abrir el SearchModal
+        
+        // ❌ COMENTADO: Esto estaba causando que se abriera el SearchModal al seleccionar un proveedor
+        // if (onSearchPress) {
+        //     onSearchPress(provider.nombre_empresa);
+        // }
+    }, []);
 
     // Estados locales para UI
     const [showSubCategories, setShowSubCategories] = useState(true);
