@@ -3,16 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Image,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
 import CustomerServiceModal from '../../components/CustomerServiceModal';
@@ -636,6 +636,7 @@ const styles = StyleSheet.create({
   userHeaderContent: {
     padding: 24,
     minHeight: 140,
+    justifyContent: 'center',
   },
   userInfoRow: {
     flexDirection: 'row',
