@@ -5,6 +5,7 @@ import {
     Dimensions,
     FlatList,
     InteractionManager,
+    Modal,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -16,6 +17,7 @@ import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
 import { useAppState } from '../../contexts/AppStateContext';
+import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
 import subCategoriesManager from '../../utils/SubCategoriesManager';
 
@@ -34,6 +36,10 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     // ✅ NUEVO: Loader global para carga inicial (Carousel + Reels + Productos)
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const hasHiddenLoaderRef = useRef(false); // Ref para evitar ocultar el loader múltiples veces
+    
+    // 🔥 NUEVO: Estados para ProductDetail modal
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showProductDetail, setShowProductDetail] = useState(false);
     
     useEffect(() => {
         if (isActive) {
@@ -747,14 +753,22 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     <Product
                         product={product}
                         onProductPress={(product) => {
-                            console.log('🔄 CategorySliderHome: onProductPress llamado con producto:', product?.name);
-                            onProductPress(product);
+                            console.log('🔄 CategorySliderHome: Abriendo ProductDetail modal:', product?.name);
+                            setSelectedProduct(product);
+                            setShowProductDetail(true);
                         }}
                     />
                 </View>
             ))}
         </View>
     ), [onProductPress]);
+
+    // Función para cerrar ProductDetail modal
+    const handleCloseProductDetail = () => {
+        console.log('🔄 CategorySliderHome: Cerrando ProductDetail modal');
+        setShowProductDetail(false);
+        setSelectedProduct(null);
+    };
 
     // Manejar scroll para sticky header de subcategorías y infinite scroll
     const handleScroll = useCallback((event) => {
@@ -1107,6 +1121,23 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             />
 
             <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+
+            {/* 🔥 ProductDetail Modal */}
+            {showProductDetail && selectedProduct && (
+                <Modal
+                    visible={showProductDetail}
+                    transparent={false}
+                    animationType="slide"
+                    onRequestClose={handleCloseProductDetail}
+                    statusBarTranslucent={true}
+                >
+                    <ProductDetail
+                        route={{ params: { product: selectedProduct } }}
+                        navigation={{ goBack: handleCloseProductDetail }}
+                        isModal={true}
+                    />
+                </Modal>
+            )}
         </View>
     );
 };

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFavorites } from '../../hooks/useFavorites';
+import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
 import Product from '../Product/Product';
 import ProductsSkeleton from '../ProductsSkeleton/ProductsSkeleton';
@@ -34,6 +35,8 @@ const FavoritesModal = ({
     const [error, setError] = useState(null);
     const [hasMore, setHasMore] = useState(true);
     const [visibleCount, setVisibleCount] = useState(0);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showProductDetail, setShowProductDetail] = useState(false);
     
     // Hook de favoritos para escuchar cambios
     const { favorites, refreshFavorites } = useFavorites();
@@ -189,6 +192,20 @@ const FavoritesModal = ({
         });
     };
 
+    // Manejar clic en producto: abrir ProductDetail como modal encima
+    const handleProductPress = (product) => {
+        console.log('🔄 FavoritesModal: Producto presionado, abriendo ProductDetail modal:', product?.name);
+        setSelectedProduct(product);
+        setShowProductDetail(true);
+    };
+
+    // Cerrar ProductDetail modal
+    const handleCloseProductDetail = () => {
+        console.log('🔄 FavoritesModal: Cerrando ProductDetail modal');
+        setShowProductDetail(false);
+        setSelectedProduct(null);
+    };
+
     // Cargar favoritos cuando se abre el modal o cuando cambian los favoritos
     useEffect(() => {
         if (visible) {
@@ -263,7 +280,7 @@ const FavoritesModal = ({
                 <View key={`${product.id || product.uuid}-${index}`} style={styles.productContainer}>
                     <Product
                         product={product}
-                        onProductPress={onProductPress}
+                        onProductPress={() => handleProductPress(product)}
                         index={index}
                         showProvider={true}
                     />
@@ -373,6 +390,23 @@ const FavoritesModal = ({
                     </View>
                 </Animated.View>
             </View>
+
+            {/* ProductDetail Modal encima */}
+            {showProductDetail && selectedProduct && (
+                <Modal
+                    visible={showProductDetail}
+                    transparent={false}
+                    animationType="slide"
+                    onRequestClose={handleCloseProductDetail}
+                    statusBarTranslucent={true}
+                >
+                    <ProductDetail
+                        isModal={true}
+                        route={{ params: { product: selectedProduct } }}
+                        navigation={{ goBack: handleCloseProductDetail }}
+                    />
+                </Modal>
+            )}
         </Modal>
     );
 };

@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { shuffleProducts } from '../../utils/productUtils';
 import { searchHistoryStorage } from '../../utils/searchHistoryStorage';
 import Product from '../Product/Product';
@@ -28,6 +29,8 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showProductDetail, setShowProductDetail] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(50)).current;
     const textInputRef = useRef(null);
@@ -171,14 +174,16 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
     };
 
     const handleProductPress = (product) => {
-        // Cerrar modal primero
-        handleClose();
-        // Luego navegar al producto
-        setTimeout(() => {
-            if (onProductPress) {
-                onProductPress(product);
-            }
-        }, 200);
+        console.log('🔄 SearchModal: Producto presionado, abriendo ProductDetail modal:', product?.name);
+        setSelectedProduct(product);
+        setShowProductDetail(true);
+    };
+
+    // Cerrar ProductDetail modal
+    const handleCloseProductDetail = () => {
+        console.log('🔄 SearchModal: Cerrando ProductDetail modal');
+        setShowProductDetail(false);
+        setSelectedProduct(null);
     };
 
     const clearHistory = async () => {
@@ -362,6 +367,23 @@ const SearchModal = ({ visible, onClose, onProductPress, initialText = '' }) => 
                         </Animated.View>
                     </View>
                 </Animated.View>
+
+                {/* ProductDetail Modal encima */}
+                {showProductDetail && selectedProduct && (
+                    <Modal
+                        visible={showProductDetail}
+                        transparent={false}
+                        animationType="slide"
+                        onRequestClose={handleCloseProductDetail}
+                        statusBarTranslucent={true}
+                    >
+                        <ProductDetail
+                            isModal={true}
+                            route={{ params: { product: selectedProduct } }}
+                            navigation={{ goBack: handleCloseProductDetail }}
+                        />
+                    </Modal>
+                )}
             </Modal>
         );
     };

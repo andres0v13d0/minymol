@@ -6,14 +6,17 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
+  Platform,
   Alert as RNAlert,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
-import NavInf from '../../components/NavInf/NavInf';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Product from '../../components/Product/Product';
 import { useCart } from '../../contexts/CartContext';
 import { getUbuntuFont } from '../../utils/fonts';
@@ -461,10 +464,24 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
   );
 });
 
-const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
+const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModal = false }) => {
   
   // Hook del contexto de carrito
   const { addToCart } = useCart();
+  
+  // Hook para safe area insets (solo si es modal)
+  const insets = useSafeAreaInsets();
+  
+  // Calcular el padding superior solo si es modal
+  const getTopPadding = () => {
+    if (!isModal) return 0; // No agregar padding si no es modal
+    
+    if (Platform.OS === 'ios') {
+      return insets.top || 50;
+    } else {
+      return (StatusBar.currentHeight || 24) + 10;
+    }
+  };
   
   // Recibir el producto completo desde los parámetros
   const productData = route?.params?.product;
@@ -488,6 +505,10 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   const [hasMoreProducts, setHasMoreProducts] = useState(true);
   const [nextCursor, setNextCursor] = useState(null); // Para paginación con cursor
   const [feedSeed] = useState(() => Math.random().toString(36).substring(2, 10)); // Seed único para esta vista
+  
+  // 🔥 NUEVO: Estado para manejar stack de ProductDetail modales
+  const [nestedProduct, setNestedProduct] = useState(null);
+  const [showNestedDetail, setShowNestedDetail] = useState(false);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -850,7 +871,15 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   };
 
   const handleProductPress = (product) => {
-    // Aquí se navegaría a otro producto
+    console.log('🔄 ProductDetail: Abriendo producto relacionado en nuevo modal:', product?.name);
+    setNestedProduct(product);
+    setShowNestedDetail(true);
+  };
+
+  const handleCloseNestedDetail = () => {
+    console.log('🔄 ProductDetail: Cerrando modal anidado');
+    setShowNestedDetail(false);
+    setNestedProduct(null);
   };
 
   // Organizar productos relacionados en columnas
@@ -903,12 +932,18 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   );
 
   if (loading) {
-    return <ProductDetailSkeleton />;
+    return (
+      <View style={[styles.container, { paddingTop: getTopPadding() }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <ProductDetailSkeleton />
+      </View>
+    );
   }
 
   if (!product || !provider) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: getTopPadding() }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <CustomHeader provider={null} onBack={handleBack} />
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>No se pudo cargar el producto</Text>
@@ -918,7 +953,8 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: getTopPadding() }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <CustomHeader provider={provider} onBack={handleBack} />
       
       <ScrollView 
@@ -1193,13 +1229,23 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress }) => {
 
         </View>
       </ScrollView>
-      
-      {/* Navegación inferior */}
-      <NavInf 
-        isProductInfo={true} 
-        selectedTab={selectedTab}
-        onTabPress={onTabPress}
-      />
+
+      {/* 🔥 Modal anidado para productos relacionados - Stack infinito tipo Temu */}
+      {showNestedDetail && nestedProduct && (
+        <Modal
+          visible={showNestedDetail}
+          transparent={false}
+          animationType="slide"
+          onRequestClose={handleCloseNestedDetail}
+          statusBarTranslucent={true}
+        >
+          <ProductDetail
+            route={{ params: { product: nestedProduct } }}
+            navigation={{ goBack: handleCloseNestedDetail }}
+            isModal={true}
+          />
+        </Modal>
+      )}
     </View>
   );
 };

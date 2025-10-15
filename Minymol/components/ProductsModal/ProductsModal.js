@@ -15,6 +15,7 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
 import Product from '../Product/Product';
 
@@ -35,6 +36,10 @@ const ProductsModal = ({
     const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    
+    // ✅ Estado para ProductDetail modal
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showProductDetail, setShowProductDetail] = useState(false);
     
     // ✅ Seed único por modal para orden aleatorio consistente
     const [feedSeed] = useState(() => Math.random().toString(36).substring(2, 10));
@@ -155,6 +160,20 @@ const ProductsModal = ({
         });
     };
 
+    // Manejar clic en producto: abrir ProductDetail como modal encima
+    const handleProductPress = (product) => {
+        console.log('🔄 ProductsModal: Producto presionado, abriendo ProductDetail modal:', product?.name);
+        setSelectedProduct(product);
+        setShowProductDetail(true);
+    };
+
+    // Cerrar ProductDetail modal
+    const handleCloseProductDetail = () => {
+        console.log('🔄 ProductsModal: Cerrando ProductDetail modal');
+        setShowProductDetail(false);
+        setSelectedProduct(null);
+    };
+
     // Cargar productos cuando se abre el modal o cambia el slug
     useEffect(() => {
         if (visible && subcategorySlug) {
@@ -228,7 +247,7 @@ const ProductsModal = ({
                 <View key={`${product.id || product.uuid}-${index}`} style={styles.productContainer}>
                     <Product 
                         product={product} 
-                        onPress={() => onProductPress && onProductPress(product)}
+                        onProductPress={() => handleProductPress(product)}
                         index={index}
                         showProvider={true}
                     />
@@ -358,6 +377,23 @@ const ProductsModal = ({
                     </View>
                 </Animated.View>
             </View>
+
+            {/* ProductDetail Modal encima */}
+            {showProductDetail && selectedProduct && (
+                <Modal
+                    visible={showProductDetail}
+                    transparent={false}
+                    animationType="slide"
+                    onRequestClose={handleCloseProductDetail}
+                    statusBarTranslucent={true}
+                >
+                    <ProductDetail
+                        route={{ params: { product: selectedProduct } }}
+                        navigation={{ goBack: handleCloseProductDetail }}
+                        isModal={true}
+                    />
+                </Modal>
+            )}
         </Modal>
     );
 };

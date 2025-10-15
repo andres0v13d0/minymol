@@ -10,7 +10,6 @@ import { useFonts } from './hooks/useFonts';
 import Cart from './pages/Cart/Cart';
 import Categories from './pages/Categories/Categories';
 import Home from './pages/Home/Home';
-import ProductDetail from './pages/ProductDetail/ProductDetailSimple';
 import Profile from './pages/Profile/Profile';
 
 // Cargar utilidades de debug en desarrollo
@@ -85,10 +84,8 @@ function AppContent() {
   }, []);
 
   const handleProductPress = useCallback((product) => {
-    console.log('App: handleProductPress llamado con:', product);
-    setSelectedProduct(product);
-    setCurrentScreen('productDetail');
-    console.log('App: Estado actualizado, currentScreen:', 'productDetail');
+    console.log('App: handleProductPress llamado (DEPRECATED - Los modales lo manejan ahora)');
+    // Esta función ya no se usa, cada modal maneja su propio ProductDetail
   }, []);
 
   const handleBackToHome = useCallback(() => {
@@ -139,7 +136,6 @@ function AppContent() {
           currentScreen === 'home' ? styles.visible : styles.hidden
         ]}>
           <Home 
-            onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
@@ -153,7 +149,6 @@ function AppContent() {
           currentScreen === 'categories' ? styles.visible : styles.hidden
         ]}>
           <Categories 
-            onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onCategoryPress={handleCategoryPress}
@@ -182,27 +177,11 @@ function AppContent() {
           currentScreen === 'cart' ? styles.visible : styles.hidden
         ]}>
           <Cart 
-            onProductPress={handleProductPress} 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onSearchPress={handleSearchPress}
             isActive={currentScreen === 'cart'}
           />
-        </View>
-
-        {/* Product Detail Screen */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'productDetail' ? styles.visible : styles.hidden
-        ]}>
-          {selectedProduct && (
-            <ProductDetail 
-              route={{ params: { product: selectedProduct } }}
-              navigation={{ goBack: handleBackToHome }}
-              selectedTab={selectedTab}
-              onTabPress={handleTabPress}
-            />
-          )}
         </View>
       </>
     );
