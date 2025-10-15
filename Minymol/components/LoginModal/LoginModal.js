@@ -21,7 +21,7 @@ import { auth } from '../../config/firebase';
 import { getUbuntuFont } from '../../utils/fonts';
 import LogoMinymol from '../LogoMinymol';
 
-const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
+const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister, onOpenForgotPassword }) => {
     const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -254,14 +254,13 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
     };
 
     const handleForgotPassword = () => {
-        Alert.alert(
-            'Recuperar contraseña',
-            'Contacta con soporte para recuperar tu contraseña',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Contactar', onPress: () => console.log('Contactar soporte') }
-            ]
-        );
+        if (!loading && onOpenForgotPassword) {
+            // Cerrar el modal de login y notificar al componente padre
+            onClose();
+            setTimeout(() => {
+                onOpenForgotPassword();
+            }, 300); // Pequeño delay para que se complete la animación de cierre
+        }
     };
 
     const handleRegister = () => {
@@ -293,6 +292,10 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                 >
                     {/* Header con botón cerrar y logo */}
                     <View style={styles.header}>
+                        <View style={styles.headerLogoContainer}>
+                            <LogoMinymol size="small" />
+                        </View>
+                        
                         <TouchableOpacity
                             style={styles.closeButton}
                             onPress={handleClose}
@@ -301,10 +304,6 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister }) => {
                         >
                             <Ionicons name="close" size={24} color="#333" />
                         </TouchableOpacity>
-                        
-                        <View style={styles.headerLogoContainer}>
-                            <LogoMinymol size="small" />
-                        </View>
                     </View>
 
                     {/* Título */}
@@ -475,7 +474,7 @@ const styles = StyleSheet.create({
     headerLogoContainer: {
         flex: 1,
         alignItems: 'center',
-        marginRight: 44, // Para centrar el logo considerando el botón de cerrar
+        marginLeft: 44, // Para centrar el logo considerando el botón de cerrar
     },
     title: {
         fontSize: 32,

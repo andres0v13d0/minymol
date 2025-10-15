@@ -33,7 +33,7 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
   const [subMenuOpen, setSubMenuOpen] = useState(false);
   const [subMenuSAIOpen, setSubMenuSAIOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authType, setAuthType] = useState('login'); // 'login' o 'register'
+  const [authType, setAuthType] = useState('login'); // 'login', 'register' o 'forgotPassword'
   const [refreshing, setRefreshing] = useState(false);
   const [showProvidersModal, setShowProvidersModal] = useState(false);
   const [showSAIModal, setShowSAIModal] = useState(false);
@@ -515,6 +515,7 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
       <AuthManager
         showLogin={showAuthModal && authType === 'login'}
         showRegister={showAuthModal && authType === 'register'}
+        showForgotPassword={showAuthModal && authType === 'forgotPassword'}
         onClose={() => setShowAuthModal(false)}
         onAuthSuccess={handleAuthSuccess}
       />

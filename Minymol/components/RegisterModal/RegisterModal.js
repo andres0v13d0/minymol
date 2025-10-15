@@ -691,7 +691,7 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
         <Animated.View style={[styles.stepContainer, { opacity: slideAnim }]}>
             <Text style={styles.stepTitle}>Verificación</Text>
             <Text style={styles.stepSubtitle}>
-                Ingresa el código de 6 dígitos que enviamos a{'\n'}
+                Ingresa el código de 6 dígitos que enviamos por WhatsApp al número{'\n'}
                 <Text style={styles.phoneHighlight}>{internationalPhone}</Text>
             </Text>
 
@@ -990,20 +990,24 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
                                 <Ionicons name="arrow-back" size={24} color="#333" />
                             </TouchableOpacity>
                         ) : (
-                            <View style={styles.backButton} />
+                            <View style={styles.backButtonPlaceholder} />
                         )}
 
                         <View style={styles.headerLogoContainer}>
                             <LogoMinymol size="small" />
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={handleClose}
-                            disabled={loading}
-                        >
-                            <Ionicons name="close" size={24} color="#333" />
-                        </TouchableOpacity>
+                        {step === 2 ? (
+                            <View style={styles.closeButtonPlaceholder} />
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={handleClose}
+                                disabled={loading}
+                            >
+                                <Ionicons name="close" size={24} color="#333" />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Progress Bar */}
@@ -1049,6 +1053,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    backButtonPlaceholder: {
+        width: 44,
+        height: 44,
+    },
     closeButton: {
         width: 44,
         height: 44,
@@ -1056,6 +1064,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#f8f8f8',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    closeButtonPlaceholder: {
+        width: 44,
+        height: 44,
     },
     headerLogoContainer: {
         flex: 1,
