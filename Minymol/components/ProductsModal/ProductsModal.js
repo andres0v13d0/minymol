@@ -16,7 +16,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUbuntuFont } from '../../utils/fonts';
 import Product from '../Product/Product';
-import ProductsSkeleton from '../ProductsSkeleton/ProductsSkeleton';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -28,12 +27,16 @@ const ProductsModal = ({
     onProductPress
 }) => {
     const insets = useSafeAreaInsets();
-    const [allProducts, setAllProducts] = useState([]); // Todos los productos
-    const [visibleProducts, setVisibleProducts] = useState([]); // Productos visibles
+    
+    // ✅ OPTIMIZADO: Estado simplificado con cursor pagination
+    const [products, setProducts] = useState([]);
+    const [nextCursor, setNextCursor] = useState(null);
+    const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [hasMore, setHasMore] = useState(true);
-    const [visibleCount, setVisibleCount] = useState(0);
+    
+    // ✅ Seed único por modal para orden aleatorio consistente
+    const [feedSeed] = useState(() => Math.random().toString(36).substring(2, 10));
     
     // Animaciones como SearchModal
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -74,82 +77,49 @@ const ProductsModal = ({
         }
     }, [visible]);
 
-    // Función para mezclar array (shuffle) como en CategorySliderHome
-    const shuffleArray = useCallback((array) => {
-        const shuffled = [...array];
-        for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-        }
-        return shuffled;
-    }, []);
-
-    // Función para cargar productos usando la API con slug (como CategorySliderHome)
-    const loadProducts = useCallback(async () => {
+    // ✅ MEGA OPTIMIZACIÓN: Cargar productos con nuevo endpoint /products/feed
+    const loadProducts = useCallback(async (cursor = null) => {
         if (!subcategorySlug) return;
 
         try {
             setLoading(true);
             setError(null);
-            setAllProducts([]);
-            setVisibleProducts([]);
-            setVisibleCount(0);
-            setHasMore(true);
 
-            // Obtener TODOS los IDs sin offset/limit (como CategorySliderHome)
-            const idsUrl = `https://api.minymol.com/products/public-ids?subCategorySlug=${subcategorySlug}`;
-            console.log('🔗 Cargando TODOS los IDs desde:', idsUrl);
-
-            const idsResponse = await fetch(idsUrl);
-
-            if (!idsResponse.ok) {
-                throw new Error(`Error ${idsResponse.status}: ${idsResponse.statusText}`);
+            // Construir URL con el nuevo endpoint
+            const params = new URLSearchParams();
+            params.append('seed', feedSeed);
+            params.append('limit', '20');
+            params.append('subCategorySlug', subcategorySlug);
+            
+            if (cursor) {
+                params.append('cursor', cursor);
             }
 
-            const idsData = await idsResponse.json();
-            console.log(`📦 IDs recibidos: ${Array.isArray(idsData) ? idsData.length : 0}`);
+            const url = `https://api.minymol.com/products/feed?${params.toString()}`;
+            console.log(`🚀 ProductsModal - Cargando desde /feed:`, url);
 
-            if (!Array.isArray(idsData) || idsData.length === 0) {
-                console.log('� No hay productos para esta subcategoría');
-                setHasMore(false);
-                return;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Error del servidor:', response.status, errorText);
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
-            // Extraer TODOS los IDs
-            const allIds = idsData.map(p => p.product_id).filter(id => id);
-            console.log(`🆔 ${allIds.length} IDs válidos extraídos`);
+            const { data, nextCursor: newCursor, hasMore: more } = await response.json();
 
-            // Randomizar TODOS los IDs como CategorySliderHome
-            const shuffledIds = shuffleArray(allIds);
-            console.log('🎲 IDs randomizados');
+            console.log(`✅ Feed cargado: ${data.length} productos, hasMore: ${more}, nextCursor: ${newCursor}`);
 
-            // Obtener TODOS los previews de una vez
-            const previewsUrl = 'https://api.minymol.com/products/previews';
-            console.log(`🌐 Obteniendo TODOS los previews para ${shuffledIds.length} productos`);
-
-            const previewsResponse = await fetch(previewsUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: shuffledIds })
-            });
-
-            if (!previewsResponse.ok) {
-                throw new Error(`Error ${previewsResponse.status}: ${previewsResponse.statusText}`);
+            if (cursor) {
+                // Cargar más: concatenar productos
+                setProducts(prev => [...prev, ...data]);
+            } else {
+                // Primera carga: reemplazar
+                setProducts(data);
             }
-
-            const products = await previewsResponse.json();
-            console.log(`📦 Productos obtenidos: ${Array.isArray(products) ? products.length : 0}`);
-
-            // Filtrar productos válidos
-            const validProducts = Array.isArray(products) ? products.filter(p => p && p.uuid) : [];
-            console.log(`✅ ${validProducts.length} productos válidos`);
-
-            // Guardar TODOS los productos y mostrar los primeros
-            setAllProducts(validProducts);
-            const initialVisible = validProducts.slice(0, PRODUCTS_PER_PAGE);
-            setVisibleProducts(initialVisible);
-            setVisibleCount(PRODUCTS_PER_PAGE);
-            setHasMore(validProducts.length > PRODUCTS_PER_PAGE);
+            
+            setNextCursor(newCursor);
+            setHasMore(more);
 
         } catch (err) {
             console.error('❌ Error cargando productos:', err);
@@ -164,7 +134,7 @@ const ProductsModal = ({
         } finally {
             setLoading(false);
         }
-    }, [subcategorySlug, shuffleArray]);
+    }, [subcategorySlug, feedSeed]);
 
     // Función para cerrar con animación
     const handleClose = () => {
@@ -187,52 +157,51 @@ const ProductsModal = ({
     // Cargar productos cuando se abre el modal o cambia el slug
     useEffect(() => {
         if (visible && subcategorySlug) {
-            loadProducts();
+            // Reset estado al abrir
+            setProducts([]);
+            setNextCursor(null);
+            setHasMore(true);
+            setError(null);
+            // Cargar primera página
+            loadProducts(null);
         }
     }, [visible, subcategorySlug, loadProducts]);
 
-    // Función para cargar más productos (paginación del lado del cliente)
+    // ✅ OPTIMIZADO: Función para cargar más productos con cursor pagination
     const handleLoadMore = useCallback(() => {
-        if (!hasMore || loading) return;
+        if (!hasMore || loading || !nextCursor) return;
 
-        const nextCount = visibleCount + PRODUCTS_PER_PAGE;
-        const nextVisible = allProducts.slice(0, nextCount);
-        
-        setVisibleProducts(nextVisible);
-        setVisibleCount(nextCount);
-        
-        // Verificar si hay más productos
-        if (nextCount >= allProducts.length) {
-            setHasMore(false);
-        }
-    }, [hasMore, loading, visibleCount, allProducts]);
+        console.log(`🔄 Cargando más productos con cursor: ${nextCursor}`);
+        loadProducts(nextCursor);
+    }, [hasMore, loading, nextCursor, loadProducts]);
 
-    // Manejar scroll infinito al 80% como CategorySliderHome
+    // ✅ OPTIMIZADO: Manejar scroll infinito con cursor pagination
     const handleScroll = useCallback((event) => {
         const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
         
         // Calcular el porcentaje de scroll
         const scrollPercentage = (contentOffset.y / (contentSize.height - layoutMeasurement.height)) * 100;
         
-        // Carga anticipada al 80% (como CategorySliderHome)
-        const preloadThreshold = 80;
+        // Carga anticipada al 70%
+        const preloadThreshold = 70;
         
         // Verificar si necesitamos cargar más productos
         const shouldLoadMore = scrollPercentage >= preloadThreshold && 
                               hasMore && 
-                              !loading && 
-                              contentSize.height > layoutMeasurement.height; // Solo si hay contenido para hacer scroll
+                              !loading &&
+                              nextCursor &&
+                              contentSize.height > layoutMeasurement.height;
 
         if (shouldLoadMore) {
-            // Throttling: solo ejecutar si han pasado al menos 500ms desde la última carga
+            // Throttling: solo ejecutar si han pasado al menos 300ms desde la última carga
             const now = Date.now();
-            if (!scrollThrottleRef.current || (now - scrollThrottleRef.current) > 500) {
+            if (!scrollThrottleRef.current || (now - scrollThrottleRef.current) > 300) {
                 scrollThrottleRef.current = now;
-                console.log(`🚀 Scroll infinito activado al ${scrollPercentage.toFixed(1)}% con ${visibleProducts.length} productos`);
+                console.log(`🚀 Scroll infinito activado al ${scrollPercentage.toFixed(1)}% con ${products.length} productos`);
                 handleLoadMore();
             }
         }
-    }, [hasMore, loading, visibleProducts.length, handleLoadMore]);
+    }, [hasMore, loading, nextCursor, products.length, handleLoadMore]);
 
     // Función para distribuir productos en columnas tipo masonry
     const distributeProductsInColumns = (products) => {
@@ -269,10 +238,18 @@ const ProductsModal = ({
 
 
 
-    // Renderizar footer de carga (ya no necesario para carga del servidor)
+    // Renderizar footer de carga
     const renderFooter = useCallback(() => {
-        // Solo mostrar si estamos cargando más productos del lado del cliente
-        if (!hasMore && visibleProducts.length > 0) {
+        if (loading && products.length > 0) {
+            return (
+                <View style={styles.footerLoader}>
+                    <ActivityIndicator size="small" color="#fa7e17" />
+                    <Text style={styles.footerText}>Cargando más...</Text>
+                </View>
+            );
+        }
+        
+        if (!hasMore && products.length > 0) {
             return (
                 <View style={styles.endMessageContainer}>
                     <Text style={styles.endMessageText}>¡Has visto todos los productos!</Text>
@@ -280,7 +257,7 @@ const ProductsModal = ({
             );
         }
         return null;
-    }, [hasMore, visibleProducts.length]);
+    }, [hasMore, loading, products.length]);
 
     // Renderizar estado vacío
     const renderEmptyState = useCallback(() => {
@@ -294,7 +271,7 @@ const ProductsModal = ({
                 </Text>
                 <TouchableOpacity
                     style={styles.retryButton}
-                    onPress={() => loadProducts()}
+                    onPress={() => loadProducts(null)}
                 >
                     <Text style={styles.retryButtonText}>Reintentar</Text>
                 </TouchableOpacity>
@@ -343,9 +320,9 @@ const ProductsModal = ({
 
                 {/* Contenido del modal */}
                 <View style={styles.content}>
-                    {loading ? (
+                    {loading && products.length === 0 ? (
                         <View style={styles.loadingContainer}>
-                            <ProductsSkeleton columnsCount={2} itemsCount={6} />
+                            <ActivityIndicator size="large" color="#fa7e17" />
                         </View>
                     ) : error ? (
                         <View style={styles.errorContainer}>
@@ -353,7 +330,7 @@ const ProductsModal = ({
                             <Text style={styles.errorText}>{error}</Text>
                             <TouchableOpacity
                                 style={styles.retryButton}
-                                onPress={() => loadProducts()}
+                                onPress={() => loadProducts(null)}
                             >
                                 <Text style={styles.retryButtonText}>Reintentar</Text>
                             </TouchableOpacity>
@@ -367,17 +344,13 @@ const ProductsModal = ({
                             scrollEventThrottle={16}
                         >
                             <View style={styles.masonryContainer}>
-                                {distributeProductsInColumns(visibleProducts).map((columnProducts, columnIndex) =>
+                                {distributeProductsInColumns(products).map((columnProducts, columnIndex) =>
                                     renderMasonryColumn(columnProducts, columnIndex)
                                 )}
                             </View>
                             
-                            {/* Mensaje de fin */}
-                            {!hasMore && visibleProducts.length > 0 && (
-                                <View style={styles.endMessageContainer}>
-                                    <Text style={styles.endMessageText}>¡Has visto todos los productos!</Text>
-                                </View>
-                            )}
+                            {/* Footer con loader o mensaje final */}
+                            {renderFooter()}
                         </ScrollView>
                     )}
                         </View>

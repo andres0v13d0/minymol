@@ -980,10 +980,9 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     </ScrollView>
                 </View>
 
-                {/* ✅ OPTIMIZADO: Indicador simple en lugar de skeleton */}
+                {/* ✅ OPTIMIZADO: Solo loader, sin texto */}
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#fa7e17" />
-                    <Text style={styles.loadingText}>Cargando categorías...</Text>
                 </View>
                 <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
             </View>
