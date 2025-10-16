@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { getProvidersForCarousel } from '../../utils/apiUtils';
+import { getCachedProviders, isCacheExpired, setCachedProviders } from '../../utils/cache/providersCache';
 import { getUbuntuFont } from '../../utils/fonts';
 import ProviderProductsModal from '../ProviderProductsModal';
 
@@ -36,20 +37,63 @@ const AutoCarouselAnimated = ({
     const loadProviders = async () => {
       try {
         console.log('🎠 AutoCarousel: Iniciando carga de proveedores...');
-        setLoading(true);
-        const providersData = await getProvidersForCarousel();
-        console.log('🎠 AutoCarousel: Datos recibidos:', providersData);
-        console.log('🎠 AutoCarousel: Longitud:', providersData?.length);
         
-        setProviders(providersData);
-        const groups = groupProviders(providersData);
-        console.log('🎠 AutoCarousel: Grupos creados:', groups.length);
-        setProviderGroups(groups);
+        // 1. Intentar cargar desde caché primero (instantáneo)
+        const cachedProviders = await getCachedProviders();
+        
+        if (cachedProviders && cachedProviders.length > 0) {
+          console.log('🎠 AutoCarousel: ✅ Cargando desde caché (instantáneo)');
+          setProviders(cachedProviders);
+          const groups = groupProviders(cachedProviders);
+          setProviderGroups(groups);
+          setLoading(false); // Mostrar datos inmediatamente
+        } else {
+          console.log('🎠 AutoCarousel: ⏳ No hay caché, cargando desde backend...');
+          setLoading(true);
+        }
+        
+        // 2. Verificar si necesitamos actualizar desde el backend
+        const cacheIsExpired = await isCacheExpired();
+        
+        if (cacheIsExpired || !cachedProviders) {
+          console.log('🎠 AutoCarousel: 🔄 Actualizando desde backend en background...');
+          
+          // Cargar desde backend
+          const providersData = await getProvidersForCarousel();
+          console.log('🎠 AutoCarousel: 📥 Datos recibidos del backend:', providersData?.length);
+          
+          // Solo actualizar si hay datos nuevos
+          if (providersData && providersData.length > 0) {
+            // Comparar si hay cambios
+            const hasChanges = !cachedProviders || 
+                              JSON.stringify(providersData) !== JSON.stringify(cachedProviders);
+            
+            if (hasChanges) {
+              console.log('🎠 AutoCarousel: 🔄 Detectados cambios, actualizando...');
+              setProviders(providersData);
+              const groups = groupProviders(providersData);
+              setProviderGroups(groups);
+              
+              // Guardar en caché para la próxima vez
+              await setCachedProviders(providersData);
+            } else {
+              console.log('🎠 AutoCarousel: ✅ Sin cambios, manteniendo datos actuales');
+            }
+          }
+        } else {
+          console.log('🎠 AutoCarousel: ✅ Caché válida, no es necesario actualizar');
+        }
+        
       } catch (error) {
-        console.error('🎠 AutoCarousel: Error cargando proveedores:', error);
+        console.error('🎠 AutoCarousel: ❌ Error cargando proveedores:', error);
+        
+        // Si hay error pero tenemos caché, mantener los datos en caché
+        if (providers.length > 0) {
+          console.log('🎠 AutoCarousel: 🔄 Error en backend, manteniendo caché');
+        }
       } finally {
         setLoading(false);
-        console.log('🎠 AutoCarousel: Carga terminada');
+        console.log('🎠 AutoCarousel: ✅ Carga terminada');
       }
     };
 

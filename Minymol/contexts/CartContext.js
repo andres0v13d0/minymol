@@ -12,14 +12,17 @@ import {
     syncUpdateQuantity,
     triggerSync
 } from '../utils/cartSync';
+import { useCartCounter } from './CartCounterContext';
 
-// Crear el contexto
-const CartContext = createContext();
+// Crear el contexto con valor por defecto
+const CartContext = createContext(undefined);
 
 // Hook personalizado para usar el contexto
 export const useCart = () => {
     const context = useContext(CartContext);
-    if (!context) {
+    if (context === undefined) {
+        console.error('❌ ERROR: useCart fue llamado fuera de CartProvider');
+        console.error('❌ Stack trace:', new Error().stack);
         throw new Error('useCart debe ser usado dentro de CartProvider');
     }
     return context;
@@ -27,21 +30,63 @@ export const useCart = () => {
 
 // Proveedor del contexto
 export const CartProvider = ({ children }) => {
+    console.log('🛒 CartProvider INICIANDO montaje...');
+    console.log('🛒 CartProvider tiene children:', !!children);
+    
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const appState = useRef(AppState.currentState);
     const [syncInProgress, setSyncInProgress] = useState(false);
+    // ✅ Contador visual que se actualiza instantáneamente
+    const [visualCartCount, setVisualCartCount] = useState(0);
+    
+    // 🚀 NUEVO: Hook del contador ultrarrápido
+    const cartCounter = useCartCounter();
+    
+    console.log('🛒 CartProvider: estados inicializados');
 
     // Cargar carrito desde AsyncStorage y sincronizar con backend
     const loadCart = useCallback(async (forceSync = false) => {
         try {
-            console.log('📦 Cargando carrito...');
+            console.log('📦 Cargando carrito...', forceSync ? '(FORZADO)' : '');
+            
+            // Si es forzado, mostrar loading y sincronizar directo
+            if (forceSync && user && isAuthenticated()) {
+                setLoading(true);
+                setSyncInProgress(true);
+                
+                try {
+                    // ✅ BORRAR TODO EL CARRITO LOCAL antes de sincronizar
+                    console.log('🗑️ Borrando carrito local antes de sincronizar...');
+                    await AsyncStorage.removeItem('cart');
+                    setCartItems([]);
+                    setVisualCartCount(0);
+                    
+                    // ✅ Cargar datos frescos del backend
+                    const backendCart = await loadCartFromBackend();
+                    await AsyncStorage.setItem('cart', JSON.stringify(backendCart));
+                    setCartItems(backendCart);
+                    setVisualCartCount(backendCart.length);
+                    cartCounter.setCartCount(backendCart.length); // 🚀 Sincronizar contador
+                    console.log(`✅ Carrito sincronizado FORZADO con backend: ${backendCart.length} items`);
+                    
+                } catch (syncError) {
+                    console.warn('⚠️ Error sincronizando con backend:', syncError.message);
+                } finally {
+                    setSyncInProgress(false);
+                    setLoading(false);
+                }
+                return;
+            }
             
             // 1. Cargar primero desde AsyncStorage para respuesta inmediata
             const cartString = await AsyncStorage.getItem('cart');
             const localCart = cartString ? JSON.parse(cartString) : [];
             setCartItems(localCart);
+            // ✅ Sincronizar contador visual con datos reales
+            setVisualCartCount(localCart.length);
+            cartCounter.setCartCount(localCart.length); // 🚀 Sincronizar contador
             setLoading(false); // Mostrar datos locales inmediatamente
             
             console.log(`✅ Datos locales cargados: ${localCart.length} items`);
@@ -52,26 +97,27 @@ export const CartProvider = ({ children }) => {
                 setSyncInProgress(true);
                 
                 try {
+                    // ✅ BORRAR TODO EL CARRITO LOCAL antes de sincronizar
+                    console.log('🗑️ Borrando carrito local antes de sincronizar...');
+                    await AsyncStorage.removeItem('cart');
+                    
+                    // ✅ Cargar datos frescos del backend
                     const backendCart = await loadCartFromBackend();
                     
-                    // 3. Merge inteligente: priorizar backend si tiene datos
-                    const mergedCart = backendCart.length > 0 ? backendCart : localCart;
-                    
-                    // 4. Actualizar tanto AsyncStorage como estado si hay cambios
-                    if (JSON.stringify(mergedCart) !== JSON.stringify(localCart)) {
-                        await AsyncStorage.setItem('cart', JSON.stringify(mergedCart));
-                        setCartItems(mergedCart);
-                        console.log('✅ Carrito sincronizado con backend');
-                    } else {
-                        console.log('✓ Carrito ya está sincronizado');
-                    }
-                    
-                    // Procesar cola de operaciones pendientes
-                    await triggerSync();
+                    // ✅ Guardar SOLO lo que viene del backend
+                    await AsyncStorage.setItem('cart', JSON.stringify(backendCart));
+                    setCartItems(backendCart);
+                    setVisualCartCount(backendCart.length);
+                    cartCounter.setCartCount(backendCart.length); // 🚀 Sincronizar contador
+                    console.log(`✅ Carrito sincronizado con backend: ${backendCart.length} items`);
                     
                 } catch (syncError) {
                     console.warn('⚠️ Error sincronizando con backend, usando datos locales:', syncError.message);
-                    // Mantener datos locales si hay error de sincronización
+                    // Restaurar datos locales si hay error de sincronización
+                    const fallbackCart = cartString ? JSON.parse(cartString) : [];
+                    setCartItems(fallbackCart);
+                    setVisualCartCount(fallbackCart.length);
+                    cartCounter.setCartCount(fallbackCart.length); // 🚀 Sincronizar contador
                 } finally {
                     setSyncInProgress(false);
                 }
@@ -81,9 +127,11 @@ export const CartProvider = ({ children }) => {
         } catch (error) {
             console.error('❌ Error cargando carrito:', error);
             setCartItems([]);
+            setVisualCartCount(0); // ✅ Resetear contador visual
+            cartCounter.reset(); // 🚀 Resetear contador
             setLoading(false);
         }
-    }, [user]);
+    }, [user, cartCounter]);
 
     // Guardar carrito en AsyncStorage
     const saveCart = useCallback(async (cart) => {
@@ -109,6 +157,8 @@ export const CartProvider = ({ children }) => {
             );
 
             let updatedCart;
+            let isNewItem = false;
+            
             if (existingItemIndex !== -1) {
                 // Si existe, aumentar la cantidad
                 updatedCart = [...existingCart];
@@ -116,17 +166,26 @@ export const CartProvider = ({ children }) => {
                 updatedCart[existingItemIndex].quantity += product.quantity;
             } else {
                 // Si no existe, añadir nuevo item
+                isNewItem = true;
                 updatedCart = [...existingCart, {
                     ...product,
                     id: `${product.productId}-${product.color || 'nocolor'}-${product.talla || 'nosize'}-${Date.now()}`,
                     createdAt: new Date().toISOString(),
-                    isChecked: false // Por defecto no seleccionado
+                    // ✅ Respetar isChecked del producto o usar true por defecto (como en web)
+                    isChecked: product.isChecked ?? true
                 }];
+            }
+
+            // 🚀 ACTUALIZAR CONTADOR INSTANTÁNEAMENTE (antes de cualquier await)
+            if (isNewItem) {
+                cartCounter.increment();
             }
 
             // 1. Actualizar inmediatamente AsyncStorage y estado (UX fluida)
             await saveCart(updatedCart);
-            console.log('✅ Producto agregado al carrito local');
+            // ✅ Actualizar contador visual instantáneamente basado en el tamaño real del carrito
+            setVisualCartCount(updatedCart.length);
+            console.log('✅ Producto agregado al carrito local, total items:', updatedCart.length);
 
             // 2. Sincronizar con backend en background (sin bloquear UI)
             if (user && isAuthenticated()) {
@@ -141,9 +200,11 @@ export const CartProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('❌ Error añadiendo al carrito:', error);
+            // 🔄 Si hay error, sincronizar contador con la realidad
+            cartCounter.syncWithStorage();
             return false;
         }
-    }, [saveCart, user]);
+    }, [saveCart, user, cartCounter]);
 
     // Actualizar cantidad de un item con sincronización en background
     const updateQuantity = useCallback(async (itemId, newQuantity) => {
@@ -207,9 +268,14 @@ export const CartProvider = ({ children }) => {
         try {
             const updatedCart = cartItems.filter(item => item.id !== itemId);
             
+            // 🚀 ACTUALIZAR CONTADOR INSTANTÁNEAMENTE (antes de cualquier await)
+            cartCounter.decrement();
+            
             // 1. Actualizar inmediatamente (UX fluida)
             await saveCart(updatedCart);
-            console.log('✅ Item eliminado localmente');
+            // ✅ Actualizar contador visual instantáneamente basado en el tamaño real
+            setVisualCartCount(updatedCart.length);
+            console.log('✅ Item eliminado localmente, total items:', updatedCart.length);
 
             // 2. Sincronizar con backend en background
             if (user && isAuthenticated()) {
@@ -221,26 +287,73 @@ export const CartProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('❌ Error eliminando item:', error);
+            // 🔄 Si hay error, sincronizar contador con la realidad
+            cartCounter.syncWithStorage();
             return false;
         }
-    }, [cartItems, saveCart, user]);
+    }, [cartItems, saveCart, user, cartCounter]);
+
+    // ✅ NUEVO: Eliminar múltiples items del carrito (batch delete)
+    const removeMultipleItems = useCallback(async (itemIds) => {
+        try {
+            console.log('🗑️ Eliminando múltiples items:', itemIds.length);
+            
+            const updatedCart = cartItems.filter(item => !itemIds.includes(item.id));
+            
+            // 🚀 ACTUALIZAR CONTADOR INSTANTÁNEAMENTE con el nuevo tamaño
+            cartCounter.setCartCount(updatedCart.length);
+            
+            // 1. Actualizar inmediatamente (UX fluida)
+            await saveCart(updatedCart);
+            // ✅ Actualizar contador visual instantáneamente basado en el tamaño real
+            setVisualCartCount(updatedCart.length);
+            console.log('✅ Items eliminados localmente, total items:', updatedCart.length);
+
+            // 2. Sincronizar con backend en background
+            if (user && isAuthenticated()) {
+                // Eliminar todos en paralelo
+                const deletePromises = itemIds.map(id => 
+                    syncRemoveItem(id).catch(error => {
+                        console.warn(`⚠️ Error eliminando ${id}:`, error.message);
+                    })
+                );
+                
+                await Promise.allSettled(deletePromises);
+                console.log('✅ Sincronización de eliminación completada');
+            }
+
+            return true;
+        } catch (error) {
+            console.error('❌ Error eliminando múltiples items:', error);
+            // 🔄 Si hay error, sincronizar contador con la realidad
+            cartCounter.syncWithStorage();
+            return false;
+        }
+    }, [cartItems, saveCart, user, cartCounter]);
 
     // Limpiar carrito
     const clearCart = useCallback(async () => {
         try {
             await AsyncStorage.removeItem('cart');
             setCartItems([]);
+            setVisualCartCount(0); // ✅ Resetear contador visual
+            cartCounter.reset(); // 🚀 Resetear contador ultrarrápido
             return true;
         } catch (error) {
             console.error('Error limpiando carrito:', error);
             return false;
         }
-    }, []);
+    }, [cartCounter]);
 
     // Obtener cantidad total de items (productos únicos)
     const getTotalItems = useCallback(() => {
         return cartItems.length; // Contar productos únicos, no cantidades
     }, [cartItems]);
+
+    // ✅ Obtener contador visual (actualización instantánea)
+    const getVisualCartCount = useCallback(() => {
+        return visualCartCount || 0;
+    }, [visualCartCount]);
 
     // Obtener total del carrito
     const getTotalPrice = useCallback(() => {
@@ -262,6 +375,12 @@ export const CartProvider = ({ children }) => {
             acc[providerName].push(item);
             return acc;
         }, {});
+    }, [cartItems]);
+
+    // ✅ Sincronizar contador visual con cartItems como respaldo
+    useEffect(() => {
+        setVisualCartCount(cartItems.length);
+        console.log('🔄 Sincronizando contador visual:', cartItems.length);
     }, [cartItems]);
 
     // Cargar carrito al inicializar
@@ -316,12 +435,15 @@ export const CartProvider = ({ children }) => {
         loading,
         syncInProgress,
         user,
+        visualCartCount, // ✅ Exponer directamente el valor del contador visual
         addToCart,
         updateQuantity,
         toggleItemCheck,
         removeItem,
+        removeMultipleItems,
         clearCart,
         getTotalItems,
+        getVisualCartCount,
         getTotalPrice,
         getGroupedItems,
         loadCart,
@@ -330,16 +452,27 @@ export const CartProvider = ({ children }) => {
         loading,
         syncInProgress,
         user,
+        visualCartCount, // ✅ Incluir en dependencias
         addToCart,
         updateQuantity,
         toggleItemCheck,
         removeItem,
+        removeMultipleItems,
         clearCart,
         getTotalItems,
+        getVisualCartCount,
         getTotalPrice,
         getGroupedItems,
         loadCart,
     ]);
+
+    console.log('🛒 CartProvider: value creado, retornando Provider con value:', {
+        hasCartItems: !!cartItems,
+        cartItemsLength: cartItems.length,
+        visualCartCount,
+        loading,
+        hasUser: !!user
+    });
 
     return (
         <CartContext.Provider value={value}>

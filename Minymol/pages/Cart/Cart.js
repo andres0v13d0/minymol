@@ -1,196 +1,41 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Animated,
     Dimensions,
     Image,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import CartItemDetailModal from '../../components/CartItemDetailModal';
 import CustomerModal from '../../components/CustomerModal';
 import NavInf from '../../components/NavInf/NavInf';
+import OrderDetailModal from '../../components/OrderDetailModal/OrderDetailModal';
 import OrderRequestModal from '../../components/OrderRequestModal';
 import { useCart } from '../../contexts/CartContext';
+import { useCartCounter } from '../../contexts/CartCounterContext';
 import { getUserData } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Componente de selector de cantidad animado
-const QuantitySelector = ({ item, currentQuantity, onQuantityChange, getAvailableQuantities }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [dropdownHeight, setDropdownHeight] = useState(0);
-    const animatedRotation = useRef(new Animated.Value(0)).current;
-    const animatedOpacity = useRef(new Animated.Value(0)).current;
-
-    const availableQuantities = getAvailableQuantities(item);
-
-    const toggleDropdown = useCallback(() => {
-        const newIsOpen = !isOpen;
-        setIsOpen(newIsOpen);
-
-        if (newIsOpen) {
-            // Calcular altura basada en número de opciones (máximo 4 visibles)
-            const maxVisible = Math.min(availableQuantities.length, 4);
-            const itemHeight = 44; // Altura de cada opción
-            const newHeight = maxVisible * itemHeight;
-            setDropdownHeight(newHeight);
-        } else {
-            setDropdownHeight(0);
-        }
-
-        // Animar rotación del icono
-        Animated.timing(animatedRotation, {
-            toValue: newIsOpen ? 1 : 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-
-        // Animar opacidad del dropdown
-        Animated.timing(animatedOpacity, {
-            toValue: newIsOpen ? 1 : 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-    }, [isOpen, availableQuantities.length, animatedRotation, animatedOpacity]);
-
-    const handleQuantitySelect = useCallback((quantity) => {
-        onQuantityChange(item.id, quantity);
-        setIsOpen(false);
-        setDropdownHeight(0);
-
-        // Resetear animaciones
-        Animated.timing(animatedRotation, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-
-        Animated.timing(animatedOpacity, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start();
-    }, [item.id, onQuantityChange, animatedRotation, animatedOpacity]);
-
-    const rotateInterpolation = animatedRotation.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '180deg'], // Cambio de vuelta a 180deg para que indique hacia abajo
-    });
-
-    return (
-        <View style={styles.quantitySelector}>
-            <TouchableOpacity 
-                style={[styles.quantitySelectorButton, isOpen && styles.quantitySelectorButtonOpen]}
-                onPress={toggleDropdown}
-                activeOpacity={0.8}
-            >
-                <View style={styles.quantitySelectorContent}>
-                    <MaterialIcons name="confirmation-number" size={16} color="#666" />
-                    <Text style={styles.quantitySelectorText}>{currentQuantity}</Text>
-                </View>
-                <Animated.View style={{ transform: [{ rotate: rotateInterpolation }] }}>
-                    <MaterialIcons name="keyboard-arrow-down" size={20} color="#666" />
-                </Animated.View>
-            </TouchableOpacity>
-            
-            <Animated.View 
-                style={[
-                    styles.quantityDropdownContainer,
-                    {
-                        height: dropdownHeight,
-                        opacity: animatedOpacity,
-                    }
-                ]}
-            >
-                <ScrollView 
-                    style={styles.quantityDropdownScroll}
-                    showsVerticalScrollIndicator={false}
-                    nestedScrollEnabled={true}
-                >
-                    {availableQuantities.map((qty) => (
-                        <TouchableOpacity
-                            key={qty}
-                            style={[
-                                styles.quantityDropdownOption,
-                                currentQuantity === qty && styles.quantityDropdownOptionSelected
-                            ]}
-                            onPress={() => handleQuantitySelect(qty)}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.quantityOptionContent}>
-                                <MaterialIcons 
-                                    name="confirmation-number" 
-                                    size={14} 
-                                    color={currentQuantity === qty ? "#fff" : "#666"} 
-                                />
-                                <Text style={[
-                                    styles.quantityDropdownOptionText,
-                                    currentQuantity === qty && styles.quantityDropdownOptionTextSelected
-                                ]}>
-                                    {qty}
-                                </Text>
-                            </View>
-                            {currentQuantity === qty && (
-                                <MaterialIcons name="check" size={16} color="#fff" />
-                            )}
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </Animated.View>
-        </View>
-    );
-};
-
-// Componente animado para cada item del carrito
-const AnimatedCartItem = ({
+// Componente minimalista de item del carrito (estilo Temu)
+const MinimalCartItem = ({
     item,
-    getApplicablePrice,
     calculateSubtotal,
-    getAvailableQuantities,
-    updateQuantity,
     toggleItemCheck,
     removeItem,
-    onProductPress
+    onItemPress
 }) => {
-    // Solo animaciones esenciales - eliminamos conflictos
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const opacityAnim = useRef(new Animated.Value(1)).current;
+    const subtotal = calculateSubtotal(item);
 
-    useEffect(() => {
-        // Animar entrada del item
-        Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-        }).start();
-    }, []);
-
-    const handleRemoveWithAnimation = () => {
-        // Animar salida hacia la izquierda
-        Animated.parallel([
-            Animated.timing(slideAnim, {
-                toValue: -400,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            Animated.timing(opacityAnim, {
-                toValue: 0,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-        ]).start(() => {
-            removeItem(item.id); // Llamar directamente removeItem del contexto
-        });
-    };
-
-    const handleRemoveClick = () => {
-        // Mostrar alert de confirmación ANTES de la animación
+    const handleRemove = (e) => {
+        e.stopPropagation();
         Alert.alert(
             'Eliminar producto',
             '¿Estás seguro de que quieres eliminar este producto del carrito?',
@@ -199,102 +44,103 @@ const AnimatedCartItem = ({
                 {
                     text: 'Eliminar',
                     style: 'destructive',
-                    onPress: handleRemoveWithAnimation // Solo animar si confirma
+                    onPress: () => removeItem(item.id)
                 }
             ]
         );
     };
 
-    const handleToggleCheck = () => {
-        // Solo ejecutar la acción sin animaciones complejas
-        toggleItemCheck(item.id);
-    };
-
-    const priceData = getApplicablePrice(item);
-    const unitPrice = parseFloat(priceData.price || 0);
-    const availableQuantities = getAvailableQuantities(item);
-
     return (
-        <Animated.View
-            style={[
-                styles.cartItem,
-                {
-                    transform: [{ translateX: slideAnim }],
-                    opacity: opacityAnim,
-                    backgroundColor: item.isChecked ? '#fff8f0' : '#fff',
-                    borderLeftWidth: item.isChecked ? 3 : 0,
-                    borderLeftColor: '#fa7e17',
-                }
-            ]}
-        >
+        <View style={styles.minimalCartItemContainer}>
             <TouchableOpacity
-                style={styles.checkButton}
-                onPress={handleToggleCheck}
+                style={[
+                    styles.minimalCartItem,
+                    item.isChecked && styles.minimalCartItemChecked
+                ]}
+                onPress={() => onItemPress(item)}
+                activeOpacity={0.7}
             >
-                <MaterialIcons
-                    name={item.isChecked ? "check-box" : "check-box-outline-blank"}
-                    size={24}
-                    color={item.isChecked ? "#fa7e17" : "#ddd"}
-                />
-            </TouchableOpacity>
+                {/* Checkbox */}
+                <TouchableOpacity
+                    style={styles.checkButton}
+                    onPress={(e) => {
+                        e.stopPropagation();
+                        toggleItemCheck(item.id);
+                    }}
+                >
+                    <MaterialIcons
+                        name={item.isChecked ? "check-box" : "check-box-outline-blank"}
+                        size={24}
+                        color={item.isChecked ? "#fa7e17" : "#ddd"}
+                    />
+                </TouchableOpacity>
 
-            <TouchableOpacity
-                style={styles.productImage}
-                onPress={() => onProductPress && onProductPress({ id: item.productId, uuid: item.productId })}
-            >
-                <Image
-                    source={{ uri: item.imageUrlSnapshot }}
-                    style={styles.productImageImg}
-                    resizeMode="cover"
-                />
-            </TouchableOpacity>
-
-            <View style={styles.productInfo}>
-                <Text style={styles.productName} numberOfLines={2}>
-                    {item.productNameSnapshot}
-                </Text>
-
-                <View style={styles.productVariants}>
-                    {item.colorSnapshot && (
-                        <View style={styles.variantChip}>
-                            <Text style={styles.variantText}>{item.colorSnapshot}</Text>
-                        </View>
-                    )}
-                    {item.sizeSnapshot && (
-                        <View style={styles.variantChip}>
-                            <Text style={styles.variantText}>{item.sizeSnapshot}</Text>
-                        </View>
-                    )}
-                </View>
-
-                <Text style={styles.unitPrice}>
-                    ${unitPrice.toLocaleString('es-CO')} c/u
-                </Text>
-
-                <View style={styles.quantityContainer}>
-                    <Text style={styles.quantityLabel}>Cantidad:</Text>
-                    <QuantitySelector
-                        item={item}
-                        currentQuantity={item.cantidad}
-                        onQuantityChange={updateQuantity}
-                        getAvailableQuantities={getAvailableQuantities}
+                {/* Imagen grande del producto */}
+                <View style={styles.imageWrapper}>
+                    <Image
+                        source={{ uri: item.imageUrlSnapshot }}
+                        style={styles.minimalProductImage}
+                        resizeMode="cover"
                     />
                 </View>
 
-                <Text style={styles.subtotal}>
-                    Total: ${calculateSubtotal(item).toLocaleString('es-CO')}
-                </Text>
-            </View>
+                {/* Información resumida */}
+                <View style={styles.minimalProductInfo}>
+                    {/* Nombre truncado */}
+                    <Text style={styles.minimalProductName} numberOfLines={2} ellipsizeMode="tail">
+                        {item.productNameSnapshot}
+                    </Text>
 
-            <TouchableOpacity
-                style={styles.removeButton}
-                onPress={handleRemoveClick}
-            >
-                <MaterialIcons name="delete" size={24} color="#ff4444" />
+                    {/* Variantes muy pequeñas */}
+                    {(item.colorSnapshot || item.sizeSnapshot) && (
+                        <View style={styles.minimalVariants}>
+                            {item.colorSnapshot && (
+                                <Text style={styles.minimalVariantText} numberOfLines={1}>
+                                    {item.colorSnapshot}
+                                </Text>
+                            )}
+                            {item.colorSnapshot && item.sizeSnapshot && (
+                                <Text style={styles.minimalVariantSeparator}>•</Text>
+                            )}
+                            {item.sizeSnapshot && (
+                                <Text style={styles.minimalVariantText} numberOfLines={1}>
+                                    {item.sizeSnapshot}
+                                </Text>
+                            )}
+                        </View>
+                    )}
+
+                    {/* Cantidad (solo muestra, no edita) */}
+                    <View style={styles.minimalQuantityDisplay}>
+                        <MaterialIcons name="confirmation-number" size={12} color="#999" />
+                        <Text style={styles.minimalQuantityText}>x{item.cantidad}</Text>
+                    </View>
+
+                    {/* Total */}
+                    <Text style={styles.minimalTotalPrice}>
+                        ${subtotal.toLocaleString('es-CO')}
+                    </Text>
+                </View>
+
+                {/* Indicador de "ver más" */}
+                <View style={styles.chevronIndicator}>
+                    <MaterialIcons name="chevron-right" size={20} color="#ccc" />
+                </View>
             </TouchableOpacity>
-        </Animated.View>
+
+            {/* Botón de eliminar */}
+            <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleRemove}
+                activeOpacity={0.7}
+            >
+                <MaterialIcons name="delete" size={20} color="#ff4444" />
+            </TouchableOpacity>
+        </View>
     );
 };
+
+
 
 const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     const {
@@ -305,8 +151,13 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
         updateQuantity,
         toggleItemCheck,
         removeItem,
-        getGroupedItems
+        removeMultipleItems,
+        getGroupedItems,
+        loadCart
     } = useCart();
+    
+    // 🚀 NUEVO: Obtener contador ultrarrápido directamente
+    const { count: cartItemCount } = useCartCounter();
 
     const [isCreatingOrder, setIsCreatingOrder] = useState(false);
     const [showOrderModal, setShowOrderModal] = useState(false);
@@ -316,6 +167,37 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     const [customerData, setCustomerData] = useState(null);
     const [userData, setUserData] = useState(null);
     const [selectedProviderId, setSelectedProviderId] = useState(null);
+    
+    // ✅ Estados para OrderDetailModal
+    const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
+
+    // ✅ Estados para CartItemDetailModal
+    const [showItemDetailModal, setShowItemDetailModal] = useState(false);
+    const [selectedItem, setSelectedItem] = useState(null);
+
+    // ✅ Estado para Pull to Refresh
+    const [refreshing, setRefreshing] = useState(false);
+
+    // ✅ Función para manejar Pull to Refresh
+    const onRefresh = async () => {
+        if (!user) {
+            console.log('⚠️ No se puede sincronizar sin usuario autenticado');
+            return;
+        }
+        
+        console.log('🔄 Pull to Refresh: Sincronizando carrito...');
+        setRefreshing(true);
+        
+        try {
+            await loadCart(true); // Forzar sincronización
+            console.log('✅ Pull to Refresh: Sincronización completada');
+        } catch (error) {
+            console.error('❌ Error en Pull to Refresh:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     // Obtener items agrupados por proveedor
     const groupedItems = getGroupedItems();
@@ -403,24 +285,26 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     // Manejar creación exitosa de orden
     const handleOrderCreated = async (orderId, customerData, orderItems) => {
         try {
-            // Eliminar items del carrito después de crear la orden
-            for (const item of orderItems) {
-                await removeItem(item.id);
-            }
+            console.log('✅ Orden creada exitosamente:', orderId);
+            console.log('🗑️ Eliminando items del carrito:', orderItems.length);
+            
+            // ✅ Eliminar TODOS los items en batch (más eficiente y evita errores)
+            const itemIds = orderItems.map(item => item.id);
+            await removeMultipleItems(itemIds);
 
-            // Cerrar modal
+            // Cerrar modales de pedido
             setShowOrderModal(false);
             setSelectedProvider(null);
             setSelectedProviderItems([]);
+            setShowCustomerModal(false);
+            setCustomerData(null);
 
-            // Mostrar mensaje de éxito
-            Alert.alert(
-                'Pedido creado', 
-                `Tu pedido #${orderId} ha sido enviado exitosamente.`,
-                [{ text: 'OK' }]
-            );
+            // ✅ Mostrar OrderDetailModal directamente
+            setSelectedOrderId(orderId);
+            setShowOrderDetailModal(true);
+            
         } catch (error) {
-            console.error('Error removing items from cart:', error);
+            console.error('❌ Error removiendo items del carrito:', error);
             Alert.alert('Advertencia', 'El pedido se creó correctamente, pero hubo un error al actualizar el carrito.');
         }
     };
@@ -444,6 +328,13 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
         setShowCustomerModal(false);
     };
 
+    // Manejar apertura del modal de detalle del item
+    const handleItemPress = (item) => {
+        console.log('🔍 Abriendo detalle del item:', item.productNameSnapshot);
+        setSelectedItem(item);
+        setShowItemDetailModal(true);
+    };
+
     if (loading) {
         return (
             <View style={styles.container}>
@@ -451,7 +342,7 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                     <ActivityIndicator size="large" color="#fa7e17" />
                     <Text style={styles.loadingText}>Cargando carrito...</Text>
                 </View>
-                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             </View>
         );
     }
@@ -459,19 +350,42 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
     if (cartItems.length === 0) {
         return (
             <View style={styles.container}>
-                <View style={styles.emptyContainer}>
-                    <MaterialIcons name="shopping-cart" size={100} color="#fa7e17" />
-                    <Text style={styles.emptyTitle}>Tu carrito está vacío</Text>
-                    <Text style={styles.emptyText}>Descubre productos increíbles para ti</Text>
-                    <TouchableOpacity
-                        style={styles.continueShoppingButton}
-                        onPress={() => onTabPress('home')}
-                    >
-                        <MaterialIcons name="add-shopping-cart" size={20} color="white" style={styles.buttonIcon} />
-                        <Text style={styles.continueShoppingText}>Explorar productos</Text>
-                    </TouchableOpacity>
-                </View>
-                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+                <ScrollView
+                    contentContainerStyle={styles.emptyScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#fa7e17']}
+                            tintColor="#fa7e17"
+                            title="Sincronizando..."
+                            titleColor="#fa7e17"
+                        />
+                    }
+                >
+                    <View style={styles.emptyContainer}>
+                        <MaterialIcons name="shopping-cart" size={100} color="#fa7e17" />
+                        <Text style={styles.emptyTitle}>Tu carrito está vacío</Text>
+                        <Text style={styles.emptyText}>Descubre productos increíbles para ti</Text>
+                        {user && (
+                            <View style={styles.pullToRefreshHint}>
+                                <MaterialIcons name="refresh" size={16} color="#999" />
+                                <Text style={styles.pullToRefreshHintText}>
+                                    Desliza hacia abajo para sincronizar
+                                </Text>
+                            </View>
+                        )}
+                        <TouchableOpacity
+                            style={styles.continueShoppingButton}
+                            onPress={() => onTabPress('home')}
+                        >
+                            <MaterialIcons name="add-shopping-cart" size={20} color="white" style={styles.buttonIcon} />
+                            <Text style={styles.continueShoppingText}>Explorar productos</Text>
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             </View>
         );
     }
@@ -492,7 +406,22 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                 </View>
             )}
             
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.scrollView} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    user ? (
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={['#fa7e17']}
+                            tintColor="#fa7e17"
+                            title="Sincronizando carrito..."
+                            titleColor="#fa7e17"
+                        />
+                    ) : undefined
+                }
+            >
                 {/* Header mejorado con estadísticas */}
                 <View style={styles.cartHeader}>
                     <View style={styles.headerTop}>
@@ -527,6 +456,16 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                         </View>
                     )}
                     
+                    {/* Hint de Pull to Refresh */}
+                    {user && !syncInProgress && (
+                        <View style={styles.pullToRefreshHintContainer}>
+                            <MaterialIcons name="arrow-downward" size={12} color="#999" />
+                            <Text style={styles.pullToRefreshHintText}>
+                                Desliza hacia abajo para sincronizar
+                            </Text>
+                        </View>
+                    )}
+                    
                     {/* Mensaje informativo si no está autenticado */}
                     {!user && cartItems.length > 0 && (
                         <View style={styles.offlineInfo}>
@@ -546,16 +485,13 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                         </View>
 
                         {items.map((item) => (
-                            <AnimatedCartItem
+                            <MinimalCartItem
                                 key={item.id}
                                 item={item}
-                                getApplicablePrice={getApplicablePrice}
                                 calculateSubtotal={calculateSubtotal}
-                                getAvailableQuantities={getAvailableQuantities}
-                                updateQuantity={updateQuantity}
                                 toggleItemCheck={toggleItemCheck}
                                 removeItem={removeItem}
-                                onProductPress={onProductPress}
+                                onItemPress={handleItemPress}
                             />
                         ))}
 
@@ -582,7 +518,7 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                 <View style={styles.bottomSpacer} />
             </ScrollView>
 
-            <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+            <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             
             <OrderRequestModal
                 visible={showOrderModal}
@@ -613,6 +549,37 @@ const Cart = ({ selectedTab, onTabPress, onProductPress }) => {
                 userData={userData}
                 providerId={selectedProviderId}
             />
+            
+            {/* ✅ Modal de detalle de orden */}
+            {showOrderDetailModal && selectedOrderId && (
+                <OrderDetailModal
+                    visible={showOrderDetailModal}
+                    orderId={selectedOrderId}
+                    onClose={() => {
+                        console.log('📋 Cerrando OrderDetailModal');
+                        setShowOrderDetailModal(false);
+                        setSelectedOrderId(null);
+                    }}
+                />
+            )}
+
+            {/* ✅ Modal de detalle del item del carrito */}
+            {showItemDetailModal && selectedItem && (
+                <CartItemDetailModal
+                    visible={showItemDetailModal}
+                    onClose={() => {
+                        console.log('🔍 Cerrando CartItemDetailModal');
+                        setShowItemDetailModal(false);
+                        setSelectedItem(null);
+                    }}
+                    item={selectedItem}
+                    getApplicablePrice={getApplicablePrice}
+                    calculateSubtotal={calculateSubtotal}
+                    getAvailableQuantities={getAvailableQuantities}
+                    updateQuantity={updateQuantity}
+                    toggleItemCheck={toggleItemCheck}
+                />
+            )}
         </View>
     );
 };
@@ -671,12 +638,24 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 16,
+        justifyContent: 'space-between',
+        flex: 1,
     },
     cartTitle: {
         fontSize: 24,
         fontFamily: getUbuntuFont('bold'),
         color: '#333',
         marginLeft: 12,
+        flex: 1,
+    },
+    syncButton: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: 'rgba(250, 126, 23, 0.1)',
+        marginLeft: 8,
+    },
+    syncButtonLoading: {
+        opacity: 0.5,
     },
     statsContainer: {
         flexDirection: 'row',
@@ -755,12 +734,17 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('regular'),
         color: '#666',
     },
+    emptyScrollContent: {
+        flex: 1,
+        minHeight: '100%',
+    },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 32,
         backgroundColor: '#f5f7fa',
+        minHeight: 600,
     },
     emptyTitle: {
         fontSize: 26,
@@ -775,8 +759,27 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('regular'),
         color: '#666',
         textAlign: 'center',
-        marginBottom: 32,
-        lineHeight: 24,
+        marginBottom: 16,
+    },
+    pullToRefreshHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 24,
+        gap: 6,
+    },
+    pullToRefreshHintContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        marginTop: 8,
+    },
+    pullToRefreshHintText: {
+        fontSize: 12,
+        fontFamily: getUbuntuFont('regular'),
+        color: '#999',
+        marginLeft: 4,
     },
     continueShoppingButton: {
         backgroundColor: '#fa7e17',
@@ -831,180 +834,90 @@ const styles = StyleSheet.create({
         fontFamily: getUbuntuFont('bold'),
         color: '#fff',
     },
-    cartItem: {
+    // ✅ Estilos para item minimalista (estilo Temu)
+    minimalCartItemContainer: {
         flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingVertical: 16,
+        alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
-        alignItems: 'flex-start',
-        overflow: 'visible',
+        backgroundColor: '#fff',
+    },
+    minimalCartItem: {
+        flex: 1,
+        flexDirection: 'row',
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    minimalCartItemChecked: {
+        backgroundColor: '#fffbf5',
+    },
+    deleteButton: {
+        padding: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     checkButton: {
-        marginRight: 12,
-        marginTop: 4,
+        marginRight: 10,
+        padding: 4,
     },
-    productImage: {
-        width: 70,
-        height: 70,
-        borderRadius: 12,
+    imageWrapper: {
+        width: 100,
+        height: 100,
+        borderRadius: 8,
         overflow: 'hidden',
         marginRight: 12,
+        backgroundColor: '#f8f8f8',
     },
-    productImageImg: {
+    minimalProductImage: {
         width: '100%',
         height: '100%',
     },
-    productInfo: {
+    minimalProductInfo: {
         flex: 1,
-        marginRight: 8,
+        justifyContent: 'space-between',
     },
-    productName: {
-        fontSize: 16,
+    minimalProductName: {
+        fontSize: 14,
         fontFamily: getUbuntuFont('medium'),
         color: '#333',
-        marginBottom: 6,
-        lineHeight: 22,
-    },
-    productVariants: {
-        flexDirection: 'row',
-        marginBottom: 6,
-        flexWrap: 'wrap',
-    },
-    variantChip: {
-        backgroundColor: '#f0f0f0',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginRight: 6,
         marginBottom: 4,
+        lineHeight: 18,
     },
-    variantText: {
-        fontSize: 12,
-        fontFamily: getUbuntuFont('medium'),
-        color: '#666',
+    minimalVariants: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
     },
-    unitPrice: {
-        fontSize: 14,
+    minimalVariantText: {
+        fontSize: 10,
+        fontFamily: getUbuntuFont('regular'),
+        color: '#999',
+    },
+    minimalVariantSeparator: {
+        fontSize: 10,
+        color: '#999',
+        marginHorizontal: 4,
+    },
+    minimalQuantityDisplay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 4,
+    },
+    minimalQuantityText: {
+        fontSize: 11,
+        fontFamily: getUbuntuFont('regular'),
+        color: '#999',
+    },
+    minimalTotalPrice: {
+        fontSize: 16,
         fontFamily: getUbuntuFont('bold'),
         color: '#fa7e17',
-        marginBottom: 8,
     },
-    quantityContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 12, // Aumenté el margen para dar más espacio al dropdown
-    },
-    quantityLabel: {
-        fontSize: 12,
-        fontFamily: getUbuntuFont('regular'),
-        color: '#666',
-        marginRight: 8,
-    },
-    quantitySelector: {
-        position: 'relative',
-        zIndex: 9999,
-        minWidth: 80,
-    },
-    quantitySelectorButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        backgroundColor: 'white',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        minHeight: 36,
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 1,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-        zIndex: 9999,
-    },
-    quantitySelectorButtonOpen: {
-        borderColor: '#fa7e17',
-        borderBottomLeftRadius: 0, // Cambio para que se conecte con el dropdown que está abajo
-        borderBottomRightRadius: 0,
-    },
-    quantitySelectorContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    quantitySelectorText: {
-        fontSize: 14,
-        fontFamily: getUbuntuFont('medium'),
-        color: '#333',
-        marginLeft: 6,
-    },
-    quantityDropdownContainer: {
-        position: 'absolute',
-        top: '100%', // Cambio de vuelta a 'top' para que se abra hacia abajo
-        left: 0,
-        right: 0,
-        backgroundColor: 'white',
-        borderWidth: 1,
-        borderColor: '#fa7e17',
-        borderTopWidth: 0, // Cambio de vuelta a 'borderTopWidth'
-        borderBottomLeftRadius: 8, // Cambio de vuelta a 'borderBottomLeftRadius'
-        borderBottomRightRadius: 8, // Cambio de vuelta a 'borderBottomRightRadius'
-        overflow: 'visible',
-        zIndex: 1, // Z-index muy alto para aparecer encima del subtotal
-        elevation: 20, // Elevation alta para Android
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 4, // Sombra hacia abajo
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
-        maxHeight: 120, // Máximo 4 opciones (44px cada una)
-    },
-    quantityDropdownScroll: {
-        maxHeight: 120, // Mismo valor que el contenedor
-    },
-    quantityDropdownOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-        minHeight: 44,
-        zIndex: 999,
-    },
-    quantityDropdownOptionSelected: {
-        backgroundColor: '#fa7e17',
-    },
-    quantityOptionContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    quantityDropdownOptionText: {
-        fontSize: 14,
-        fontFamily: getUbuntuFont('regular'),
-        color: '#333',
-        marginLeft: 6,
-    },
-    quantityDropdownOptionTextSelected: {
-        color: 'white',
-        fontFamily: getUbuntuFont('medium'),
-    },
-    subtotal: {
-        fontSize: 15,
-        fontFamily: getUbuntuFont('bold'),
-        color: '#333',
-    },
-    removeButton: {
-        padding: 8,
+    chevronIndicator: {
+        marginLeft: 8,
+        padding: 4,
     },
     providerFooter: {
         backgroundColor: '#f8f9fa',
@@ -1058,25 +971,5 @@ const styles = StyleSheet.create({
     },
 });
 
-// ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada para evitar re-renders
-const CartOptimized = memo(Cart, (prevProps, nextProps) => {
-  // Si se desactiva, NO re-renderizar (ya está oculto)
-  if (!nextProps.isActive && !prevProps.isActive) {
-    return true; // Son iguales, no re-renderizar
-  }
-  
-  // Si cambia isActive, sí re-renderizar
-  if (prevProps.isActive !== nextProps.isActive) {
-    return false; // Son diferentes, re-renderizar
-  }
-  
-  // Si está activo, verificar props críticas
-  return (
-    prevProps.selectedTab === nextProps.selectedTab &&
-    prevProps.onTabPress === nextProps.onTabPress &&
-    prevProps.onProductPress === nextProps.onProductPress &&
-    prevProps.onSearchPress === nextProps.onSearchPress
-  );
-});
-
-export default CartOptimized;
+// ✅ Exportar directamente sin memo por ahora para evitar problemas con el contexto
+export default Cart;

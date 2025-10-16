@@ -1,11 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CartIcon from '../Cart/Cart';
 
-const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
+const NavInf = ({ selectedTab, onTabPress, isProductInfo = false, cartItemCount = 0 }) => {
   // Si estamos en ProductInfo, no mostrar ningún tab como seleccionado
   const activeTab = isProductInfo ? null : selectedTab;
+  
+  // ✅ Animación para el contador del carrito
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const prevCount = useRef(cartItemCount);
+  
+  // ✅ Efecto de bounce cuando cambia el contador
+  useEffect(() => {
+    if (cartItemCount !== prevCount.current) {
+      console.log('🎯 Contador cambió de', prevCount.current, 'a', cartItemCount);
+      
+      // Secuencia de animación: crecer y volver
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1.3,
+          useNativeDriver: true,
+          friction: 3,
+          tension: 100,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 3,
+          tension: 100,
+        }),
+      ]).start();
+      
+      prevCount.current = cartItemCount;
+    }
+  }, [cartItemCount, scaleAnim]);
   
   // 🔍 DEBUG: Medir tiempo de respuesta del click
   const handleTabPress = (tab) => {
@@ -79,9 +108,9 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false }) => {
         style={styles.navItem}
         onPress={() => handleTabPress('cart')}
       >
-        <View style={styles.iconContainer}>
-          <CartIcon isSelected={activeTab === 'cart'} />
-        </View>
+        <Animated.View style={[styles.iconContainer, { transform: [{ scale: scaleAnim }] }]}>
+          <CartIcon isSelected={activeTab === 'cart'} itemCount={cartItemCount} />
+        </Animated.View>
         <Text style={[styles.navText, activeTab === 'cart' && styles.selectedText]}>
           Carrito
         </Text>
@@ -126,13 +155,25 @@ const styles = StyleSheet.create({
 });
 
 // ✅ MEGA OPTIMIZADO: React.memo con comparación personalizada
-// NavInf solo debe re-renderizar cuando cambia selectedTab
+// NavInf solo debe re-renderizar cuando cambia selectedTab o cartItemCount
 const NavInfOptimized = React.memo(NavInf, (prevProps, nextProps) => {
-  return (
+  // Solo re-renderizar si cambian estas props clave
+  const shouldNotUpdate = 
     prevProps.selectedTab === nextProps.selectedTab &&
     prevProps.isProductInfo === nextProps.isProductInfo &&
-    prevProps.onTabPress === nextProps.onTabPress
-  );
+    prevProps.cartItemCount === nextProps.cartItemCount;
+    
+  // Log para debug
+  if (!shouldNotUpdate) {
+    console.log('🔄 NavInf RE-RENDER:', {
+      tabChanged: prevProps.selectedTab !== nextProps.selectedTab,
+      countChanged: prevProps.cartItemCount !== nextProps.cartItemCount,
+      prevCount: prevProps.cartItemCount,
+      nextCount: nextProps.cartItemCount,
+    });
+  }
+  
+  return shouldNotUpdate;
 });
 
 export default NavInfOptimized;

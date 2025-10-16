@@ -17,6 +17,20 @@ let syncQueue = [];
 let isSyncing = false;
 
 /**
+ * Limpiar cola de sincronización
+ * Se llama después de una sincronización exitosa completa desde el backend
+ */
+export const clearSyncQueue = async () => {
+    try {
+        await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+        syncQueue = [];
+        console.log('🧹 Cola de sincronización limpiada');
+    } catch (error) {
+        console.error('Error limpiando cola de sincronización:', error);
+    }
+};
+
+/**
  * Agregar operación a la cola de sincronización
  */
 const addToSyncQueue = async (operation) => {
@@ -145,7 +159,9 @@ export const loadCartFromBackend = async () => {
                         productNameSnapshot: item.productNameSnapshot,
                         imageUrlSnapshot: item.imageUrlSnapshot,
                         providerNameSnapshot: item.providerNameSnapshot,
-                        createdAt: item.createdAt
+                        createdAt: item.createdAt,
+                        // ✅ CRÍTICO: Respetar isChecked del backend
+                        isChecked: item.isChecked ?? false
                     };
                 } catch (priceError) {
                     console.warn('Error cargando precios para producto:', item.productId, priceError);
@@ -162,7 +178,9 @@ export const loadCartFromBackend = async () => {
                         productNameSnapshot: item.productNameSnapshot,
                         imageUrlSnapshot: item.imageUrlSnapshot,
                         providerNameSnapshot: item.providerNameSnapshot,
-                        createdAt: item.createdAt
+                        createdAt: item.createdAt,
+                        // ✅ CRÍTICO: Respetar isChecked del backend
+                        isChecked: item.isChecked ?? false
                     };
                 }
             })
@@ -170,8 +188,10 @@ export const loadCartFromBackend = async () => {
 
         console.log(`✅ Carrito cargado desde backend: ${enrichedItems.length} items`);
         
-        // Procesar cola de sincronización pendiente después de cargar
-        processSyncQueue();
+        // ✅ LIMPIAR cola de sincronización después de una carga exitosa
+        // Esto evita errores 404/400 por operaciones sobre items que ya no existen
+        await clearSyncQueue();
+        console.log('🧹 Cola limpiada después de sincronización exitosa');
         
         return enrichedItems;
 
@@ -260,6 +280,11 @@ const syncUpdateQuantityInternal = async (itemId, newQuantity) => {
         });
 
         if (!response.ok) {
+            // Si es 404, el item ya no existe, descartar operación
+            if (response.status === 404) {
+                console.log('⚠️ Item no existe en backend (404), descartando operación:', itemId);
+                return true; // Retornar true para que se elimine de la cola
+            }
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
@@ -307,6 +332,11 @@ const syncToggleCheckInternal = async (itemId, isChecked) => {
         });
 
         if (!response.ok) {
+            // Si es 404, el item ya no existe, descartar operación
+            if (response.status === 404) {
+                console.log('⚠️ Item no existe en backend (404), descartando operación:', itemId);
+                return true; // Retornar true para que se elimine de la cola
+            }
             throw new Error(`Error HTTP: ${response.status}`);
         }
 
@@ -353,6 +383,11 @@ const syncRemoveItemInternal = async (itemId) => {
         });
 
         if (!response.ok) {
+            // Si es 404, el item ya no existe, considerar exitoso
+            if (response.status === 404) {
+                console.log('⚠️ Item ya no existe en backend (404), considerando exitoso:', itemId);
+                return true; // Retornar true para que se elimine de la cola
+            }
             throw new Error(`Error HTTP: ${response.status}`);
         }
 

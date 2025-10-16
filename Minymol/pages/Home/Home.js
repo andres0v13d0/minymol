@@ -1,7 +1,11 @@
 import { memo, useEffect } from 'react';
+import { useCartCounter } from '../../contexts/CartCounterContext';
 import CategorySliderHomeOptimized from './CategorySliderHomeOptimized';
 
 const Home = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress, isActive = true }) => {
+  // 🚀 NUEVO: Obtener contador ultrarrápido directamente
+  const { count: cartItemCount } = useCartCounter();
+  
   // 🔍 DEBUG: Medir cuándo se activa/desactiva Home
   useEffect(() => {
     const timestamp = performance.now();
@@ -26,6 +30,7 @@ const Home = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress,
       selectedTab={selectedTab}
       onTabPress={onTabPress}
       onSearchPress={onSearchPress}
+      cartItemCount={cartItemCount}
       isActive={isActive}
     />
   );
@@ -44,7 +49,7 @@ const HomeOptimized = memo(Home, (prevProps, nextProps) => {
     return false; // Son diferentes, re-renderizar
   }
   
-  // Si está activo, verificar props críticas
+  // Si está activo, verificar props críticas (sin cartItemCount porque ahora viene del contexto)
   return (
     prevProps.selectedTab === nextProps.selectedTab &&
     prevProps.onProductPress === nextProps.onProductPress &&

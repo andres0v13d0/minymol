@@ -12,6 +12,7 @@ import {
 import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
 import ProductsModal from '../../components/ProductsModal';
+import { useCartCounter } from '../../contexts/CartCounterContext';
 import { getUbuntuFont } from '../../utils/fonts';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -24,6 +25,9 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
   // Estados para el modal de productos
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+  
+  // 🚀 NUEVO: Obtener contador ultrarrápido directamente
+  const { count: cartItemCount } = useCartCounter();
 
   // 🔍 DEBUG: Medir cuándo se activa/desactiva Categories
   useEffect(() => {
@@ -140,7 +144,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
           <ActivityIndicator size="large" color="#fa7e17" />
           <Text style={styles.loadingText}>Cargando categorías...</Text>
         </View>
-        <NavInf selectedTab="categories" onTabPress={onTabPress} />
+        <NavInf selectedTab="categories" onTabPress={onTabPress} cartItemCount={cartItemCount} />
       </View>
     );
   }
@@ -179,7 +183,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
         </View>
       </View>
 
-      <NavInf selectedTab="categories" onTabPress={onTabPress} />
+      <NavInf selectedTab="categories" onTabPress={onTabPress} cartItemCount={cartItemCount} />
       
       {/* Modal de productos */}
       <ProductsModal

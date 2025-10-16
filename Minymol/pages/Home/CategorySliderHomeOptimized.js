@@ -17,6 +17,7 @@ import Header from '../../components/Header/Header';
 import NavInf from '../../components/NavInf/NavInf';
 import Product from '../../components/Product/Product';
 import { useAppState } from '../../contexts/AppStateContext';
+import { useCartCounter } from '../../contexts/CartCounterContext';
 import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
 import subCategoriesManager from '../../utils/SubCategoriesManager';
@@ -29,6 +30,9 @@ const Reels = lazy(() => import('../../components/Reels'));
 const { width: screenWidth } = Dimensions.get('window');
 
 const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, onSearchPress, isActive = true }) => {
+    // 🚀 NUEVO: Obtener contador ultrarrápido directamente
+    const { count: cartItemCount } = useCartCounter();
+    
     // 🚀 MEGA OPTIMIZACIÓN: Renderizado lazy después de interacciones
     // Esto permite que la UI base se monte PRIMERO, y luego se cargue el contenido pesado
     const [isReady, setIsReady] = useState(false);
@@ -1024,7 +1028,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#fa7e17" />
                 </View>
-                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             </View>
         );
     }
@@ -1054,7 +1058,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 <View style={styles.loadingContainer}>
                     <Text style={styles.emptyText}>No hay categorías disponibles</Text>
                 </View>
-                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             </View>
         );
     }
@@ -1076,7 +1080,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     <Text style={styles.loadingText}>Cargando...</Text>
                 </View>
                 
-                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+                <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
             </View>
         );
     }
@@ -1120,7 +1124,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 updateCellsBatchingPeriod={100} // ✅ Actualizar en lotes más frecuentes
             />
 
-            <NavInf selectedTab={selectedTab} onTabPress={onTabPress} />
+            <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />
 
             {/* 🔥 ProductDetail Modal */}
             {showProductDetail && selectedProduct && (

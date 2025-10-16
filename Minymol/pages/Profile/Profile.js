@@ -3,16 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
 import CustomerServiceModal from '../../components/CustomerServiceModal';
@@ -24,6 +24,7 @@ import ProvidersModal from '../../components/ProvidersModal';
 import ReportsModal from '../../components/ReportsModal';
 import SAIHelpModal from '../../components/SAIHelpModal';
 import SAIModal from '../../components/SAIModal';
+import { useCartCounter } from '../../contexts/CartCounterContext';
 import { getUbuntuFont } from '../../utils/fonts';
 import Configuracion from '../Configuracion';
 
@@ -44,6 +45,9 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
   const [showReportsModal, setShowReportsModal] = useState(false);
   const [showMovementsModal, setShowMovementsModal] = useState(false);
+  
+  // 🚀 NUEVO: Obtener contador ultrarrápido directamente
+  const { count: cartItemCount } = useCartCounter();
 
   // Animaciones
   const subMenuAnimation = useRef(new Animated.Value(0)).current;
@@ -274,7 +278,7 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
           <ActivityIndicator size="large" color="#fa7e17" />
           <Text style={styles.loadingText}>Cargando perfil...</Text>
         </View>
-        <NavInf selectedTab="profile" onTabPress={onTabPress} />
+        <NavInf selectedTab="profile" onTabPress={onTabPress} cartItemCount={cartItemCount} />
       </View>
     );
   }
@@ -578,7 +582,7 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
         onClose={() => setShowMovementsModal(false)}
       />
 
-      <NavInf selectedTab="profile" onTabPress={onTabPress} />
+      <NavInf selectedTab="profile" onTabPress={onTabPress} cartItemCount={cartItemCount} />
     </View>
   );
 };

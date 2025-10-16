@@ -1,11 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
-import { useCart } from '../../contexts/CartContext';
 
-const CartIcon = ({ isSelected = false }) => {
-  const { cartItems, getTotalItems } = useCart();
-  const [count, setCount] = useState(0);
+const CartIcon = ({ isSelected = false, itemCount = 0 }) => {
+  const [count, setCount] = useState(itemCount);
   const [previousCount, setPreviousCount] = useState(-1);
   
   // Animaciones
@@ -17,19 +15,17 @@ const CartIcon = ({ isSelected = false }) => {
   const iconColor = isSelected ? '#fa7e17' : 'white';
 
   useEffect(() => {
-    const totalItems = getTotalItems();
-    
     // Solo animar si hay un cambio real en la cantidad y no es la primera carga
-    if (totalItems !== count) {
+    if (itemCount !== count) {
       // Si se añadió un producto (cantidad aumentó), animar
-      if (totalItems > previousCount && previousCount >= 0) {
+      if (itemCount > previousCount && previousCount >= 0) {
         animateAddToCart();
       }
       
-      setCount(totalItems);
-      setPreviousCount(totalItems);
+      setCount(itemCount);
+      setPreviousCount(itemCount);
     }
-  }, [cartItems, getTotalItems, count, previousCount]);
+  }, [itemCount, count, previousCount]);
 
   const animateAddToCart = () => {
     // Secuencia de animaciones cuando se añade un producto
@@ -143,4 +139,9 @@ const styles = StyleSheet.create({
   },
 });
 
+// Exportar el componente base sin contexto
+export { CartIcon };
+
+// Exportar por defecto el componente base (sin contexto)
+// El NavInf debe recibir itemCount como prop desde el componente padre que tiene acceso al contexto
 export default CartIcon;

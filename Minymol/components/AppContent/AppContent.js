@@ -1,90 +1,52 @@
 import { startTransition, useCallback, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
-import 'react-native-gesture-handler';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import SearchModal from './components/SearchModal/SearchModal';
-import { AppStateProvider } from './contexts/AppStateContext';
-import { CartProvider } from './contexts/CartContext';
-import { CartCounterProvider, useCartCounter } from './contexts/CartCounterContext';
-import { FavoritesProvider } from './hooks/useFavorites';
-import { useFonts } from './hooks/useFonts';
-import Cart from './pages/Cart/Cart';
-import Categories from './pages/Categories/Categories';
-import Home from './pages/Home/Home';
-import Profile from './pages/Profile/Profile';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCart } from '../../contexts/CartContext';
+import { useFonts } from '../../hooks/useFonts';
+import Cart from '../../pages/Cart/Cart';
+import Categories from '../../pages/Categories/Categories';
+import Home from '../../pages/Home/Home';
+import Profile from '../../pages/Profile/Profile';
+import SearchModal from '../SearchModal/SearchModal';
 
-// Cargar utilidades de debug en desarrollo
-if (__DEV__) {
-  require('./utils/cartDebug');
-}
-
-export default function App() {
-  console.log('🚀 App component montando...');
-  return (
-    <SafeAreaProvider>
-      <AppStateProvider>
-        <CartCounterProvider>
-          <CartProvider>
-            <FavoritesProvider>
-              <AppContent />
-            </FavoritesProvider>
-          </CartProvider>
-        </CartCounterProvider>
-      </AppStateProvider>
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  console.log('📱 AppContent component montando...');
+export default function AppContent() {
   const [selectedTab, setSelectedTab] = useState('home');
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false); // ✅ Flag de transición
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const fontsLoaded = useFonts();
   
-  console.log('📱 AppContent: obteniendo contexto del carrito...');
-  // ✅ OPTIMIZADO: Usar el contador ultrarrápido que se actualiza instantáneamente
-  const { count: cartItemCount } = useCartCounter();
-  console.log('📱 AppContent: contador del carrito =', cartItemCount);
+  // ✅ Obtener contador visual directamente del contexto (se actualiza en tiempo real)
+  const { visualCartCount } = useCart();
+  const cartItemCount = visualCartCount || 0;
 
   // ✅ OPTIMIZADO: useCallback para evitar re-renders de componentes hijos
   const handleCategoryPress = useCallback((categorySlug) => {
     console.log('Categoría seleccionada:', categorySlug);
-    // Aquí podrías navegar a una página de productos de esa categoría
-    // o implementar la lógica que necesites
   }, []);
 
   const handleNavigate = useCallback((action, params = {}) => {
     console.log('Navegando a:', action, 'con parámetros:', params);
-    
-    // Aquí puedes implementar la lógica de navegación según la acción
-    // Por ejemplo, para login, configuración, etc.
   }, []);
 
   // ✅ MEGA OPTIMIZADO: Actualización instantánea del estado sin delay
-  // Usando startTransition para hacer el update no-bloqueante
   const handleTabPress = useCallback((tab) => {
     const startTime = performance.now();
     console.log('🔵 ========================================');
     console.log('🔵 TAB PRESS INICIADO:', tab);
     console.log('🔵 Timestamp:', startTime.toFixed(2), 'ms');
     
-    // 🚀 SOLUCIÓN: Usar startTransition para hacer el cambio no-bloqueante
-    // Esto permite que React priorice la UI y procese los updates en segundo plano
     startTransition(() => {
       setSelectedTab(tab);
       setCurrentScreen(tab);
       setSelectedProduct(null);
     });
     
-    // Medir cuánto tomó el setState
     requestAnimationFrame(() => {
       const afterStateTime = performance.now();
       console.log('🟢 setState INICIADO en:', (afterStateTime - startTime).toFixed(2), 'ms');
       
-      // Medir cuándo termina el render completo
       requestAnimationFrame(() => {
         const endTime = performance.now();
         console.log('🟢 RENDER COMPLETO en:', (endTime - startTime).toFixed(2), 'ms');
@@ -95,7 +57,6 @@ function AppContent() {
 
   const handleProductPress = useCallback((product) => {
     console.log('App: handleProductPress llamado (DEPRECATED - Los modales lo manejan ahora)');
-    // Esta función ya no se usa, cada modal maneja su propio ProductDetail
   }, []);
 
   const handleBackToHome = useCallback(() => {
@@ -132,7 +93,6 @@ function AppContent() {
     console.log('🎨 renderAllScreens llamado, currentScreen:', currentScreen);
     const renderStart = performance.now();
     
-    // Medir tiempo de render
     requestAnimationFrame(() => {
       const renderEnd = performance.now();
       console.log('🎨 Tiempo de renderAllScreens:', (renderEnd - renderStart).toFixed(2), 'ms');
@@ -150,6 +110,7 @@ function AppContent() {
             onTabPress={handleTabPress}
             onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
+            cartItemCount={cartItemCount}
             isActive={currentScreen === 'home'}
           />
         </View>
@@ -164,6 +125,7 @@ function AppContent() {
             onTabPress={handleTabPress}
             onCategoryPress={handleCategoryPress}
             onSearchPress={handleSearchPress}
+            cartItemCount={cartItemCount}
             isActive={currentScreen === 'categories'}
           />
         </View>
@@ -178,6 +140,7 @@ function AppContent() {
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
             onSearchPress={handleSearchPress}
+            cartItemCount={cartItemCount}
             isActive={currentScreen === 'profile'}
           />
         </View>
@@ -192,6 +155,7 @@ function AppContent() {
             onTabPress={handleTabPress}
             onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
+            cartItemCount={cartItemCount}
             isActive={currentScreen === 'cart'}
           />
         </View>
@@ -253,7 +217,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     flex: 1,
   },
-  // ✅ ULTRA OPTIMIZADO: Estilos con hardware acceleration para cambio instantáneo
   visible: {
     opacity: 1,
     zIndex: 1,
@@ -277,9 +240,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#14144b',
-  },
-  placeholderScreen: {
-    flex: 1,
-    backgroundColor: 'white',
   },
 });
