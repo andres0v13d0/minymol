@@ -138,6 +138,7 @@ function AppContent() {
           <Home 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
+            onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
             isActive={currentScreen === 'home'}
           />
@@ -179,6 +180,7 @@ function AppContent() {
           <Cart 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
+            onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
             isActive={currentScreen === 'cart'}
           />
@@ -190,7 +192,7 @@ function AppContent() {
   // Determinar el estilo del SafeArea superior
   const isWhiteArea = selectedTab === 'profile' || selectedTab === 'cart';
   const statusBarStyle = isWhiteArea ? 'dark-content' : 'light-content';
-  const statusBarBackground = isWhiteArea ? '#ffffff' : '#14144b';
+  const statusBarBackground = isWhiteArea ? '#f8fafc' : '#14144b';
 
   return (
     <View style={styles.container}>
@@ -198,7 +200,7 @@ function AppContent() {
       <SafeAreaView 
         style={[
           styles.topSafeArea, 
-          { backgroundColor: isWhiteArea ? '#ffffff' : '#14144b' }
+          { backgroundColor: isWhiteArea ? '#f8fafc' : '#14144b' }
         ]} 
         edges={['top']}
       />
