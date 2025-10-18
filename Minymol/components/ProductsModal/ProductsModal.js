@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
+import FloatingCartButton from '../FloatingCartButton';
 import Product from '../Product/Product';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -394,6 +395,20 @@ const ProductsModal = ({
                     />
                 </Modal>
             )}
+            
+            {/* 🛒 Botón flotante del carrito */}
+            <FloatingCartButton 
+                onPress={() => {
+                    console.log('🛒 FloatingCart presionado en ProductsModal');
+                    handleClose();
+                    // Cerrar y navegar al carrito
+                    if (onProductPress) {
+                        setTimeout(() => onProductPress(null), 100);
+                    }
+                }}
+                bottom={20}
+                right={20}
+            />
         </Modal>
     );
 };

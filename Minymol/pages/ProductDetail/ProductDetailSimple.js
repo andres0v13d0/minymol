@@ -1,22 +1,23 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  Platform,
-  Alert as RNAlert,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    Alert as RNAlert,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FloatingCartButton from '../../components/FloatingCartButton';
 import Product from '../../components/Product/Product';
 import { useCart } from '../../contexts/CartContext';
 import { getUbuntuFont } from '../../utils/fonts';
@@ -1246,6 +1247,22 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
           />
         </Modal>
       )}
+      
+      {/* 🛒 Botón flotante del carrito */}
+      <FloatingCartButton 
+        onPress={() => {
+          console.log('🛒 FloatingCart presionado en ProductDetail');
+          if (navigation?.goBack) {
+            navigation.goBack();
+          }
+          // Si hay onTabPress, navegar al carrito
+          if (onTabPress) {
+            setTimeout(() => onTabPress('cart'), 100);
+          }
+        }}
+        bottom={20}
+        right={20}
+      />
     </View>
   );
 };
