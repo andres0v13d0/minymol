@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import messaging from '@react-native-firebase/messaging';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { apiCall, getUserData } from '../utils/apiUtils';
 
 // Configuración del comportamiento de las notificaciones
 Notifications.setNotificationHandler({
@@ -16,7 +17,7 @@ Notifications.setNotificationHandler({
 });
 
 export const useNotifications = () => {
-    const [expoPushToken, setExpoPushToken] = useState('');
+    const [fcmToken, setFcmToken] = useState('');
     const [notification, setNotification] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -24,8 +25,8 @@ export const useNotifications = () => {
     const isExpoGo = Constants.appOwnership === 'expo';
 
     useEffect(() => {
-        // Verificar si las notificaciones están activadas
-        checkNotificationStatus();
+        // Inicializar notificaciones automáticamente
+        initializeNotifications();
 
         // Solo agregar listeners si NO está en Expo Go
         if (isExpoGo) {
@@ -33,7 +34,7 @@ export const useNotifications = () => {
             return;
         }
 
-        // Listener para notificaciones recibidas
+        // Listener para notificaciones recibidas (Expo Notifications para mostrar localmente)
         const notificationListener = Notifications.addNotificationReceivedListener?.(notification => {
             setNotification(notification);
         });
@@ -44,13 +45,49 @@ export const useNotifications = () => {
             // Aquí puedes manejar la navegación según el contenido de la notificación
         });
 
+        // Listeners de Firebase para mensajes en background y foreground
+        const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
+            console.log('Mensaje FCM recibido en foreground:', remoteMessage);
+            
+            // Mostrar notificación local usando Expo Notifications
+            await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: remoteMessage.notification?.title || 'Notificación',
+                    body: remoteMessage.notification?.body || 'Tienes un nuevo mensaje',
+                    data: remoteMessage.data || {},
+                },
+                trigger: null, // Mostrar inmediatamente
+            });
+        });
+
+        // Listener para cuando la app se abre desde una notificación
+        messaging().onNotificationOpenedApp(remoteMessage => {
+            console.log('Notificación abrió la app desde background:', remoteMessage);
+            // Manejar navegación aquí
+        });
+
+        // Verificar si la app se abrió desde una notificación cuando estaba cerrada
+        messaging()
+            .getInitialNotification()
+            .then(remoteMessage => {
+                if (remoteMessage) {
+                    console.log('Notificación abrió la app desde estado cerrado:', remoteMessage);
+                    // Manejar navegación aquí
+                }
+            });
+
         return () => {
-            // Solo remover listeners si existen
+            // Remover listeners de Expo Notifications
             if (notificationListener && typeof Notifications.removeNotificationSubscription === 'function') {
                 Notifications.removeNotificationSubscription(notificationListener);
             }
             if (responseListener && typeof Notifications.removeNotificationSubscription === 'function') {
                 Notifications.removeNotificationSubscription(responseListener);
+            }
+            
+            // Remover listeners de Firebase
+            if (unsubscribeOnMessage) {
+                unsubscribeOnMessage();
             }
         };
     }, [isExpoGo]);
@@ -58,23 +95,54 @@ export const useNotifications = () => {
     const checkNotificationStatus = async () => {
         try {
             const enabled = await AsyncStorage.getItem('notificaciones-activadas');
-            setNotificationsEnabled(enabled === 'true');
+            // Por defecto están activadas, solo se desactivan si explícitamente se guardó 'false'
+            setNotificationsEnabled(enabled !== 'false');
         } catch (error) {
             console.error('Error verificando estado de notificaciones:', error);
         }
     };
 
-    const registerForPushNotificationsAsync = async () => {
+    const initializeNotifications = async () => {
+        try {
+            // Verificar el estado actual
+            const disabled = await AsyncStorage.getItem('notificaciones-activadas');
+            
+            // Si NO están explícitamente desactivadas, activarlas automáticamente
+            if (disabled !== 'false') {
+                console.log('🔔 Inicializando notificaciones automáticamente...');
+                const result = await enableNotifications(true); // isAutoInit = true
+                if (result.success) {
+                    console.log('✅ Notificaciones inicializadas correctamente');
+                } else if (!isExpoGo) {
+                    console.warn('⚠️ No se pudieron inicializar las notificaciones:', result.message);
+                }
+            } else {
+                // Solo verificar el estado si están explícitamente desactivadas
+                await checkNotificationStatus();
+            }
+        } catch (error) {
+            console.error('Error inicializando notificaciones:', error);
+            // En caso de error, solo verificar el estado
+            await checkNotificationStatus();
+        }
+    };
+
+    const registerForPushNotificationsAsync = async (isAutoInit = false) => {
         let token;
 
         // Verificar si está corriendo en Expo Go
         const isExpoGo = Constants.appOwnership === 'expo';
         if (isExpoGo) {
-            throw new Error(
-                '⚠️ Las notificaciones push no están disponibles en Expo Go.\n\n' +
+            const message = '⚠️ Las notificaciones push no están disponibles en Expo Go.\n\n' +
                 'Para usar notificaciones push, necesitas crear un Development Build o APK con EAS Build.\n\n' +
-                'Ejecuta: eas build -p android --profile preview'
-            );
+                'Ejecuta: eas build -p android --profile preview';
+            
+            if (isAutoInit) {
+                console.warn(message);
+                return null; // No lanzar error en inicialización automática
+            } else {
+                throw new Error(message);
+            }
         }
 
         if (Platform.OS === 'android') {
@@ -87,24 +155,30 @@ export const useNotifications = () => {
         }
 
         if (Device.isDevice) {
-            const { status: existingStatus } = await Notifications.getPermissionsAsync();
-            let finalStatus = existingStatus;
+            // Solicitar permisos para notificaciones
+            const authStatus = await messaging().requestPermission();
+            const enabled =
+                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-            if (existingStatus !== 'granted') {
-                const { status } = await Notifications.requestPermissionsAsync();
-                finalStatus = status;
-            }
-
-            if (finalStatus !== 'granted') {
+            if (!enabled) {
                 throw new Error('No se otorgaron permisos para notificaciones push');
             }
 
-            // Obtener el token de Expo Push
-            token = (await Notifications.getExpoPushTokenAsync({
-                projectId: 'fa331260-c87d-4a77-b708-31b53a5f11d3' // Tu project ID de EAS
-            })).data;
+            // Obtener el token FCM de Firebase
+            // Primero eliminar cualquier token existente para forzar uno nuevo
+            try {
+                await messaging().deleteToken();
+            } catch (error) {
+                // Ignorar error si no había token anterior
+            }
+            
+            token = await messaging().getToken();
+            console.log('Token FCM:', token);
 
-            console.log('Token de notificación:', token);
+            if (!token) {
+                throw new Error('No se pudo obtener el token FCM');
+            }
         } else {
             console.warn('Las notificaciones push solo funcionan en dispositivos físicos');
             throw new Error('Debe usar un dispositivo físico para las notificaciones push');
@@ -113,37 +187,45 @@ export const useNotifications = () => {
         return token;
     };
 
-    const enableNotifications = async () => {
+    const enableNotifications = async (isAutoInit = false) => {
         try {
-            const token = await registerForPushNotificationsAsync();
-            setExpoPushToken(token);
+            const token = await registerForPushNotificationsAsync(isAutoInit);
+            if (!token && isAutoInit) {
+                // En Expo Go durante inicialización automática, simplemente retornamos
+                return { success: false, message: 'Notificaciones no disponibles en Expo Go' };
+            }
+            setFcmToken(token);
 
             // Guardar el token en el backend
-            const usuario = await AsyncStorage.getItem('usuario');
-            if (usuario) {
-                const userData = JSON.parse(usuario);
-                const authToken = await AsyncStorage.getItem('token');
-
-                await axios.post(
-                    'https://api.minymol.com/push/register-token',
-                    {
-                        fcmToken: token,
-                        userId: userData.id || userData.proveedorInfo?.id,
-                        userType: userData.rol
-                    },
-                    {
-                        headers: {
-                            Authorization: `Bearer ${authToken}`
+            const userData = await getUserData();
+            if (userData) {
+                try {
+                    const response = await apiCall(
+                        'https://api.minymol.com/push/register-token',
+                        {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                fcmToken: token,
+                                userId: userData.id || userData.proveedorInfo?.id,
+                                userType: userData.rol
+                            })
                         }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`Error ${response.status}: ${response.statusText}`);
                     }
-                );
 
-                // Marcar como activadas
-                await AsyncStorage.setItem('notificaciones-activadas', 'true');
-                await AsyncStorage.setItem('push-token', token);
-                setNotificationsEnabled(true);
+                    // Marcar como activadas (o remover la clave de desactivación)
+                    await AsyncStorage.removeItem('notificaciones-activadas'); // Por defecto están activadas
+                    await AsyncStorage.setItem('push-token', token);
+                    setNotificationsEnabled(true);
 
-                return { success: true, message: '✅ Notificaciones activadas correctamente' };
+                    return { success: true, message: '✅ Notificaciones activadas correctamente' };
+                } catch (apiError) {
+                    console.error('Error registrando token en el backend:', apiError);
+                    throw new Error(`Error al registrar token: ${apiError.message}`);
+                }
             } else {
                 throw new Error('Usuario no autenticado');
             }
@@ -158,22 +240,33 @@ export const useNotifications = () => {
 
     const disableNotifications = async () => {
         try {
-            await AsyncStorage.removeItem('notificaciones-activadas');
+            // Marcar como desactivadas explícitamente
+            await AsyncStorage.setItem('notificaciones-activadas', 'false');
             await AsyncStorage.removeItem('push-token');
             setNotificationsEnabled(false);
 
             // Opcional: informar al backend que se desactivaron
-            const authToken = await AsyncStorage.getItem('token');
-            if (authToken) {
-                await axios.post(
-                    'https://api.minymol.com/push/unregister-token',
-                    {},
-                    {
-                        headers: {
-                            Authorization: `Bearer ${authToken}`
+            const userData = await getUserData();
+            if (userData) {
+                try {
+                    const response = await apiCall(
+                        'https://api.minymol.com/push/disable-notifications',
+                        {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                userId: userData.id || userData.proveedorInfo?.id,
+                                userType: userData.rol
+                            })
                         }
+                    );
+
+                    if (!response.ok) {
+                        console.warn('Error informando al backend sobre desactivación:', response.statusText);
                     }
-                );
+                } catch (apiError) {
+                    console.warn('Error informando al backend sobre desactivación:', apiError.message);
+                    // No fallar si el backend no responde, las notificaciones locales ya están desactivadas
+                }
             }
 
             return { success: true, message: '🔕 Notificaciones desactivadas' };
@@ -195,7 +288,7 @@ export const useNotifications = () => {
     };
 
     return {
-        expoPushToken,
+        fcmToken,
         notification,
         notificationsEnabled,
         enableNotifications,

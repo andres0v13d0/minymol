@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/favicon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#14144b"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -22,7 +22,8 @@
           "color": "#fa7e17",
           "sounds": []
         }
-      ]
+      ],
+      "@react-native-firebase/app"
     ],
     "ios": {
       "supportsTablet": true,

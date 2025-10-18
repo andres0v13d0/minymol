@@ -30,6 +30,12 @@ try {
     }
 }
 
+// Configurar Firebase Messaging
+// En React Native, la configuración del messaging se hace automáticamente
+// cuando se importa @react-native-firebase/messaging
+
+console.log('🔥 Firebase inicializado correctamente');
+
 export { auth };
 
 export default app;

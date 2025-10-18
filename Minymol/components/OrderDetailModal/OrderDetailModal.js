@@ -320,7 +320,6 @@ const OrderDetailModal = ({ visible, orderId, onClose }) => {
                                         onPress={handleWhatsApp}
                                     >
                                         <Ionicons name="logo-whatsapp" size={18} color="#ffffff" />
-                                        <Text style={styles.whatsappText}>WhatsApp</Text>
                                     </TouchableOpacity>
                                 )}
                             </View>

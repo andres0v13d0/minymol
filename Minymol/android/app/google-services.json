@@ -1,26 +1,36 @@
 {
   "project_info": {
-    "project_number": "1059238915929",
-    "project_id": "minymolapp",
-    "storage_bucket": "minymolapp.firebasestorage.app"
+    "project_number": "876719111475",
+    "project_id": "surtte-4bf22",
+    "storage_bucket": "surtte-4bf22.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1059238915929:android:986966d813df57211c6648",
+        "mobilesdk_app_id": "1:876719111475:android:8bcbf8491ba33493fb5246",
         "android_client_info": {
           "package_name": "com.minymol.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "876719111475-4uuk6trv8l51to47kv9s9iusmv9jj2qj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDXd8CuPSjmIDLSlFfPYCCdgj8VOdCaK1A"
+          "current_key": "AIzaSyB9vLDcmBoWmCGbm9SAJLBJvu69mqS5ZyY"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "876719111475-4uuk6trv8l51to47kv9s9iusmv9jj2qj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

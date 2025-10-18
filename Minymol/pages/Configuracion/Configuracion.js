@@ -225,8 +225,8 @@ const Configuracion = ({ visible, onClose }) => {
                                             isExpoGo
                                                 ? 'No disponible en Expo Go. Toca para más información.'
                                                 : notificationsEnabled
-                                                    ? 'Recibirás notificaciones de pedidos, ofertas y más'
-                                                    : 'Activa las notificaciones para estar al día'
+                                                    ? 'Recibes notificaciones de pedidos, ofertas y más'
+                                                    : 'Las notificaciones están desactivadas'
                                         }
                                         showChevron={false}
                                         rightComponent={

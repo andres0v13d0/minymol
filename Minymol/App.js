@@ -2,6 +2,7 @@ import { startTransition, useCallback, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import './config/firebase'; // Inicializar Firebase
 import SearchModal from './components/SearchModal/SearchModal';
 import { AppStateProvider } from './contexts/AppStateContext';
 import { CartProvider } from './contexts/CartContext';
