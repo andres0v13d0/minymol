@@ -1,4 +1,4 @@
-import { startTransition, useCallback, useState } from 'react';
+import { memo, startTransition, useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCart } from '../../contexts/CartContext';
@@ -30,28 +30,22 @@ export default function AppContent() {
     console.log('Navegando a:', action, 'con parámetros:', params);
   }, []);
 
-  // ✅ MEGA OPTIMIZADO: Actualización instantánea del estado sin delay
+  // ✅ ULTRA OPTIMIZADO: Cambio instantáneo sin delays
   const handleTabPress = useCallback((tab) => {
     const startTime = performance.now();
     console.log('🔵 ========================================');
-    console.log('🔵 TAB PRESS INICIADO:', tab);
-    console.log('🔵 Timestamp:', startTime.toFixed(2), 'ms');
+    console.log('🔵 TAB PRESS:', tab);
     
-    startTransition(() => {
-      setSelectedTab(tab);
-      setCurrentScreen(tab);
-      setSelectedProduct(null);
-    });
+    // Actualización síncrona INMEDIATA
+    setSelectedTab(tab);
+    setCurrentScreen(tab);
+    setSelectedProduct(null);
     
+    // Medir tiempo en el próximo frame
     requestAnimationFrame(() => {
-      const afterStateTime = performance.now();
-      console.log('🟢 setState INICIADO en:', (afterStateTime - startTime).toFixed(2), 'ms');
-      
-      requestAnimationFrame(() => {
-        const endTime = performance.now();
-        console.log('🟢 RENDER COMPLETO en:', (endTime - startTime).toFixed(2), 'ms');
-        console.log('🔵 ========================================');
-      });
+      const endTime = performance.now();
+      console.log('⚡ TRANSICIÓN COMPLETADA en:', (endTime - startTime).toFixed(2), 'ms');
+      console.log('🔵 ========================================');
     });
   }, []);
 
@@ -89,79 +83,81 @@ export default function AppContent() {
     );
   }
 
-  const renderAllScreens = () => {
-    console.log('🎨 renderAllScreens llamado, currentScreen:', currentScreen);
+  // ✅ MEGA OPTIMIZADO: Renderizar solo la pantalla actual + usar useMemo
+  const currentScreenComponent = useMemo(() => {
+    console.log('🎨 Renderizando pantalla:', currentScreen);
     const renderStart = performance.now();
     
-    requestAnimationFrame(() => {
-      const renderEnd = performance.now();
-      console.log('🎨 Tiempo de renderAllScreens:', (renderEnd - renderStart).toFixed(2), 'ms');
-    });
-    
-    return (
-      <>
-        {/* Home Screen */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'home' ? styles.visible : styles.hidden
-        ]}>
+    let component;
+    switch (currentScreen) {
+      case 'home':
+        component = (
           <Home 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
             cartItemCount={cartItemCount}
-            isActive={currentScreen === 'home'}
+            isActive={true}
           />
-        </View>
-
-        {/* Categories Screen */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'categories' ? styles.visible : styles.hidden
-        ]}>
+        );
+        break;
+      case 'categories':
+        component = (
           <Categories 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onCategoryPress={handleCategoryPress}
             onSearchPress={handleSearchPress}
             cartItemCount={cartItemCount}
-            isActive={currentScreen === 'categories'}
+            isActive={true}
           />
-        </View>
-
-        {/* Profile Screen */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'profile' ? styles.visible : styles.hidden
-        ]}>
+        );
+        break;
+      case 'profile':
+        component = (
           <Profile 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onNavigate={handleNavigate}
             onSearchPress={handleSearchPress}
             cartItemCount={cartItemCount}
-            isActive={currentScreen === 'profile'}
+            isActive={true}
           />
-        </View>
-
-        {/* Cart Screen */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'cart' ? styles.visible : styles.hidden
-        ]}>
+        );
+        break;
+      case 'cart':
+        component = (
           <Cart 
             selectedTab={selectedTab}
             onTabPress={handleTabPress}
             onProductPress={handleProductPress}
             onSearchPress={handleSearchPress}
             cartItemCount={cartItemCount}
-            isActive={currentScreen === 'cart'}
+            isActive={true}
           />
-        </View>
-      </>
-    );
-  };
+        );
+        break;
+      default:
+        component = null;
+    }
+    
+    requestAnimationFrame(() => {
+      const renderEnd = performance.now();
+      console.log('🎨 Tiempo de render:', (renderEnd - renderStart).toFixed(2), 'ms');
+    });
+    
+    return component;
+  }, [
+    currentScreen, 
+    selectedTab, 
+    cartItemCount,
+    handleTabPress,
+    handleProductPress,
+    handleSearchPress,
+    handleCategoryPress,
+    handleNavigate
+  ]);
 
   // Determinar el estilo del SafeArea superior
   const isWhiteArea = selectedTab === 'profile' || selectedTab === 'cart';
@@ -182,7 +178,7 @@ export default function AppContent() {
       <StatusBar backgroundColor={statusBarBackground} barStyle={statusBarStyle} />
       
       <View style={styles.content}>
-        {renderAllScreens()}
+        {currentScreenComponent}
       </View>
       
       {/* SafeArea inferior */}
@@ -208,29 +204,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  screenContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flex: 1,
-  },
-  visible: {
-    opacity: 1,
-    zIndex: 1,
-    pointerEvents: 'auto',
-  },
-  hidden: {
-    opacity: 0,
-    zIndex: -1,
-    pointerEvents: 'none',
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
   },
   bottomSafeArea: {
     backgroundColor: '#14144b',

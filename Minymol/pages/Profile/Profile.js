@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useEffect, useRef, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Animated,
     Image,
+    InteractionManager,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -15,18 +16,20 @@ import {
     View
 } from 'react-native';
 import AuthManager from '../../components/AuthManager';
-import CustomerServiceModal from '../../components/CustomerServiceModal';
-import FavoritesModal from '../../components/FavoritesModal';
-import MovementsModal from '../../components/MovementsModal';
-import MyOrdersModal from '../../components/MyOrdersModal';
 import NavInf from '../../components/NavInf/NavInf';
-import ProvidersModal from '../../components/ProvidersModal';
-import ReportsModal from '../../components/ReportsModal';
-import SAIHelpModal from '../../components/SAIHelpModal';
-import SAIModal from '../../components/SAIModal';
 import { useCartCounter } from '../../contexts/CartCounterContext';
 import { getUbuntuFont } from '../../utils/fonts';
-import Configuracion from '../Configuracion';
+
+// ✅ OPTIMIZACIÓN: Lazy loading de modales pesados - Solo se cargan cuando se necesitan
+const CustomerServiceModal = lazy(() => import('../../components/CustomerServiceModal'));
+const FavoritesModal = lazy(() => import('../../components/FavoritesModal'));
+const MovementsModal = lazy(() => import('../../components/MovementsModal'));
+const MyOrdersModal = lazy(() => import('../../components/MyOrdersModal'));
+const ProvidersModal = lazy(() => import('../../components/ProvidersModal'));
+const ReportsModal = lazy(() => import('../../components/ReportsModal'));
+const SAIHelpModal = lazy(() => import('../../components/SAIHelpModal'));
+const SAIModal = lazy(() => import('../../components/SAIModal'));
+const Configuracion = lazy(() => import('../Configuracion'));
 
 const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
   const [usuario, setUsuario] = useState(null);
@@ -93,16 +96,48 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
     loadUserData();
   }, []);
 
+  // ✅ OPTIMIZACIÓN: Carga mejorada de datos con caché local y manejo de errores
   const loadUserData = async () => {
     try {
       setLoading(true);
-      const userData = await AsyncStorage.getItem('usuario');
-      if (userData) {
-        setUsuario(JSON.parse(userData));
-      }
+      
+      // Usar InteractionManager para cargar datos después de las animaciones
+      InteractionManager.runAfterInteractions(async () => {
+        try {
+          const userData = await AsyncStorage.getItem('usuario');
+          
+          if (userData) {
+            const parsedData = JSON.parse(userData);
+            
+            // Validar que los datos críticos existen
+            if (parsedData && (parsedData.nombre || parsedData.proveedorInfo?.nombre_empresa)) {
+              console.log('✅ Datos de usuario cargados correctamente:', {
+                nombre: parsedData.nombre || parsedData.proveedorInfo?.nombre_empresa,
+                rol: parsedData.rol || 'sin rol',
+                tieneImagen: !!parsedData.imagen
+              });
+              setUsuario(parsedData);
+            } else {
+              console.warn('⚠️ Datos de usuario incompletos, recargando...');
+              // Si los datos están incompletos, intentar recargar
+              await AsyncStorage.removeItem('usuario');
+              setUsuario(null);
+            }
+          } else {
+            console.log('ℹ️ No hay usuario almacenado');
+            setUsuario(null);
+          }
+        } catch (error) {
+          console.error('❌ Error parseando datos del usuario:', error);
+          // Si hay error, limpiar datos corruptos
+          await AsyncStorage.removeItem('usuario');
+          setUsuario(null);
+        } finally {
+          setLoading(false);
+        }
+      });
     } catch (error) {
-      console.error('Error cargando datos del usuario:', error);
-    } finally {
+      console.error('❌ Error cargando datos del usuario:', error);
       setLoading(false);
     }
   };
@@ -326,7 +361,10 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
                   <View style={styles.userTextInfo}>
                     <Text style={styles.welcomeText}>¡Hola!</Text>
                     <Text style={styles.userName}>
-                      {usuario.nombre?.split(' ')[0]?.slice(0, 15) || 'Usuario'}
+                      {usuario.nombre 
+                        ? usuario.nombre.split(' ')[0]?.slice(0, 15) 
+                        : usuario.proveedorInfo?.nombre_empresa?.slice(0, 15) 
+                        || 'Usuario'}
                     </Text>
                   </View>
                 </View>
@@ -334,90 +372,93 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
             </LinearGradient>
 
             {/* Abonos inteligentes - Contenedor separado */}
-            <View style={styles.specialContainer}>
-                <MenuButton
-                  icon="trending-up-outline"
-                  text="Abonos inteligentes"
-                  hasSubmenu={true}
-                  isOpen={subMenuOpen}
-                  isSpecial={true}
-                  onPress={() => setSubMenuOpen(!subMenuOpen)}
-                />
+            {/* ✅ OPTIMIZACIÓN: Ocultar para proveedores */}
+            {usuario.rol !== 'proveedor' && usuario.rol !== 'Proveedor' && (
+              <View style={styles.specialContainer}>
+                  <MenuButton
+                    icon="trending-up-outline"
+                    text="Abonos inteligentes"
+                    hasSubmenu={true}
+                    isOpen={subMenuOpen}
+                    isSpecial={true}
+                    onPress={() => setSubMenuOpen(!subMenuOpen)}
+                  />
 
-                {/* Submenú */}
-                <Animated.View
-                  style={[
-                    styles.submenu,
-                    {
-                      maxHeight: subMenuAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 500],
-                      }),
-                      opacity: subMenuAnimation,
-                      overflow: 'hidden',
-                    },
-                  ]}
-                >
-                    <MenuButton
-                      icon="people-outline"
-                      text="Proveedores"
-                      isSubitem={true}
-                      onPress={() => handleMenuPress('proveedores')}
-                    />
-
-                    <MenuButton
-                      icon="document-text-outline"
-                      text="Informes"
-                      isSubitem={true}
-                      onPress={() => handleMenuPress('informes')}
-                    />
-
-                    <>
+                  {/* Submenú */}
+                  <Animated.View
+                    style={[
+                      styles.submenu,
+                      {
+                        maxHeight: subMenuAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 500],
+                        }),
+                        opacity: subMenuAnimation,
+                        overflow: 'hidden',
+                      },
+                    ]}
+                  >
                       <MenuButton
-                        icon="construct-outline"
-                        text="Sistema SAI"
-                        hasSubmenu={true}
-                        isOpen={subMenuSAIOpen}
+                        icon="people-outline"
+                        text="Proveedores"
                         isSubitem={true}
-                        onPress={() => setSubMenuSAIOpen(!subMenuSAIOpen)}
+                        onPress={() => handleMenuPress('proveedores')}
                       />
 
-                      <Animated.View
-                        style={[
-                          styles.subSubmenu,
-                          {
-                            maxHeight: subMenuSAIAnimation.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, 200],
-                            }),
-                            opacity: subMenuSAIAnimation,
-                            overflow: 'hidden',
-                          },
-                        ]}
-                      >
-                        <MenuButton
-                          icon="settings-outline"
-                          text="Usar estrategia"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('sai')}
-                        />
-                        <MenuButton
-                          icon="help-circle-outline"
-                          text="Ayuda"
-                          isSubitem={true}
-                          onPress={() => handleMenuPress('sai-help')}
-                        />
-                      </Animated.View>
-                    </>
+                      <MenuButton
+                        icon="document-text-outline"
+                        text="Informes"
+                        isSubitem={true}
+                        onPress={() => handleMenuPress('informes')}
+                      />
 
-                    <MenuButton
-                      icon="car-outline"
-                      text="Registrar movimiento"
-                      isSubitem={true}
-                      onPress={() => handleMenuPress('movimientos')}
-                    />
-                </Animated.View>
-            </View>
+                      <>
+                        <MenuButton
+                          icon="construct-outline"
+                          text="Sistema SAI"
+                          hasSubmenu={true}
+                          isOpen={subMenuSAIOpen}
+                          isSubitem={true}
+                          onPress={() => setSubMenuSAIOpen(!subMenuSAIOpen)}
+                        />
+
+                        <Animated.View
+                          style={[
+                            styles.subSubmenu,
+                            {
+                              maxHeight: subMenuSAIAnimation.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, 200],
+                              }),
+                              opacity: subMenuSAIAnimation,
+                              overflow: 'hidden',
+                            },
+                          ]}
+                        >
+                          <MenuButton
+                            icon="settings-outline"
+                            text="Usar estrategia"
+                            isSubitem={true}
+                            onPress={() => handleMenuPress('sai')}
+                          />
+                          <MenuButton
+                            icon="help-circle-outline"
+                            text="Ayuda"
+                            isSubitem={true}
+                            onPress={() => handleMenuPress('sai-help')}
+                          />
+                        </Animated.View>
+                      </>
+
+                      <MenuButton
+                        icon="car-outline"
+                        text="Registrar movimiento"
+                        isSubitem={true}
+                        onPress={() => handleMenuPress('movimientos')}
+                      />
+                  </Animated.View>
+              </View>
+            )}
 
             {/* Botones del menú principal */}
             <View style={styles.menuContainer}>
@@ -524,63 +565,84 @@ const Profile = ({ onTabPress, onNavigate, isActive = true }) => {
         onAuthSuccess={handleAuthSuccess}
       />
 
-      {/* Providers Modal */}
-      <ProvidersModal
-        visible={showProvidersModal}
-        onClose={() => setShowProvidersModal(false)}
-      />
+      {/* ✅ OPTIMIZACIÓN: Modales con lazy loading y Suspense - Solo se cargan cuando se abren */}
+      <Suspense fallback={null}>
+        {/* Providers Modal */}
+        {showProvidersModal && (
+          <ProvidersModal
+            visible={showProvidersModal}
+            onClose={() => setShowProvidersModal(false)}
+          />
+        )}
 
-      {/* SAI Modal */}
-      <SAIModal
-        visible={showSAIModal}
-        onClose={() => setShowSAIModal(false)}
-      />
+        {/* SAI Modal */}
+        {showSAIModal && (
+          <SAIModal
+            visible={showSAIModal}
+            onClose={() => setShowSAIModal(false)}
+          />
+        )}
 
-      {/* SAI Help Modal */}
-      <SAIHelpModal
-        visible={showSAIHelpModal}
-        onClose={() => setShowSAIHelpModal(false)}
-      />
+        {/* SAI Help Modal */}
+        {showSAIHelpModal && (
+          <SAIHelpModal
+            visible={showSAIHelpModal}
+            onClose={() => setShowSAIHelpModal(false)}
+          />
+        )}
 
-      {/* My Orders Modal */}
-      <MyOrdersModal
-        visible={showMyOrdersModal}
-        onClose={() => setShowMyOrdersModal(false)}
-      />
+        {/* My Orders Modal */}
+        {showMyOrdersModal && (
+          <MyOrdersModal
+            visible={showMyOrdersModal}
+            onClose={() => setShowMyOrdersModal(false)}
+          />
+        )}
 
-      {/* Favorites Modal */}
-      <FavoritesModal
-        visible={showFavoritesModal}
-        onClose={() => setShowFavoritesModal(false)}
-        onProductPress={(product) => {
-          // Aquí puedes manejar la navegación al detalle del producto si es necesario
-          console.log('Producto seleccionado:', product);
-        }}
-      />
+        {/* Favorites Modal */}
+        {showFavoritesModal && (
+          <FavoritesModal
+            visible={showFavoritesModal}
+            onClose={() => setShowFavoritesModal(false)}
+            onProductPress={(product) => {
+              // Aquí puedes manejar la navegación al detalle del producto si es necesario
+              console.log('Producto seleccionado:', product);
+            }}
+          />
+        )}
 
-      {/* Configuracion Modal */}
-      <Configuracion
-        visible={showConfiguracion}
-        onClose={() => setShowConfiguracion(false)}
-      />
+        {/* Configuracion Modal */}
+        {showConfiguracion && (
+          <Configuracion
+            visible={showConfiguracion}
+            onClose={() => setShowConfiguracion(false)}
+          />
+        )}
 
-      {/* Customer Service Modal */}
-      <CustomerServiceModal
-        visible={showCustomerServiceModal}
-        onClose={() => setShowCustomerServiceModal(false)}
-      />
+        {/* Customer Service Modal */}
+        {showCustomerServiceModal && (
+          <CustomerServiceModal
+            visible={showCustomerServiceModal}
+            onClose={() => setShowCustomerServiceModal(false)}
+          />
+        )}
 
-      {/* Reports Modal */}
-      <ReportsModal
-        visible={showReportsModal}
-        onClose={() => setShowReportsModal(false)}
-      />
+        {/* Reports Modal */}
+        {showReportsModal && (
+          <ReportsModal
+            visible={showReportsModal}
+            onClose={() => setShowReportsModal(false)}
+          />
+        )}
 
-      {/* Movements Modal */}
-      <MovementsModal
-        visible={showMovementsModal}
-        onClose={() => setShowMovementsModal(false)}
-      />
+        {/* Movements Modal */}
+        {showMovementsModal && (
+          <MovementsModal
+            visible={showMovementsModal}
+            onClose={() => setShowMovementsModal(false)}
+          />
+        )}
+      </Suspense>
 
       <NavInf selectedTab="profile" onTabPress={onTabPress} cartItemCount={cartItemCount} />
     </View>

@@ -2,8 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import CartIcon from '../Cart/Cart';
+import { useChatCounter } from '../../contexts/ChatCounterContext';
 
 const NavInf = ({ selectedTab, onTabPress, isProductInfo = false, cartItemCount = 0 }) => {
+  // ✅ Contador de mensajes no leídos
+  const { count: unreadCount } = useChatCounter();
   // Si estamos en ProductInfo, no mostrar ningún tab como seleccionado
   const activeTab = isProductInfo ? null : selectedTab;
   
@@ -36,22 +39,21 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false, cartItemCount 
     }
   }, [cartItemCount, scaleAnim]);
   
-  // 🔍 DEBUG: Medir tiempo de respuesta del click
+  // ⚡ ULTRA OPTIMIZADO: Click handler instantáneo
   const handleTabPress = (tab) => {
     const clickTime = performance.now();
-    console.log('🖱️  ========================================');
-    console.log('🖱️  NAVINF CLICK en tab:', tab);
-    console.log('🖱️  Click timestamp:', clickTime.toFixed(2), 'ms');
+    console.log('⚡ CLICK INSTANTÁNEO:', tab, '@', clickTime.toFixed(2), 'ms');
     
+    // Ejecutar callback INMEDIATAMENTE sin esperar
     if (onTabPress) {
       onTabPress(tab);
-      
-      // Medir cuánto tarda en ejecutarse el callback
-      requestAnimationFrame(() => {
-        const callbackTime = performance.now();
-        console.log('🖱️  Callback ejecutado en:', (callbackTime - clickTime).toFixed(2), 'ms');
-      });
     }
+    
+    // Medir solo para debug (no bloquea)
+    requestAnimationFrame(() => {
+      const endTime = performance.now();
+      console.log('⚡ Callback completado en:', (endTime - clickTime).toFixed(2), 'ms');
+    });
   };
   
   return (
@@ -74,17 +76,25 @@ const NavInf = ({ selectedTab, onTabPress, isProductInfo = false, cartItemCount 
 
       <TouchableOpacity 
         style={styles.navItem}
-        onPress={() => handleTabPress('categories')}
+        onPress={() => handleTabPress('messages')}
       >
         <View style={styles.iconContainer}>
           <Ionicons 
-            name="list" 
+            name="chatbubbles" 
             size={20} 
-            color={activeTab === 'categories' ? '#fa7e17' : 'white'} 
+            color={activeTab === 'messages' ? '#fa7e17' : 'white'} 
           />
+          {/* Badge de mensajes no leídos */}
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
-        <Text style={[styles.navText, activeTab === 'categories' && styles.selectedText]}>
-          Categorías
+        <Text style={[styles.navText, activeTab === 'messages' && styles.selectedText]}>
+          Mensajes
         </Text>
       </TouchableOpacity>
 
@@ -151,6 +161,26 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: '#fa7e17',
+  },
+  // Badge de mensajes no leídos
+  badge: {
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#fa7e17',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#14144b',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'white',
   },
 });
 

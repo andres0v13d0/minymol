@@ -20,17 +20,30 @@ export const useNotifications = () => {
     const [fcmToken, setFcmToken] = useState('');
     const [notification, setNotification] = useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+    const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
 
     // Verificar si está en Expo Go
     const isExpoGo = Constants.appOwnership === 'expo';
 
     useEffect(() => {
-        // Inicializar notificaciones automáticamente
-        initializeNotifications();
+        // Verificar si el usuario está logueado antes de inicializar
+        checkUserStatus();
+    }, []);
 
-        // Solo agregar listeners si NO está en Expo Go
-        if (isExpoGo) {
-            console.log('⚠️ Expo Go detectado - Listeners de notificaciones deshabilitados');
+    useEffect(() => {
+        // Solo inicializar notificaciones si el usuario está logueado
+        if (isUserLoggedIn) {
+            initializeNotifications();
+        }
+
+        // Solo agregar listeners si NO está en Expo Go y el usuario está logueado
+        if (isExpoGo || !isUserLoggedIn) {
+            if (isExpoGo) {
+                console.log('⚠️ Expo Go detectado - Listeners de notificaciones deshabilitados');
+            }
+            if (!isUserLoggedIn) {
+                console.log('⚠️ Usuario no logueado - Notificaciones no inicializadas');
+            }
             return;
         }
 
@@ -90,7 +103,17 @@ export const useNotifications = () => {
                 unsubscribeOnMessage();
             }
         };
-    }, [isExpoGo]);
+    }, [isExpoGo, isUserLoggedIn]);
+
+    const checkUserStatus = async () => {
+        try {
+            const userData = await getUserData();
+            setIsUserLoggedIn(!!userData);
+        } catch (error) {
+            console.error('Error verificando estado del usuario:', error);
+            setIsUserLoggedIn(false);
+        }
+    };
 
     const checkNotificationStatus = async () => {
         try {
@@ -104,6 +127,14 @@ export const useNotifications = () => {
 
     const initializeNotifications = async () => {
         try {
+            // Verificar que el usuario esté logueado primero
+            const userData = await getUserData();
+            if (!userData) {
+                console.log('⚠️ Usuario no logueado - No se pueden inicializar notificaciones');
+                setNotificationsEnabled(false);
+                return;
+            }
+
             // Verificar el estado actual
             const disabled = await AsyncStorage.getItem('notificaciones-activadas');
             
@@ -155,29 +186,58 @@ export const useNotifications = () => {
         }
 
         if (Device.isDevice) {
-            // Solicitar permisos para notificaciones
-            const authStatus = await messaging().requestPermission();
-            const enabled =
-                authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-                authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-            if (!enabled) {
-                throw new Error('No se otorgaron permisos para notificaciones push');
-            }
-
-            // Obtener el token FCM de Firebase
-            // Primero eliminar cualquier token existente para forzar uno nuevo
             try {
-                await messaging().deleteToken();
-            } catch (error) {
-                // Ignorar error si no había token anterior
-            }
-            
-            token = await messaging().getToken();
-            console.log('Token FCM:', token);
+                // Solicitar permisos para notificaciones
+                const authStatus = await messaging().requestPermission();
+                const enabled =
+                    authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+                    authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-            if (!token) {
-                throw new Error('No se pudo obtener el token FCM');
+                if (!enabled) {
+                    throw new Error('No se otorgaron permisos para notificaciones push');
+                }
+
+                // Obtener el token FCM de Firebase
+                // Primero eliminar cualquier token existente para forzar uno nuevo
+                try {
+                    await messaging().deleteToken();
+                } catch (error) {
+                    // Ignorar error si no había token anterior
+                    if (!isAutoInit) {
+                        console.log('⚠️ No se pudo eliminar token anterior:', error.message);
+                    }
+                }
+                
+                token = await messaging().getToken();
+                
+                if (!token) {
+                    throw new Error('No se pudo obtener el token FCM');
+                }
+                
+                console.log('✅ Token FCM obtenido correctamente');
+                
+            } catch (error) {
+                // Manejar errores específicos de Firebase
+                if (error.message?.includes('SERVICE_NOT_AVAILABLE')) {
+                    const message = 'Servicios de Google Play no disponibles. Verifica tu conexión a internet y que los servicios de Google Play estén actualizados.';
+                    if (isAutoInit) {
+                        console.warn('⚠️', message);
+                        return null; // No fallar durante inicialización automática
+                    } else {
+                        throw new Error(message);
+                    }
+                } else if (error.message?.includes('NETWORK_ERROR')) {
+                    const message = 'Error de red. Verifica tu conexión a internet.';
+                    if (isAutoInit) {
+                        console.warn('⚠️', message);
+                        return null;
+                    } else {
+                        throw new Error(message);
+                    }
+                } else {
+                    // Re-lanzar cualquier otro error
+                    throw error;
+                }
             }
         } else {
             console.warn('Las notificaciones push solo funcionan en dispositivos físicos');
@@ -189,45 +249,56 @@ export const useNotifications = () => {
 
     const enableNotifications = async (isAutoInit = false) => {
         try {
+            // Verificar que el usuario esté logueado primero
+            const userData = await getUserData();
+            if (!userData) {
+                const message = 'Debes iniciar sesión para activar las notificaciones';
+                if (!isAutoInit) {
+                    console.warn('⚠️', message);
+                }
+                return { success: false, message: message };
+            }
+
             const token = await registerForPushNotificationsAsync(isAutoInit);
             if (!token && isAutoInit) {
                 // En Expo Go durante inicialización automática, simplemente retornamos
                 return { success: false, message: 'Notificaciones no disponibles en Expo Go' };
             }
+            
+            if (!token) {
+                throw new Error('No se pudo obtener el token de notificaciones');
+            }
+            
             setFcmToken(token);
 
             // Guardar el token en el backend
-            const userData = await getUserData();
-            if (userData) {
-                try {
-                    const response = await apiCall(
-                        'https://api.minymol.com/push/register-token',
-                        {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                fcmToken: token,
-                                userId: userData.id || userData.proveedorInfo?.id,
-                                userType: userData.rol
-                            })
-                        }
-                    );
-
-                    if (!response.ok) {
-                        throw new Error(`Error ${response.status}: ${response.statusText}`);
+            try {
+                const response = await apiCall(
+                    'https://api.minymol.com/push/register-token',
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            fcmToken: token,
+                            userId: userData.id || userData.proveedorInfo?.id,
+                            userType: userData.rol
+                        })
                     }
+                );
 
-                    // Marcar como activadas (o remover la clave de desactivación)
-                    await AsyncStorage.removeItem('notificaciones-activadas'); // Por defecto están activadas
-                    await AsyncStorage.setItem('push-token', token);
-                    setNotificationsEnabled(true);
-
-                    return { success: true, message: '✅ Notificaciones activadas correctamente' };
-                } catch (apiError) {
-                    console.error('Error registrando token en el backend:', apiError);
-                    throw new Error(`Error al registrar token: ${apiError.message}`);
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`);
                 }
-            } else {
-                throw new Error('Usuario no autenticado');
+
+                // Marcar como activadas (o remover la clave de desactivación)
+                await AsyncStorage.removeItem('notificaciones-activadas'); // Por defecto están activadas
+                await AsyncStorage.setItem('push-token', token);
+                setNotificationsEnabled(true);
+                setIsUserLoggedIn(true);
+
+                return { success: true, message: '✅ Notificaciones activadas correctamente' };
+            } catch (apiError) {
+                console.error('Error registrando token en el backend:', apiError);
+                throw new Error(`Error al registrar token: ${apiError.message}`);
             }
         } catch (error) {
             console.error('Error activando notificaciones:', error);
@@ -291,9 +362,11 @@ export const useNotifications = () => {
         fcmToken,
         notification,
         notificationsEnabled,
+        isUserLoggedIn,
         enableNotifications,
         disableNotifications,
         toggleNotifications,
+        checkUserStatus, // Exponer para que se pueda llamar después del login
     };
 };
 

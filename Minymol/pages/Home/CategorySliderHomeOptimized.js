@@ -1,3 +1,18 @@
+/**
+ * ✨ ESTRATEGIA ESTILO TEMU: "Persistente pero Ocioso"
+ * 
+ * Este componente implementa la estrategia de Temu para mantener el Home súper fluido:
+ * 
+ * 1. ✅ MANTIENE TODO MONTADO (no desmonta entre tabs)
+ * 2. ✅ SUSPENDE LÓGICA cuando no está activo (ocioso pero vivo)
+ * 3. ✅ LAZY LOAD de secciones pesadas solo cuando son visibles
+ * 4. ✅ CACHE de imágenes y estados (no recarga al volver)
+ * 5. ✅ MEMOIZACIÓN AGRESIVA de componentes y funciones
+ * 
+ * El truco: El componente está montado pero "congelado" cuando no está visible.
+ * Solo ejecuta lógica costosa (fetch, scroll, animaciones) cuando está activo.
+ */
+
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -22,8 +37,8 @@ import ProductDetail from '../../pages/ProductDetail/ProductDetailSimple';
 import { getUbuntuFont } from '../../utils/fonts';
 import subCategoriesManager from '../../utils/SubCategoriesManager';
 
-// ✅ MEGA OPTIMIZACIÓN: Lazy loading de componentes pesados
-// Estos solo se cargan cuando son necesarios, reduciendo el bundle inicial
+// ✅ ESTILO TEMU: Lazy loading de secciones pesadas
+// Se cargan SOLO cuando la categoría está visible y activa
 const AutoCarousel = lazy(() => import('../../components/AutoCarousel'));
 const Reels = lazy(() => import('../../components/Reels'));
 
@@ -369,11 +384,12 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     // Effect adicional para verificar que las categorías se cargaron correctamente
     // REMOVIDO para evitar loops infinitos - la lógica de recarga se maneja en la inicialización
 
-    // ✅ MEGA OPTIMIZADO: Effect para cargar productos cuando cambia la categoría/subcategoría
-    // SOLO se ejecuta cuando la página está activa Y lista
+    // ✅ ESTILO TEMU: Effect para cargar productos cuando cambia la categoría/subcategoría
+    // SUSPENDE toda lógica pesada cuando NO está activo (mantiene montado pero ocioso)
     useEffect(() => {
-        // ⚡ CRÍTICO: No ejecutar si la página no está activa o no está lista
+        // ⚡ ESTILO TEMU: Suspender lógica si no está activo (pero mantener montado)
         if (!isActive || !isReady) {
+            console.log('🧊 Home ocioso (mantiene estado pero no ejecuta lógica)');
             return;
         }
 
@@ -418,28 +434,28 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 return prevCategoryProducts;
             });
 
-            // ✅ MEGA OPTIMIZADO: Pre-carga solo si es gama alta (más de 4GB RAM estimado)
-            // En dispositivos de gama baja, la pre-carga causa lag
+            // ✅ MEGA OPTIMIZADO: Pre-carga inteligente con delay progresivo
             const preloadAdjacentCategories = async () => {
-                // Solo pre-cargar si la app ha estado activa por más de 2 segundos
-                // Esto asegura que la UI ya está renderizada
+                // Dar tiempo para que la UI se estabilice
                 setTimeout(() => {
-                    if (!isActive) return; // No pre-cargar si la página ya no está activa
+                    if (!isActive) return;
                     
                     const totalCats = categories.length + 1; // +1 por "Todos"
                     const nextIndex = (currentCategoryIndex + 1) % totalCats;
                     
-                    // ✅ OPTIMIZADO: Solo pre-cargar la SIGUIENTE categoría (no la anterior)
-                    // Esto reduce el trabajo a la mitad
+                    // Pre-cargar SOLO la siguiente categoría
                     setCategoryProducts(prev => {
                         const nextState = prev[nextIndex];
                         if (!nextState || !nextState.initialized) {
                             console.log(`⚡ Pre-cargando categoría siguiente: ${nextIndex}`);
-                            initializeCategoryProducts(nextIndex);
+                            // Usar requestAnimationFrame para no bloquear el render
+                            requestAnimationFrame(() => {
+                                initializeCategoryProducts(nextIndex);
+                            });
                         }
                         return prev;
                     });
-                }, 800); // ✅ Aumentado de 300ms a 800ms para dar tiempo a la UI
+                }, 1200); // Delay más largo para asegurar estabilidad
             };
 
             // Solo pre-cargar si estamos activos Y listos
@@ -497,8 +513,14 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         }
     }, [currentCategoryIndex, loadCategories, loadProductsWithFeed, getCurrentSubCategoryForCategory]);
 
-    // ✅ MEGA OPTIMIZACIÓN: Infinite scroll con cursor pagination REAL (como Temu)
+    // ✅ ESTILO TEMU: Infinite scroll solo cuando está activo
     const loadMoreProducts = useCallback(() => {
+        // ⚡ SUSPENDER si no está activo (Temu no carga más si no estás viendo)
+        if (!isActive) {
+            console.log('🧊 Scroll suspendido (página no activa)');
+            return;
+        }
+        
         setCategoryProducts(prev => {
             const currentState = prev[currentCategoryIndex] || {};
 
@@ -557,7 +579,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 [currentCategoryIndex]: newState
             };
         });
-    }, [currentCategoryIndex, loadProductsWithFeed, getCurrentSubCategoryForCategory]);
+    }, [currentCategoryIndex, loadProductsWithFeed, getCurrentSubCategoryForCategory, isActive]);
 
     // Obtener subcategorías de la categoría actual - INSTANTÁNEO desde JSON
     const getCurrentSubCategories = useCallback(() => {
@@ -676,8 +698,15 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             if (newIndex !== currentCategoryIndex) {
                 changeCategory(newIndex);
             }
+            
+            // ✅ NUEVO: Inicializar categoría actual si no está cargada
+            const currentState = categoryProducts[newIndex];
+            if (!currentState || !currentState.initialized) {
+                console.log(`🔄 Inicializando categoría ${newIndex} al navegar`);
+                initializeCategoryProducts(newIndex);
+            }
         }
-    }, [categories.length, currentCategoryIndex, localCategoryIndex, changeCategory]);
+    }, [categories.length, currentCategoryIndex, localCategoryIndex, changeCategory, categoryProducts, initializeCategoryProducts]);
 
     // ✅ OPTIMIZADO: Renderizar BarSup inline SIN useMemo para actualización INSTANTÁNEA del highlight
     // Usa localCategoryIndex en lugar de currentCategoryIndex para actualización sin delay
@@ -752,7 +781,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         return columns;
     }, []);
 
-    // Renderizar columna de masonry
+    // ✅ ESTILO TEMU: Renderizar columna con memoización agresiva
     const renderMasonryColumn = useCallback((columnProducts, columnIndex) => (
         <View key={columnIndex} style={[
             styles.masonryColumn,
@@ -763,7 +792,6 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     <Product
                         product={product}
                         onProductPress={(product) => {
-                            console.log('🔄 CategorySliderHome: Abriendo ProductDetail modal:', product?.name);
                             setSelectedProduct(product);
                             setShowProductDetail(true);
                         }}
@@ -771,7 +799,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 </View>
             ))}
         </View>
-    ), [onProductPress]);
+    ), []);
 
     // Función para cerrar ProductDetail modal
     const handleCloseProductDetail = () => {
@@ -905,6 +933,9 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
     // Renderizar página de categoría
     const renderCategoryPage = useCallback(({ item: categoryIndex }) => {
+        // ✅ ESTILO TEMU: Mantener montado pero controlar qué se renderiza
+        const isCurrentCategory = categoryIndex === currentCategoryIndex;
+        
         // ✅ OPTIMIZADO: Obtener el estado de los productos de esta categoría
         const categoryState = categoryProducts[categoryIndex] || {
             products: [],
@@ -915,7 +946,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
             lastSubCategoryIndex: 0
         };
 
-        // ✅ OPTIMIZADO: Obtener subcategorías específicas para esta categoría (sin usar getCurrentSubCategories compartido)
+        // ✅ OPTIMIZADO: Obtener subcategorías específicas para esta categoría
         const category = categories[categoryIndex - 1]; // -1 porque 0 es "Todos"
         const hasSubCategories = categoryIndex !== 0 && category && category.slug && 
                                 (subCategoriesManager.getSubcategoriesByCategory(category.slug) || []).length > 0;
@@ -941,8 +972,8 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                         />
                     }
                 >
-                    {/* ✅ MEGA OPTIMIZACIÓN: Reels solo para categoría "Todos" con lazy loading */}
-                    {categoryIndex === 0 && isActive && isReady && (
+                    {/* ✅ ESTILO TEMU: Lazy load de secciones pesadas solo cuando es visible */}
+                    {categoryIndex === 0 && isActive && isReady && isCurrentCategory && (
                         <View style={[styles.reelsContainer, isInitialLoading && styles.hiddenContent]}>
                             <Suspense fallback={null}>
                                 <Reels />
@@ -950,8 +981,8 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                         </View>
                     )}
 
-                    {/* ✅ MEGA OPTIMIZACIÓN: AutoCarousel solo para categoría "Todos" con lazy loading */}
-                    {categoryIndex === 0 && isActive && isReady && (
+                    {/* ✅ ESTILO TEMU: AutoCarousel solo cuando está visible */}
+                    {categoryIndex === 0 && isActive && isReady && isCurrentCategory && (
                         <View style={[styles.autoCarouselContainer, isInitialLoading && styles.hiddenContent]}>
                             <Suspense fallback={null}>
                                 <AutoCarousel 
@@ -966,7 +997,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                         styles.productsList,
                         hasSubCategories && styles.productsListWithStickyHeader
                     ]}>
-                        {isReady && categoryState.products.length > 0 ? (
+                        {categoryState.initialized && categoryState.products.length > 0 ? (
                             <View style={styles.masonryContainer}>
                                 {distributeProductsInColumns(categoryState.products).map((columnProducts, columnIndex) =>
                                     renderMasonryColumn(columnProducts, columnIndex)
@@ -974,8 +1005,11 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                             </View>
                         ) : (
                             <View style={styles.emptyContainer}>
-                                {(isLoading || !isReady || !categoryState.initialized) ? (
-                                    <ActivityIndicator size="large" color="#fa7e17" />
+                                {!categoryState.initialized || categoryState.isLoading ? (
+                                    <>
+                                        <ActivityIndicator size="large" color="#fa7e17" />
+                                        <Text style={styles.loadingText}>Cargando productos...</Text>
+                                    </>
                                 ) : (
                                     <Text style={styles.emptyMessage}>
                                         No hay productos disponibles
@@ -1006,7 +1040,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 </ScrollView>
             </View>
         );
-    }, [categoryProducts, handleSubCategoryPress, handleScroll, distributeProductsInColumns, renderMasonryColumn, isRefreshing, onRefresh, getCurrentSubCategoryForCategory, subCategoriesTranslateY, renderSubCategoriesBar, categories, handleProviderPress, isCategoryLoading]);
+    }, [categoryProducts, handleSubCategoryPress, handleScroll, distributeProductsInColumns, renderMasonryColumn, isRefreshing, onRefresh, getCurrentSubCategoryForCategory, subCategoriesTranslateY, renderSubCategoriesBar, categories, handleProviderPress, isCategoryLoading, currentCategoryIndex]);
 
     // Mostrar loading simple si estamos cargando categorías inicialmente
     if (loading && (!categories || categories.length === 0)) {
@@ -1121,12 +1155,15 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     offset: screenWidth * index,
                     index,
                 })}
-                windowSize={2} // ✅ Reducido de 3 a 2 para menor consumo de memoria
-                initialNumToRender={1} // ✅ Solo renderizar la pantalla actual
-                maxToRenderPerBatch={1} // ✅ Solo 1 pantalla a la vez
-                removeClippedSubviews={true} // ✅ Activado para remover vistas fuera de pantalla
+                windowSize={3} // ✅ Aumentado a 3 para mejor pre-carga de imágenes
+                initialNumToRender={1}
+                maxToRenderPerBatch={1}
+                removeClippedSubviews={true}
                 decelerationRate="fast"
-                updateCellsBatchingPeriod={100} // ✅ Actualizar en lotes más frecuentes
+                updateCellsBatchingPeriod={50}
+                disableIntervalMomentum={true}
+                snapToInterval={screenWidth}
+                snapToAlignment="start"
             />
 
             <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />

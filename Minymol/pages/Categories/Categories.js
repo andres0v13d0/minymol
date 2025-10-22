@@ -47,7 +47,13 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
     }
   }, [isActive]);
 
+  // ✅ OPTIMIZADO: Solo cargar si está activo Y no tiene datos
   useEffect(() => {
+    // No cargar si no está activo o ya tiene datos
+    if (!isActive || categories.length > 0) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -70,7 +76,7 @@ const Categories = ({ onTabPress, onProductPress, onCategoryPress, onSearchPress
     };
 
     fetchData();
-  }, []);
+  }, [isActive, categories.length]);
 
   const filteredSubCategories = categories.find(cat => cat.id === selectedCategoryId)?.subCategories || [];
 

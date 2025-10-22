@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, InteractionManager, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -7,12 +7,29 @@ import SearchModal from './components/SearchModal/SearchModal';
 import { AppStateProvider } from './contexts/AppStateContext';
 import { CartProvider } from './contexts/CartContext';
 import { CartCounterProvider, useCartCounter } from './contexts/CartCounterContext';
+import { ChatCounterProvider } from './contexts/ChatCounterContext';
 import { FavoritesProvider } from './hooks/useFavorites';
 import { useFonts } from './hooks/useFonts';
 import Cart from './pages/Cart/Cart';
-import Categories from './pages/Categories/Categories';
+import Chat from './pages/Chat/Chat';
 import Home from './pages/Home/Home';
 import Profile from './pages/Profile/Profile';
+
+// ✅ CRÍTICO: Memoizar componentes pesados para evitar re-renders
+const MemoizedHome = memo(Home, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambia isActive o selectedTab
+  return prevProps.isActive === nextProps.isActive && 
+         prevProps.selectedTab === nextProps.selectedTab;
+});
+
+const MemoizedChat = memo(Chat, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambia isActive o selectedTab
+  return prevProps.isActive === nextProps.isActive && 
+         prevProps.selectedTab === nextProps.selectedTab;
+});
+
+const MemoizedProfile = memo(Profile);
+const MemoizedCart = memo(Cart);
 
 // Cargar utilidades de debug en desarrollo
 if (__DEV__) {
@@ -25,11 +42,13 @@ export default function App() {
     <SafeAreaProvider>
       <AppStateProvider>
         <CartCounterProvider>
-          <CartProvider>
-            <FavoritesProvider>
-              <AppContent />
-            </FavoritesProvider>
-          </CartProvider>
+          <ChatCounterProvider>
+            <CartProvider>
+              <FavoritesProvider>
+                <AppContent />
+              </FavoritesProvider>
+            </CartProvider>
+          </ChatCounterProvider>
         </CartCounterProvider>
       </AppStateProvider>
     </SafeAreaProvider>
@@ -120,79 +139,6 @@ function AppContent() {
     );
   }
 
-  const renderAllScreens = () => {
-    console.log('🎨 renderAllScreens llamado, currentScreen:', currentScreen);
-    const renderStart = performance.now();
-    
-    // Medir tiempo de render
-    requestAnimationFrame(() => {
-      const renderEnd = performance.now();
-      console.log('🎨 Tiempo de renderAllScreens:', (renderEnd - renderStart).toFixed(2), 'ms');
-    });
-    
-    // 🚀 SIMPLIFIED: Keep all screens mounted, just toggle visibility with styles
-    // This is the standard approach used by most RN apps for better performance
-    return (
-      <>
-        {/* Home Screen - Always mounted */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'home' ? styles.visible : styles.hidden
-        ]}>
-          <Home 
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-            onProductPress={handleProductPress}
-            onSearchPress={handleSearchPress}
-            isActive={currentScreen === 'home'}
-          />
-        </View>
-
-        {/* Categories Screen - Always mounted */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'categories' ? styles.visible : styles.hidden
-        ]}>
-          <Categories 
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-            onCategoryPress={handleCategoryPress}
-            onSearchPress={handleSearchPress}
-            isActive={currentScreen === 'categories'}
-          />
-        </View>
-
-        {/* Profile Screen - Always mounted */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'profile' ? styles.visible : styles.hidden
-        ]}>
-          <Profile 
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-            onNavigate={handleNavigate}
-            onSearchPress={handleSearchPress}
-            isActive={currentScreen === 'profile'}
-          />
-        </View>
-
-        {/* Cart Screen - Always mounted */}
-        <View style={[
-          styles.screenContainer, 
-          currentScreen === 'cart' ? styles.visible : styles.hidden
-        ]}>
-          <Cart 
-            selectedTab={selectedTab}
-            onTabPress={handleTabPress}
-            onProductPress={handleProductPress}
-            onSearchPress={handleSearchPress}
-            isActive={currentScreen === 'cart'}
-          />
-        </View>
-      </>
-    );
-  };
-
   // Determinar el estilo del SafeArea superior
   const isWhiteArea = selectedTab === 'profile' || selectedTab === 'cart';
   const statusBarStyle = isWhiteArea ? 'dark-content' : 'light-content';
@@ -212,7 +158,60 @@ function AppContent() {
       <StatusBar backgroundColor={statusBarBackground} barStyle={statusBarStyle} />
       
       <View style={styles.content}>
-        {renderAllScreens()}
+        {/* ✅ ESTILO TEMU: Componentes memoizados montados permanentemente */}
+        {/* Home Screen - Always mounted, memoized */}
+        <View style={[
+          styles.screenContainer, 
+          currentScreen === 'home' ? styles.visible : styles.hidden
+        ]}>
+          <MemoizedHome 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onProductPress={handleProductPress}
+            onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'home'}
+          />
+        </View>
+
+        {/* Chat Screen - Always mounted, memoized */}
+        <View style={[
+          styles.screenContainer, 
+          currentScreen === 'messages' ? styles.visible : styles.hidden
+        ]}>
+          <MemoizedChat 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            isActive={currentScreen === 'messages'}
+          />
+        </View>
+
+        {/* Profile Screen - Always mounted, memoized */}
+        <View style={[
+          styles.screenContainer, 
+          currentScreen === 'profile' ? styles.visible : styles.hidden
+        ]}>
+          <MemoizedProfile 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onNavigate={handleNavigate}
+            onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'profile'}
+          />
+        </View>
+
+        {/* Cart Screen - Always mounted, memoized */}
+        <View style={[
+          styles.screenContainer, 
+          currentScreen === 'cart' ? styles.visible : styles.hidden
+        ]}>
+          <MemoizedCart 
+            selectedTab={selectedTab}
+            onTabPress={handleTabPress}
+            onProductPress={handleProductPress}
+            onSearchPress={handleSearchPress}
+            isActive={currentScreen === 'cart'}
+          />
+        </View>
       </View>
       
       {/* SafeArea inferior */}

@@ -28,8 +28,10 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
   // Memoizar configuración de imagen para evitar re-cálculos
   const imageConfig = useMemo(() => getOptimalImageConfig(), []);
   
-  // Memoizar URL optimizada de la imagen
+  // ✅ OPTIMIZADO: URL de imagen con cache y fallback
   const optimizedImageUrl = useMemo(() => {
+    if (!product.image) return 'https://via.placeholder.com/400/f5f5f5/999999?text=Sin+Imagen';
+    
     const columnsCount = getOptimalColumnsCount();
     const paddingBetweenColumns = 4;
     const totalPadding = paddingBetweenColumns * columnsCount;
@@ -180,25 +182,22 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
         ) : (
           <>
             <Image 
-              source={{ 
-                uri: optimizedImageUrl || 'https://via.placeholder.com/400/f5f5f5/999999?text=Sin+Imagen',
-                // Optimizaciones para gama baja
-                headers: {
-                  'Cache-Control': 'max-age=31536000'
-                }
-              }} 
+              source={{ uri: optimizedImageUrl }} 
               style={[styles.image, { height: imageHeight }, !imageLoaded && styles.imageHidden]}
               onLoad={handleImageLoad}
               onError={handleImageError}
-              {...imageConfig}
-              // Optimizaciones adicionales
-              recyclingKey={product.uuid || product.id}
-              responsivePolicy="initial"
+              // ✅ MEGA OPTIMIZACIONES para carga rápida
+              cachePolicy="memory-disk" // Caché agresiva
+              priority="normal" // Prioridad normal (no alta para no bloquear)
+              transition={100} // Transición muy rápida
+              placeholder={{ blurhash: 'LGF5?xYk^6#M@-5c,1J5@[or[Q6.' }} // Placeholder mientras carga
+              placeholderContentFit="cover"
+              contentFit="cover"
+              recyclingKey={`${product.uuid || product.id}`} // Key para reciclaje de memoria
             />
             {!imageLoaded && (
               <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
-                <Ionicons name="image-outline" size={30} color="#ccc" />
-                <Text style={styles.loadingText}>Cargando...</Text>
+                <View style={styles.skeletonBox} />
               </View>
             )}
           </>
@@ -349,6 +348,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
+  },
+  skeletonBox: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e0e0e0',
   },
   loadingText: {
     fontSize: 11,
