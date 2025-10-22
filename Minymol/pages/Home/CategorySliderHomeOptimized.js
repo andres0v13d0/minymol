@@ -33,37 +33,45 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     // 🚀 NUEVO: Obtener contador ultrarrápido directamente
     const { count: cartItemCount } = useCartCounter();
     
-    // 🚀 MEGA OPTIMIZACIÓN: Renderizado lazy después de interacciones
-    // Esto permite que la UI base se monte PRIMERO, y luego se cargue el contenido pesado
+    // 🚀 OPTIMIZED: Simple ready state - no complex phasing that causes delays
     const [isReady, setIsReady] = useState(false);
     
-    // ✅ NUEVO: Loader global para carga inicial (Carousel + Reels + Productos)
+    // ✅ NUEVO: Loader global para carga inicial
     const [isInitialLoading, setIsInitialLoading] = useState(true);
-    const hasHiddenLoaderRef = useRef(false); // Ref para evitar ocultar el loader múltiples veces
+    const hasHiddenLoaderRef = useRef(false);
     
     // 🔥 NUEVO: Estados para ProductDetail modal
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showProductDetail, setShowProductDetail] = useState(false);
     
+    // 🚀 OPTIMIZED: Single initialization when active
     useEffect(() => {
-        if (isActive) {
-            // Esperar a que terminen todas las interacciones actuales
+        if (isActive && !isReady) {
+            // Use InteractionManager only once, not multiple phases
             const task = InteractionManager.runAfterInteractions(() => {
                 setIsReady(true);
+                console.log('✅ Home ready');
+                
+                // Hide loader after a short delay
+                setTimeout(() => {
+                    if (!hasHiddenLoaderRef.current) {
+                        hasHiddenLoaderRef.current = true;
+                        setIsInitialLoading(false);
+                    }
+                }, 300);
             });
             
             return () => task.cancel();
         }
-    }, [isActive]);
-
-    // ✅ NUEVO: Timeout de seguridad para ocultar el loader después de 3 segundos máximo
+    }, [isActive, isReady]);
+    
+    // ✅ Safety timeout for loader
     useEffect(() => {
         if (isActive && isInitialLoading && !hasHiddenLoaderRef.current) {
             const safetyTimeout = setTimeout(() => {
-                console.log('⏱️ Timeout de seguridad: ocultando loader global');
                 hasHiddenLoaderRef.current = true;
                 setIsInitialLoading(false);
-            }, 3000); // 3 segundos máximo
+            }, 2000);
             
             return () => clearTimeout(safetyTimeout);
         }
@@ -306,7 +314,6 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     useEffect(() => {
         // ⚡ CRÍTICO: No ejecutar si la página no está activa o no está lista
         if (!isActive || !isReady) {
-            console.log('⏸️ Home inactivo o no listo, deteniendo inicialización');
             return;
         }
 
@@ -351,7 +358,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
 
         // Cleanup: cancelar si el componente se desmonta o se desactiva
         return () => handle.cancel();
-    }, [homeInitialized, loadCategories, setHomeInitialized, isActive, isReady]); // ✅ Agregado isReady
+    }, [homeInitialized, loadCategories, setHomeInitialized, isActive, isReady]);
 
     // ✅ OPTIMIZADO: Sincronizar estado local con el contexto global
     // Solo cuando el contexto global cambie externamente (no por nuestras propias acciones)
@@ -367,7 +374,6 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
     useEffect(() => {
         // ⚡ CRÍTICO: No ejecutar si la página no está activa o no está lista
         if (!isActive || !isReady) {
-            console.log('⏸️ Home inactivo o no listo, pausando carga de productos');
             return;
         }
 
@@ -445,7 +451,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         // Cleanup: cancelar si el componente se desmonta o se desactiva
         return () => handle.cancel();
 
-    }, [currentCategoryIndex, homeInitialized, categories.length, initializeCategoryProducts, getCurrentSubCategoryForCategory, categorySubCategoryMemory, categories, isActive, isReady]); // ✅ Agregado isReady
+    }, [currentCategoryIndex, homeInitialized, categories.length, initializeCategoryProducts, getCurrentSubCategoryForCategory, categorySubCategoryMemory, categories, isActive, isReady]);
 
     // ✅ OPTIMIZADO: Función para refrescar productos con nuevo endpoint
     const onRefresh = useCallback(async () => {
@@ -936,7 +942,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     }
                 >
                     {/* ✅ MEGA OPTIMIZACIÓN: Reels solo para categoría "Todos" con lazy loading */}
-                    {categoryIndex === 0 && isActive && (
+                    {categoryIndex === 0 && isActive && isReady && (
                         <View style={[styles.reelsContainer, isInitialLoading && styles.hiddenContent]}>
                             <Suspense fallback={null}>
                                 <Reels />
@@ -945,7 +951,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                     )}
 
                     {/* ✅ MEGA OPTIMIZACIÓN: AutoCarousel solo para categoría "Todos" con lazy loading */}
-                    {categoryIndex === 0 && isActive && (
+                    {categoryIndex === 0 && isActive && isReady && (
                         <View style={[styles.autoCarouselContainer, isInitialLoading && styles.hiddenContent]}>
                             <Suspense fallback={null}>
                                 <AutoCarousel 
@@ -960,7 +966,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                         styles.productsList,
                         hasSubCategories && styles.productsListWithStickyHeader
                     ]}>
-                        {categoryState.products.length > 0 ? (
+                        {isReady && categoryState.products.length > 0 ? (
                             <View style={styles.masonryContainer}>
                                 {distributeProductsInColumns(categoryState.products).map((columnProducts, columnIndex) =>
                                     renderMasonryColumn(columnProducts, columnIndex)
@@ -968,8 +974,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                             </View>
                         ) : (
                             <View style={styles.emptyContainer}>
-                                {/* ✅ Mostrar loader si está cargando O si no está inicializada */}
-                                {(isLoading || !categoryState.initialized) ? (
+                                {(isLoading || !isReady || !categoryState.initialized) ? (
                                     <ActivityIndicator size="large" color="#fa7e17" />
                                 ) : (
                                     <Text style={styles.emptyMessage}>
@@ -1063,7 +1068,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
         );
     }
 
-    // 🚀 MEGA OPTIMIZACIÓN: Si no está listo aún, mostrar UI mínima mientras se monta el resto
+    // Si no está listo aún, mostrar UI mínima mientras se monta el resto
     if (!isReady && isActive) {
         return (
             <View style={styles.container}>
@@ -1077,7 +1082,7 @@ const CategorySliderHome = ({ onProductPress, selectedTab = 'home', onTabPress, 
                 {/* Skeleton ligero */}
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#fa7e17" />
-                    <Text style={styles.loadingText}>Cargando...</Text>
+                    <Text style={styles.loadingText}>Preparando...</Text>
                 </View>
                 
                 <NavInf selectedTab={selectedTab} onTabPress={onTabPress} cartItemCount={cartItemCount} />

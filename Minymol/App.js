@@ -1,5 +1,5 @@
-import { startTransition, useCallback, useState } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, InteractionManager, StatusBar, StyleSheet, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import './config/firebase'; // Inicializar Firebase
@@ -42,7 +42,7 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState('home');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false); // ✅ Flag de transición
+  
   const fontsLoaded = useFonts();
   
   console.log('📱 AppContent: obteniendo contexto del carrito...');
@@ -64,33 +64,24 @@ function AppContent() {
     // Por ejemplo, para login, configuración, etc.
   }, []);
 
-  // ✅ MEGA OPTIMIZADO: Actualización instantánea del estado sin delay
-  // Usando startTransition para hacer el update no-bloqueante
+  // ✅ OPTIMIZADO: Actualización instantánea del estado - ultra simple
   const handleTabPress = useCallback((tab) => {
     const startTime = performance.now();
     console.log('🔵 ========================================');
     console.log('🔵 TAB PRESS INICIADO:', tab);
     console.log('🔵 Timestamp:', startTime.toFixed(2), 'ms');
     
-    // 🚀 SOLUCIÓN: Usar startTransition para hacer el cambio no-bloqueante
-    // Esto permite que React priorice la UI y procese los updates en segundo plano
-    startTransition(() => {
-      setSelectedTab(tab);
-      setCurrentScreen(tab);
-      setSelectedProduct(null);
-    });
+    // 🚀 CRITICAL: Just update state, no complex logic
+    setSelectedTab(tab);
+    setCurrentScreen(tab);
+    setSelectedProduct(null);
     
-    // Medir cuánto tomó el setState
+    // 🚀 Measure after paint
     requestAnimationFrame(() => {
-      const afterStateTime = performance.now();
-      console.log('🟢 setState INICIADO en:', (afterStateTime - startTime).toFixed(2), 'ms');
-      
-      // Medir cuándo termina el render completo
-      requestAnimationFrame(() => {
-        const endTime = performance.now();
-        console.log('🟢 RENDER COMPLETO en:', (endTime - startTime).toFixed(2), 'ms');
-        console.log('🔵 ========================================');
-      });
+      const afterPaintTime = performance.now();
+      console.log('🟢 UI actualizada en:', (afterPaintTime - startTime).toFixed(2), 'ms');
+      console.log('🟢 TRANSICIÓN COMPLETA en:', (afterPaintTime - startTime).toFixed(2), 'ms');
+      console.log('🔵 ========================================');
     });
   }, []);
 
@@ -139,9 +130,11 @@ function AppContent() {
       console.log('🎨 Tiempo de renderAllScreens:', (renderEnd - renderStart).toFixed(2), 'ms');
     });
     
+    // 🚀 SIMPLIFIED: Keep all screens mounted, just toggle visibility with styles
+    // This is the standard approach used by most RN apps for better performance
     return (
       <>
-        {/* Home Screen */}
+        {/* Home Screen - Always mounted */}
         <View style={[
           styles.screenContainer, 
           currentScreen === 'home' ? styles.visible : styles.hidden
@@ -155,7 +148,7 @@ function AppContent() {
           />
         </View>
 
-        {/* Categories Screen */}
+        {/* Categories Screen - Always mounted */}
         <View style={[
           styles.screenContainer, 
           currentScreen === 'categories' ? styles.visible : styles.hidden
@@ -169,7 +162,7 @@ function AppContent() {
           />
         </View>
 
-        {/* Profile Screen */}
+        {/* Profile Screen - Always mounted */}
         <View style={[
           styles.screenContainer, 
           currentScreen === 'profile' ? styles.visible : styles.hidden
@@ -183,7 +176,7 @@ function AppContent() {
           />
         </View>
 
-        {/* Cart Screen */}
+        {/* Cart Screen - Always mounted */}
         <View style={[
           styles.screenContainer, 
           currentScreen === 'cart' ? styles.visible : styles.hidden
