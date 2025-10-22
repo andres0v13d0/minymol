@@ -39,12 +39,18 @@ coverage/
 # Build artifacts de Android (se regenerarán en EAS)
 android/build/
 android/app/build/
+android/app/.cxx/
 android/.gradle/
+android/.kotlin/
+android/*/build/
 
 # Otros archivos innecesarios
 .expo-shared/
 .expo/
 web-build/
+
+# Git directory
+.git/
 
 # NPM/Yarn (EAS instalará las dependencias)
 node_modules/
