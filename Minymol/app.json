@@ -5,16 +5,49 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/favicon.png",
+    "scheme": "minymol",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/favicon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#14144b"
+    "ios": {
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "bundleIdentifier": "com.minymol.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSContactsUsageDescription": "Minymol necesita acceso a tus contactos para mostrarte quiénes usan la app y facilitar el inicio de conversaciones."
+      }
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "android": {
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/favicon.png",
+        "backgroundColor": "#16164C"
+      },
+      "package": "com.minymol.app",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_CONTACTS"
+      ],
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/favicon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#16164C",
+          "dark": {
+            "backgroundColor": "#16164C"
+          }
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -26,33 +59,11 @@
       "@react-native-firebase/app",
       "expo-sqlite"
     ],
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.minymol.app",
-      "buildNumber": "1",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "Minymol necesita acceso a tus contactos para mostrarte quiénes usan la app y facilitar el inicio de conversaciones."
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/favicon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.minymol.app",
-      "versionCode": 1,
-      "googleServicesFile": "./google-services.json",
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.READ_CONTACTS"
-      ],
-      "softwareKeyboardLayoutMode": "pan"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "experiments": {
+      "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
         "projectId": "fa331260-c87d-4a77-b708-31b53a5f11d3"
       }
