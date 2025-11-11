@@ -12,7 +12,7 @@ class ChatDatabase {
     }
 
     /**
-     * Inicializar base de datos SQLite
+     * Inicializar base de datos SQLite - FORZADO
      */
     async init() {
         if (this.isInitialized) {
@@ -20,29 +20,59 @@ class ChatDatabase {
             return;
         }
 
-        let retries = 3;
+        let retries = 5; // Aumentado a 5 intentos
         let lastError = null;
+
+        console.log('');
+        console.log('╔═══════════════════════════════════════════════════════════════╗');
+        console.log('║  🗄️ INICIALIZANDO CHATDATABASE (FORZADO)                     ║');
+        console.log('╚═══════════════════════════════════════════════════════════════╝');
+        console.log('');
 
         while (retries > 0) {
             try {
-                console.log(`🔧 Inicializando ChatDatabase... (intentos restantes: ${retries})`);
+                console.log(`🔧 Intento ${6 - retries}/5: Inicializando ChatDatabase...`);
 
-                // Abrir/crear base de datos
-                this.db = await SQLite.openDatabaseAsync('minymol_chat.db');
-
-                // Verificar que la conexión es válida
-                if (!this.db) {
-                    throw new Error('Database connection is null');
+                // ✅ FORZAR: Cerrar cualquier conexión anterior
+                if (this.db) {
+                    try {
+                        await this.db.closeAsync();
+                        console.log('   ├─ Conexión anterior cerrada');
+                    } catch (closeError) {
+                        console.log('   ├─ No había conexión anterior');
+                    }
                 }
 
-                // Crear tablas
+                this.db = null;
+                this.isInitialized = false;
+
+                // ✅ FORZAR: Abrir/crear base de datos con await
+                console.log('   ├─ Abriendo base de datos SQLite...');
+                this.db = await SQLite.openDatabaseAsync('minymol_chat.db');
+
+                // ✅ FORZAR: Verificar que la conexión es válida
+                if (!this.db) {
+                    throw new Error('❌ CRÍTICO: Database connection is null después de openDatabaseAsync');
+                }
+
+                console.log('   ├─ ✅ Conexión SQLite establecida');
+
+                // ✅ FORZAR: Crear tablas
+                console.log('   ├─ Creando tablas...');
                 await this.createTables();
+                console.log('   ├─ ✅ Tablas creadas');
 
-                // Optimizar performance
+                // ✅ FORZAR: Optimizar performance
+                console.log('   ├─ Optimizando base de datos...');
                 await this.optimizeDatabase();
+                console.log('   ├─ ✅ Base de datos optimizada');
 
+                // ✅ MARCAR COMO INICIALIZADO
                 this.isInitialized = true;
-                console.log('✅ ChatDatabase inicializada correctamente');
+                
+                console.log('');
+                console.log('✅✅✅ ChatDatabase INICIALIZADA CORRECTAMENTE ✅✅✅');
+                console.log('');
                 return;
 
             } catch (error) {
@@ -51,17 +81,30 @@ class ChatDatabase {
                 this.db = null;
                 this.isInitialized = false;
 
+                console.log('');
+                console.log('❌ Error en inicialización:');
+                console.log('   ├─ Error:', error.message);
+                console.log('   ├─ Stack:', error.stack);
+                console.log(`   └─ Intentos restantes: ${retries}`);
+                console.log('');
+
                 if (retries > 0) {
-                    // Esperar un poco antes de reintentar
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    const waitTime = 2000; // 2 segundos entre intentos
+                    console.log(`⏳ Esperando ${waitTime}ms antes de reintentar...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
                 } else {
-                    // Todos los intentos fallaron - silenciar error
-                    if (__DEV__) {
-                        console.log('💬 SQLite no disponible, el chat funcionará solo con API REST (sin caché local)');
-                    }
-                    // NO lanzar error, solo marcar como no disponible
-                    this.isInitialized = false;
-                    return;
+                    // ✅ FORZAR: NO PERMITIR que continúe sin base de datos
+                    console.log('');
+                    console.log('╔═══════════════════════════════════════════════════════════════╗');
+                    console.log('║  ❌❌❌ ERROR CRÍTICO: ChatDatabase NO SE PUDO INICIALIZAR ❌❌❌');
+                    console.log('╚═══════════════════════════════════════════════════════════════╝');
+                    console.log('');
+                    console.log('💥 Último error:', lastError.message);
+                    console.log('💥 Stack completo:', lastError.stack);
+                    console.log('');
+                    
+                    // ✅ LANZAR ERROR PARA QUE SE VEA
+                    throw new Error(`ChatDatabase FALLÓ después de 5 intentos: ${lastError.message}`);
                 }
             }
         }
@@ -187,7 +230,9 @@ class ChatDatabase {
      */
     async execute(sql, params = []) {
         if (!this.db || !this.isInitialized) {
-            throw new Error('Database not initialized');
+            const error = new Error('❌ CRÍTICO: Database not initialized - Debes llamar ChatDatabase.init() primero');
+            console.error(error);
+            throw error;
         }
 
         try {
@@ -206,7 +251,9 @@ class ChatDatabase {
      */
     async getAllAsync(sql, params = []) {
         if (!this.db || !this.isInitialized) {
-            throw new Error('Database not initialized');
+            const error = new Error('❌ CRÍTICO: Database not initialized - Debes llamar ChatDatabase.init() primero');
+            console.error(error);
+            throw error;
         }
 
         try {

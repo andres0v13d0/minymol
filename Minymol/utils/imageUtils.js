@@ -88,10 +88,10 @@ export const getOptimalImageConfig = () => {
         transition: quality === 'low' ? 50 : quality === 'medium' ? 100 : 150,
         cachePolicy: 'memory-disk',
         priority: 'normal',
-        placeholder: { blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' },
         contentFit: 'cover',
-        // Para gama baja, reducir la calidad del placeholder
-        placeholderContentFit: quality === 'low' ? 'contain' : 'cover',
+        quality: quality, // Exportar la calidad calculada
+        // NO usar blurhash - puede causar problemas en gama baja
+        // Usar skeleton simple en su lugar
     };
 };
 

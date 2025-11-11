@@ -7,12 +7,23 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Debug"
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
       },
       "channel": "preview"
     },
@@ -21,10 +32,23 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "simulator": false,
+        "buildConfiguration": "Release"
+      },
       "channel": "production"
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "tu-apple-id@example.com",
+        "ascAppId": "TU_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "TU_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./ruta/al/service-account-key.json"
+      }
+    }
   }
 }

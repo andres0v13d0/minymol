@@ -52,16 +52,10 @@ class ChatService {
                 console.log('📱 Usuario:', this.currentUserName, `(ID: ${this.currentUserId})`);
             }
 
-            // 2. Inicializar base de datos SQLite (con reintentos)
-            try {
-                await ChatDatabase.init();
-            } catch (dbError) {
-                console.error('❌ Error crítico inicializando base de datos:', dbError);
-                // No lanzar error, continuar con funcionalidad limitada
-                if (__DEV__) {
-                    console.log('⚠️ Chat funcionará en modo limitado (sin persistencia local)');
-                }
-            }
+            // 2. ✅ FORZAR: Inicializar base de datos SQLite (SIN try-catch)
+            console.log('🔄 Iniciando ChatDatabase (FORZADO)...');
+            await ChatDatabase.init(); // ⚠️ Si falla, lanzará error y detendrá todo
+            console.log('✅ ChatDatabase inicializada correctamente');
 
             // 3. Limpiar mensajes viejos (solo si la BD está lista)
             if (ChatDatabase.isInitialized) {
@@ -72,6 +66,9 @@ class ChatService {
                         console.log('💬 Error limpiando mensajes antiguos (no crítico):', cleanError.message);
                     }
                 }
+            } else {
+                // ✅ VERIFICACIÓN: Si llegamos aquí y NO está inicializada, algo salió MAL
+                throw new Error('❌ CRÍTICO: ChatDatabase.init() no lanzó error pero tampoco se inicializó');
             }
 
             // 4. Conectar WebSocket

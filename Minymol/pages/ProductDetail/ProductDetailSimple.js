@@ -17,10 +17,13 @@ import {
     View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingCartButton from '../../components/FloatingCartButton';
 import Product from '../../components/Product/Product';
 import { useCart } from '../../contexts/CartContext';
 import { getUbuntuFont } from '../../utils/fonts';
+import ChatService from '../../services/chat/ChatService';
+import ChatModal from '../../components/chat/ChatModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -284,6 +287,9 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
   const [imageMode, setImageMode] = useState('contain'); // modo de redimensionamiento dinámico
   const animatedHeight = useRef(new Animated.Value(400)).current; // altura animada
   const flatListRef = useRef(null);
+  const [imageErrors, setImageErrors] = useState(new Set()); // Rastrear errores por índice
+  const [imagesLoaded, setImagesLoaded] = useState(new Set()); // Rastrear imágenes cargadas
+  const loadTimeoutsRef = useRef({}); // Timeouts por imagen
   
   // Función para animar el cambio de altura
   const animateHeight = useCallback((newHeight) => {
@@ -299,9 +305,26 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     if (images && images.length > 0) {
       images.forEach((img, index) => {
         if (img?.imageUrl) {
+          // ✅ Timeout de 6 segundos por imagen
+          loadTimeoutsRef.current[index] = setTimeout(() => {
+            if (!imagesLoaded.has(index)) {
+              console.warn(`⏰ Timeout cargando imagen ${index}:`, img.imageUrl);
+              setImageErrors(prev => new Set([...prev, index]));
+            }
+          }, 6000);
+
           // Prefetch con URL optimizada
           const optimizedUrl = optimizeImageUrl(img.imageUrl, 1200, 85);
-          Image.prefetch(optimizedUrl).catch(() => {});
+          Image.prefetch(optimizedUrl)
+            .then(() => {
+              if (loadTimeoutsRef.current[index]) {
+                clearTimeout(loadTimeoutsRef.current[index]);
+              }
+              setImagesLoaded(prev => new Set([...prev, index]));
+            })
+            .catch(() => {
+              setImageErrors(prev => new Set([...prev, index]));
+            });
           
           // Obtener dimensiones de la imagen original (para calcular aspect ratio)
           Image.getSize(
@@ -324,11 +347,19 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
             () => {
               // En caso de error, mantener altura por defecto
               console.warn('Error obteniendo dimensiones de imagen:', img.imageUrl);
+              setImageErrors(prev => new Set([...prev, index]));
             }
           );
         }
       });
     }
+
+    // Cleanup de timeouts
+    return () => {
+      Object.values(loadTimeoutsRef.current).forEach(timeout => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
   }, [images, currentIndex, animateHeight]);
 
   const handleMomentumScrollEnd = useCallback((event) => {
@@ -370,19 +401,47 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
     }
   }, [images.length]);
 
-  const renderImageItem = useCallback(({ item, index }) => (
-    <Animated.View style={[styles.instagramSlide, { height: animatedHeight }]}>
-      <Image
-        source={{ uri: optimizeImageUrl(item.imageUrl, 1200, 85) }}
-        style={[styles.instagramImage, { height: '100%' }]}
-        contentFit={imageMode}
-        placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-        priority={index === 0 ? 'high' : 'normal'}
-        transition={200}
-        cachePolicy="memory-disk"
-      />
-    </Animated.View>
-  ), [animatedHeight, imageMode]);
+  const renderImageItem = useCallback(({ item, index }) => {
+    const hasError = imageErrors.has(index);
+    const isLoaded = imagesLoaded.has(index);
+    
+    return (
+      <Animated.View style={[styles.instagramSlide, { height: animatedHeight }]}>
+        {hasError ? (
+          <View style={styles.imageErrorContainer}>
+            <MaterialIcons name="broken-image" size={48} color="#ccc" />
+            <Text style={styles.imageErrorText}>Error cargando imagen</Text>
+          </View>
+        ) : (
+          <>
+            <Image
+              source={{ uri: optimizeImageUrl(item.imageUrl, 1200, 85) }}
+              style={[styles.instagramImage, { height: '100%' }]}
+              contentFit={imageMode}
+              priority={index === 0 ? 'high' : 'normal'}
+              transition={200}
+              cachePolicy="memory-disk"
+              onError={() => {
+                console.warn(`❌ Error renderizando imagen ${index}`);
+                setImageErrors(prev => new Set([...prev, index]));
+              }}
+              onLoad={() => {
+                if (loadTimeoutsRef.current[index]) {
+                  clearTimeout(loadTimeoutsRef.current[index]);
+                }
+                setImagesLoaded(prev => new Set([...prev, index]));
+              }}
+            />
+            {!isLoaded && (
+              <View style={styles.imageLoadingOverlay}>
+                <SkeletonBox width="100%" height="100%" />
+              </View>
+            )}
+          </>
+        )}
+      </Animated.View>
+    );
+  }, [animatedHeight, imageMode, imageErrors, imagesLoaded]);
 
   const keyExtractor = useCallback((item, index) => `img-${index}-${item.imageUrl}`, []);
 
@@ -390,32 +449,53 @@ const ImageCarousel = memo(({ images, initialIndex = 0 }) => {
   if (!images || images.length === 0) {
     return (
       <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
-        <Image 
-          source={{ uri: optimizeImageUrl('https://cdn.minymol.com/uploads/logoblanco.webp', 600, 85) }}
-          style={[styles.instagramImage, { height: '100%' }]}
-          contentFit={imageMode}
-          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-          priority="high"
-          transition={200}
-          cachePolicy="memory-disk"
-        />
+        <View style={styles.imageErrorContainer}>
+          <MaterialIcons name="image-not-supported" size={48} color="#ccc" />
+          <Text style={styles.imageErrorText}>Sin imágenes disponibles</Text>
+        </View>
       </Animated.View>
     );
   }
   
   // Si solo hay una imagen
   if (images.length === 1) {
+    const hasError = imageErrors.has(0);
+    const isLoaded = imagesLoaded.has(0);
+    
     return (
       <Animated.View style={[styles.instagramCarousel, { height: animatedHeight }]}>
-        <Image 
-          source={{ uri: optimizeImageUrl(images[0].imageUrl, 1200, 85) }}
-          style={[styles.instagramImage, { height: '100%' }]}
-          contentFit={imageMode}
-          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-          priority="high"
-          transition={200}
-          cachePolicy="memory-disk"
-        />
+        {hasError ? (
+          <View style={styles.imageErrorContainer}>
+            <MaterialIcons name="broken-image" size={48} color="#ccc" />
+            <Text style={styles.imageErrorText}>Error cargando imagen</Text>
+          </View>
+        ) : (
+          <>
+            <Image 
+              source={{ uri: optimizeImageUrl(images[0].imageUrl, 1200, 85) }}
+              style={[styles.instagramImage, { height: '100%' }]}
+              contentFit={imageMode}
+              priority="high"
+              transition={200}
+              cachePolicy="memory-disk"
+              onError={() => {
+                console.warn('❌ Error renderizando imagen única');
+                setImageErrors(prev => new Set([...prev, 0]));
+              }}
+              onLoad={() => {
+                if (loadTimeoutsRef.current[0]) {
+                  clearTimeout(loadTimeoutsRef.current[0]);
+                }
+                setImagesLoaded(prev => new Set([...prev, 0]));
+              }}
+            />
+            {!isLoaded && (
+              <View style={styles.imageLoadingOverlay}>
+                <SkeletonBox width="100%" height="100%" />
+              </View>
+            )}
+          </>
+        )}
       </Animated.View>
     );
   }
@@ -507,9 +587,20 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
   const [nextCursor, setNextCursor] = useState(null); // Para paginación con cursor
   const [feedSeed] = useState(() => Math.random().toString(36).substring(2, 10)); // Seed único para esta vista
   
+  // ✅ NUEVO: Estados de carga progresiva
+  const [loadingPhase, setLoadingPhase] = useState(1); // 1: básico, 2: precios, 3: productos
+  const [imageLoadTimeout, setImageLoadTimeout] = useState(false);
+  const imageTimeoutRef = useRef(null);
+  
   // 🔥 NUEVO: Estado para manejar stack de ProductDetail modales
   const [nestedProduct, setNestedProduct] = useState(null);
   const [showNestedDetail, setShowNestedDetail] = useState(false);
+
+  // 💬 NUEVO: Estados para ChatModal
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatUser, setChatUser] = useState(null);
+  const [prefilledMessage, setPrefilledMessage] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
 
   // Función para ordenar tallas
   const sortSizes = (sizesRaw) => {
@@ -540,77 +631,111 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
     });
   };
 
+  // ✅ FASE 1: Cargar info básica del producto + imagen (INMEDIATO)
   useEffect(() => {
-    
-    const fetchData = async () => {
+    const fetchBasicData = async () => {
       try {
         setLoading(true);
+        setLoadingPhase(1);
 
-        // Cargar datos del producto
+        // Cargar SOLO datos básicos del producto
         const productRes = await fetch(`https://api.minymol.com/products/${productId}`);
         const productApiData = await productRes.json();
         setProduct(productApiData);
         setColors(productApiData.colors || []);
         setSizes(sortSizes(productApiData.sizes || []));
 
-        // Cargar imágenes
+        // Cargar SOLO la primera imagen
         const imagesRes = await fetch(`https://api.minymol.com/images/by-product/${productId}`);
         const imagesData = await imagesRes.json();
         const imagesArray = Array.isArray(imagesData) ? imagesData : [];
+        
+        // ✅ Establecer timeout para imagen
+        imageTimeoutRef.current = setTimeout(() => {
+          if (imagesArray.length === 0) {
+            console.warn('⏰ Timeout: No se cargaron imágenes a tiempo');
+            setImageLoadTimeout(true);
+          }
+        }, 5000);
+
         setImages(imagesArray);
 
-        // Cargar precios
-        const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
-        const pricesData = await pricesRes.json();
-        setPrices(Array.isArray(pricesData) ? pricesData : []);
-
-        // Establecer cantidad inicial
-        if (Array.isArray(pricesData) && pricesData.length > 0) {
-          const firstQty = pricesData[0]?.quantity?.split(',')?.[0];
-          if (firstQty) setQuantity(parseInt(firstQty.trim()));
-        }
-
-        // Cargar proveedor
+        // Cargar proveedor para el header
         const providerRes = await fetch(`https://api.minymol.com/providers/public/${productApiData.providerId}`);
         const providerData = await providerRes.json();
         setProvider(providerData);
 
-        // ✅ OPTIMIZACIÓN: Usar API feed con filtro de proveedor
-        const params = new URLSearchParams({
-          seed: feedSeed,
-          limit: '20', // Carga inicial más grande
-          providerId: productApiData.providerId.toString(),
-        });
-
-        const feedUrl = `https://api.minymol.com/products/feed?${params.toString()}`;
-        console.log('🚀 Cargando productos relacionados desde /feed:', feedUrl);
-
-        const feedRes = await fetch(feedUrl);
-        const { data: feedProducts, nextCursor: cursor, hasMore } = await feedRes.json();
-
-        if (Array.isArray(feedProducts) && feedProducts.length > 0) {
-          // Filtrar productos activos y excluir el producto actual
-          const activos = feedProducts.filter(p => !p.isInactive && p.uuid !== productId);
-          setRelatedProducts(activos);
-          setNextCursor(cursor);
-          setHasMoreProducts(hasMore);
-          
-          // Extraer subcategorías únicas
-          const categoryMap = new Map();
-          activos.forEach(p => {
-            if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
-              categoryMap.set(p.subCategory.slug, p.subCategory);
-            }
-          });
-          setSubCategories(Array.from(categoryMap.values()));
-        } else {
-          setRelatedProducts([]);
-          setNextCursor(null);
-          setHasMoreProducts(false);
-        }
-
+        // ✅ Renderizar inmediatamente con info básica
         setLoading(false);
-        
+
+        // 🔄 FASE 2: Cargar precios después de 300ms
+        setTimeout(async () => {
+          try {
+            setLoadingPhase(2);
+            const pricesRes = await fetch(`https://api.minymol.com/product-prices/product/${productId}`);
+            const pricesData = await pricesRes.json();
+            setPrices(Array.isArray(pricesData) ? pricesData : []);
+
+            // Establecer cantidad inicial
+            if (Array.isArray(pricesData) && pricesData.length > 0) {
+              const firstQty = pricesData[0]?.quantity?.split(',')?.[0];
+              if (firstQty) setQuantity(parseInt(firstQty.trim()));
+            }
+          } catch (error) {
+            console.warn('Error cargando precios:', error);
+            // Usar precios del productData si existen
+            if (productData?.prices) {
+              const formattedPrices = productData.prices.map((priceInfo, index) => ({
+                id: index + 1,
+                price: parseFloat(priceInfo.amount),
+                quantity: priceInfo.condition.match(/\d+/g)?.join(',') || '1',
+                description: priceInfo.condition
+              }));
+              setPrices(formattedPrices);
+            }
+          }
+        }, 300);
+
+        // 🔄 FASE 3: Cargar productos relacionados después de 800ms
+        setTimeout(async () => {
+          try {
+            setLoadingPhase(3);
+            const params = new URLSearchParams({
+              seed: feedSeed,
+              limit: '20',
+              providerId: productApiData.providerId.toString(),
+            });
+
+            const feedUrl = `https://api.minymol.com/products/feed?${params.toString()}`;
+            console.log('🚀 Cargando productos relacionados desde /feed:', feedUrl);
+
+            const feedRes = await fetch(feedUrl);
+            const { data: feedProducts, nextCursor: cursor, hasMore } = await feedRes.json();
+
+            if (Array.isArray(feedProducts) && feedProducts.length > 0) {
+              const activos = feedProducts.filter(p => !p.isInactive && p.uuid !== productId);
+              setRelatedProducts(activos);
+              setNextCursor(cursor);
+              setHasMoreProducts(hasMore);
+              
+              const categoryMap = new Map();
+              activos.forEach(p => {
+                if (p.subCategory && !categoryMap.has(p.subCategory.slug)) {
+                  categoryMap.set(p.subCategory.slug, p.subCategory);
+                }
+              });
+              setSubCategories(Array.from(categoryMap.values()));
+            } else {
+              setRelatedProducts([]);
+              setNextCursor(null);
+              setHasMoreProducts(false);
+            }
+          } catch (error) {
+            console.warn('Error cargando productos relacionados:', error);
+            setRelatedProducts([]);
+          }
+        }, 800);
+
       } catch (err) {
         
         // Fallback usando los datos que vienen desde Home
@@ -688,8 +813,15 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
       }
     };
 
-    fetchData();
-  }, [productId]);
+    fetchBasicData();
+
+    // Cleanup
+    return () => {
+      if (imageTimeoutRef.current) {
+        clearTimeout(imageTimeoutRef.current);
+      }
+    };
+  }, [productId, feedSeed]);
 
   // Cantidades disponibles
   const availableQuantities = useMemo(() => {
@@ -883,6 +1015,114 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
     setNestedProduct(null);
   };
 
+  // 💬 NUEVO: Función para abrir chat con el proveedor
+  const handleAskAboutProduct = async () => {
+    if (!provider || !product) {
+      RNAlert.alert('Error', 'No se pudo cargar la información del proveedor');
+      return;
+    }
+
+    if (!provider.telefono && !provider.phone) {
+      RNAlert.alert('Chat no disponible', 'Este proveedor no tiene chat habilitado en este momento.');
+      return;
+    }
+
+    try {
+      setLoadingChat(true);
+      console.log('');
+      console.log('💬 INICIANDO APERTURA DE CHAT CON PROVEEDOR');
+      console.log('   ├─ Proveedor:', provider.nombre_empresa);
+      console.log('   ├─ Teléfono:', provider.telefono || provider.phone);
+      console.log('   └─ Producto:', product.name);
+
+      // ✅ Inicializar ChatService (ahora forzado a funcionar)
+      try {
+        console.log('🔄 Inicializando ChatService...');
+        await ChatService.init();
+        console.log('✅ ChatService inicializado correctamente');
+      } catch (initError) {
+        console.log('⚠️ ChatService ya estaba inicializado o error:', initError.message);
+        // Continuar, puede que ya esté inicializado
+      }
+
+      // Obtener lista de contactos disponibles
+      console.log('📇 Obteniendo contactos...');
+      const contacts = await ChatService.getAvailableContacts();
+      console.log('✅ Contactos obtenidos:', contacts.length);
+
+      // Normalizar teléfonos para comparación
+      const normalizePhone = (phone) => {
+        if (!phone) return '';
+        return phone.replace(/\D/g, '').slice(-10); // Últimos 10 dígitos
+      };
+
+      const providerPhone = normalizePhone(provider.telefono || provider.phone);
+      console.log('🔍 Buscando proveedor con teléfono:', providerPhone);
+
+      // Buscar el contacto que coincida con el proveedor
+      const providerContact = contacts.find(contact => {
+        const contactPhone = normalizePhone(contact.telefono || '');
+        const matches = contactPhone === providerPhone;
+        if (matches) {
+          console.log('   ✅ Coincidencia encontrada:', contact.nombre);
+        }
+        return matches;
+      });
+
+      if (!providerContact) {
+        console.log('❌ No se encontró usuario para este proveedor');
+        RNAlert.alert(
+          'Chat no disponible',
+          'No se pudo encontrar el usuario de este proveedor. Es posible que aún no tenga chat habilitado.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      console.log('✅ Usuario encontrado:', providerContact.nombre, `(ID: ${providerContact.userId})`);
+
+      // Preparar mensaje pre-escrito
+      const message = `Hola, me interesa el producto "${product.name}"`;
+      
+      // Configurar usuario para el chat
+      setChatUser({
+        id: providerContact.userId,
+        name: providerContact.nombre || provider.nombre_empresa,
+        isProveedor: true,
+        logoUrl: provider.logo_url
+      });
+      
+      setPrefilledMessage(message);
+      setShowChatModal(true);
+      
+      console.log('✅ ChatModal abierto con mensaje pre-escrito');
+      console.log('');
+
+    } catch (error) {
+      console.error('');
+      console.error('❌ ERROR ABRIENDO CHAT:');
+      console.error('   ├─ Error:', error.message);
+      console.error('   └─ Stack:', error.stack);
+      console.error('');
+      
+      RNAlert.alert(
+        'Error',
+        'No se pudo abrir el chat. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoadingChat(false);
+    }
+  };
+
+  const handleCloseChatModal = () => {
+    setShowChatModal(false);
+    setTimeout(() => {
+      setChatUser(null);
+      setPrefilledMessage('');
+    }, 300);
+  };
+
   // Organizar productos relacionados en columnas
   const getColumnsCount = () => {
     if (screenWidth >= 768) return 3;
@@ -976,40 +1216,78 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
           <Text style={styles.productDescription}>{product.description}</Text>
 
           {/* Precio principal */}
-          <View style={styles.priceHighlight}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.currency}>COP</Text>
-              <Text style={styles.price}>
-                {applicablePrice ? parseFloat(applicablePrice.price).toLocaleString('es-CO') : '0'}
-              </Text>
-            </View>
-          </View>
+          {loadingPhase >= 2 ? (
+            <>
+              <View style={styles.priceAndChatContainer}>
+                <View style={styles.priceHighlight}>
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.currency}>COP</Text>
+                    <Text style={styles.price}>
+                      {applicablePrice ? parseFloat(applicablePrice.price).toLocaleString('es-CO') : '0'}
+                    </Text>
+                  </View>
+                </View>
 
-          <Text style={styles.priceInfo}>
-            Este producto tiene descuentos por cantidad. Todos los precios son por unidad.
-          </Text>
-
-          {/* Lista de precios */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.priceScrollList}
-          >
-            {Array.isArray(prices) && prices.map((p, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.priceBlock,
-                  applicablePrice?.id === p.id && styles.activePriceBlock
-                ]}
-              >
-                <Text style={styles.priceAmount}>
-                  COP {parseFloat(p.price || 0).toLocaleString('es-CO')}
-                </Text>
-                <Text style={styles.priceCondition}>{formatRanges(p.description || p.quantity || '')}</Text>
+                {/* 💬 NUEVO: Botón de chat con el proveedor */}
+                {provider && (provider.telefono || provider.phone) && (
+                  <TouchableOpacity 
+                    style={styles.askButton}
+                    onPress={handleAskAboutProduct}
+                    disabled={loadingChat}
+                    activeOpacity={0.8}
+                  >
+                    {loadingChat ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <MaterialIcons name="chat-bubble-outline" size={20} color="#fff" />
+                        <View style={styles.askButtonTextContainer}>
+                          <Text style={styles.askButtonText}>Preguntar por</Text>
+                          <Text style={styles.askButtonSubtext}>este producto</Text>
+                        </View>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
-            ))}
-          </ScrollView>
+
+              <Text style={styles.priceInfo}>
+                Este producto tiene descuentos por cantidad. Todos los precios son por unidad.
+              </Text>
+
+              {/* Lista de precios */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                style={styles.priceScrollList}
+              >
+                {Array.isArray(prices) && prices.map((p, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.priceBlock,
+                      applicablePrice?.id === p.id && styles.activePriceBlock
+                    ]}
+                  >
+                    <Text style={styles.priceAmount}>
+                      COP {parseFloat(p.price || 0).toLocaleString('es-CO')}
+                    </Text>
+                    <Text style={styles.priceCondition}>{formatRanges(p.description || p.quantity || '')}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </>
+          ) : (
+            <View style={styles.loadingSectionContainer}>
+              <SkeletonBox width="60%" height={40} style={{ marginBottom: 8 }} />
+              <SkeletonBox width="80%" height={16} style={{ marginBottom: 16 }} />
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <SkeletonBox width={120} height={60} style={{ borderRadius: 8 }} />
+                <SkeletonBox width={120} height={60} style={{ borderRadius: 8 }} />
+                <SkeletonBox width={120} height={60} style={{ borderRadius: 8 }} />
+              </View>
+            </View>
+          )}
 
           {/* Selectores */}
           <View style={styles.selectors}>
@@ -1127,95 +1405,113 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
           </View>
 
           {/* Productos relacionados */}
-          {Array.isArray(relatedProducts) && relatedProducts.length > 0 && (
-            <>
-              <View style={styles.line} />
-              <Text style={styles.relatedTitle}>Más productos del proveedor</Text>
+          {loadingPhase >= 3 ? (
+            Array.isArray(relatedProducts) && relatedProducts.length > 0 ? (
+              <>
+                <View style={styles.line} />
+                <Text style={styles.relatedTitle}>Más productos del proveedor</Text>
               
-              {/* Filtro de subcategorías */}
-              {Array.isArray(subCategories) && subCategories.length > 0 && (
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterLabel}>Filtrar por categoría:</Text>
-                  <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.filterScroll}
-                    contentContainerStyle={styles.filterContainer}
-                  >
-                    <TouchableOpacity
-                      style={[
-                        styles.filterButton,
-                        !selectedSubcat && styles.filterButtonActive
-                      ]}
-                      onPress={() => setSelectedSubcat(null)}
+                {/* Filtro de subcategorías */}
+                {Array.isArray(subCategories) && subCategories.length > 0 && (
+                  <View style={styles.filterSection}>
+                    <Text style={styles.filterLabel}>Filtrar por categoría:</Text>
+                    <ScrollView 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.filterScroll}
+                      contentContainerStyle={styles.filterContainer}
                     >
-                      <Text style={[
-                        styles.filterButtonText,
-                        !selectedSubcat && styles.filterButtonTextActive
-                      ]}>
-                        Todas
-                      </Text>
-                    </TouchableOpacity>
-                    {subCategories.map(sc => (
                       <TouchableOpacity
-                        key={sc.slug}
                         style={[
                           styles.filterButton,
-                          selectedSubcat === sc.slug && styles.filterButtonActive
+                          !selectedSubcat && styles.filterButtonActive
                         ]}
-                        onPress={() => setSelectedSubcat(sc.slug)}
+                        onPress={() => setSelectedSubcat(null)}
                       >
                         <Text style={[
                           styles.filterButtonText,
-                          selectedSubcat === sc.slug && styles.filterButtonTextActive
+                          !selectedSubcat && styles.filterButtonTextActive
                         ]}>
-                          {sc.name}
+                          Todas
                         </Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              
-              <View style={styles.relatedProductsContainer}>
-                {organizeProductsInColumns(filteredProducts).map((columnProducts, columnIndex) => (
-                  <View key={columnIndex} style={styles.column}>
-                    {columnProducts.map((product, index) => (
-                      <View key={`product-${product.id || index}`} style={styles.productContainer}>
-                        <Product 
-                          product={product} 
-                          onAddToCart={addToCart}
-                          onProductPress={handleProductPress}
-                          isOwnProduct={false}
-                        />
-                      </View>
-                    ))}
+                      {subCategories.map(sc => (
+                        <TouchableOpacity
+                          key={sc.slug}
+                          style={[
+                            styles.filterButton,
+                            selectedSubcat === sc.slug && styles.filterButtonActive
+                          ]}
+                          onPress={() => setSelectedSubcat(sc.slug)}
+                        >
+                          <Text style={[
+                            styles.filterButtonText,
+                            selectedSubcat === sc.slug && styles.filterButtonTextActive
+                          ]}>
+                            {sc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                   </View>
-                ))}
+                )}
+              
+                <View style={styles.relatedProductsContainer}>
+                  {organizeProductsInColumns(filteredProducts).map((columnProducts, columnIndex) => (
+                    <View key={columnIndex} style={styles.column}>
+                      {columnProducts.map((product, index) => (
+                        <View key={`product-${product.id || index}`} style={styles.productContainer}>
+                          <Product 
+                            product={product} 
+                            onAddToCart={addToCart}
+                            onProductPress={handleProductPress}
+                            isOwnProduct={false}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              
+                {/* Loading más productos */}
+                {loadingMoreProducts && (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color="#fa7e17" />
+                    <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
+                  </View>
+                )}
+              
+                {/* Mensaje cuando no hay más productos */}
+                {!hasMoreProducts && filteredProducts.length > 2 && (
+                  <View style={styles.noMoreProductsContainer}>
+                    <MaterialIcons name="inventory" size={24} color="#666" />
+                    <Text style={styles.noMoreProductsText}>
+                      Has visto todos los productos de este proveedor
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : null
+          ) : (
+            <View style={styles.loadingSectionContainer}>
+              <SkeletonBox width="80%" height={24} style={{ marginBottom: 16 }} />
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                <View style={{ flex: 1 }}>
+                  <SkeletonBox width="100%" height={180} style={{ borderRadius: 8, marginBottom: 8 }} />
+                  <SkeletonBox width="80%" height={16} style={{ marginBottom: 4 }} />
+                  <SkeletonBox width="60%" height={14} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <SkeletonBox width="100%" height={180} style={{ borderRadius: 8, marginBottom: 8 }} />
+                  <SkeletonBox width="80%" height={16} style={{ marginBottom: 4 }} />
+                  <SkeletonBox width="60%" height={14} />
+                </View>
               </View>
-              
-              {/* Loading más productos */}
-              {loadingMoreProducts && (
-                <View style={styles.loadingMoreContainer}>
-                  <ActivityIndicator size="small" color="#fa7e17" />
-                  <Text style={styles.loadingMoreText}>Cargando más productos...</Text>
-                </View>
-              )}
-              
-              {/* Mensaje cuando no hay más productos */}
-              {!hasMoreProducts && filteredProducts.length > 2 && (
-                <View style={styles.noMoreProductsContainer}>
-                  <MaterialIcons name="inventory" size={24} color="#666" />
-                  <Text style={styles.noMoreProductsText}>
-                    Has visto todos los productos de este proveedor
-                  </Text>
-                </View>
-              )}
-            </>
+            </View>
           )}
 
           {/* Mensaje cuando no hay productos relacionados */}
-          {Array.isArray(relatedProducts) && relatedProducts.length === 0 && !loading && (
+          {loadingPhase >= 3 && Array.isArray(relatedProducts) && relatedProducts.length === 0 && (
             <>
               <View style={styles.line} />
               <View style={styles.noProductsContainer}>
@@ -1248,7 +1544,17 @@ const ProductDetail = ({ route, navigation, selectedTab = '', onTabPress, isModa
         </Modal>
       )}
       
-      {/* 🛒 Botón flotante del carrito */}
+      {/* � NUEVO: Modal de chat con el proveedor */}
+      {showChatModal && chatUser && (
+        <ChatModal
+          visible={showChatModal}
+          otherUser={chatUser}
+          onClose={handleCloseChatModal}
+          initialMessage={prefilledMessage}
+        />
+      )}
+      
+      {/* �🛒 Botón flotante del carrito */}
       <FloatingCartButton 
         onPress={() => {
           console.log('🛒 FloatingCart presionado en ProductDetail');
@@ -1375,6 +1681,51 @@ const styles = StyleSheet.create({
     width: '100%', // Usar 100% para ocupar todo el ancho disponible
     flex: 1, // Permitir que la imagen se expanda
   },
+  // ✅ NUEVO: Estados de carga y error de imágenes
+  imageErrorContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  imageErrorText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#999',
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+  },
+  imageLoadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#666',
+    display: 'none', // Oculto porque ya no se usa
+  },
+  // ✅ NUEVO: Indicador de carga por sección con skeletons
+  loadingSectionContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginVertical: 16,
+  },
+  loadingSectionText: {
+    marginLeft: 12,
+    fontSize: 14,
+    fontFamily: getUbuntuFont('regular'),
+    color: '#666',
+    display: 'none', // Oculto porque ahora usamos skeletons
+  },
   // Dots externos negros
   dotsContainer: {
     flexDirection: 'row',
@@ -1441,8 +1792,16 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 22,
   },
-  priceHighlight: {
+  // 💬 NUEVO: Contenedor de precio + botón de chat
+  priceAndChatContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
+    gap: 12,
+  },
+  priceHighlight: {
+    flex: 1,
   },
   priceContainer: {
     flexDirection: 'row',
@@ -1459,6 +1818,42 @@ const styles = StyleSheet.create({
     fontFamily: getUbuntuFont('medium'),
     color: '#fa7e17',
     marginLeft: 5,
+  },
+  // 💬 NUEVO: Estilos del botón de chat
+  askButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#25D366', // Color verde WhatsApp
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    minHeight: 56,
+  },
+  askButtonTextContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  askButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: getUbuntuFont('bold'),
+    lineHeight: 16,
+  },
+  askButtonSubtext: {
+    color: '#fff',
+    fontSize: 11,
+    fontFamily: getUbuntuFont('regular'),
+    lineHeight: 13,
+    opacity: 0.9,
   },
   priceInfo: {
     fontSize: 12,

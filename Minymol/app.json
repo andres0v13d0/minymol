@@ -13,8 +13,15 @@
       "bundleIdentifier": "com.minymol.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSContactsUsageDescription": "Minymol necesita acceso a tus contactos para mostrarte quiénes usan la app y facilitar el inicio de conversaciones."
-      }
+        "NSContactsUsageDescription": "Minymol necesita acceso a tus contactos para mostrarte qué contactos tuyos también usan la app, facilitando que puedas iniciar conversaciones y hacer negocios con personas que ya conoces.",
+        "NSUserNotificationsUsageDescription": "Minymol necesita tu permiso para enviarte notificaciones push importantes sobre el estado de tus pedidos, nuevos mensajes de chat de tus proveedores o clientes, confirmaciones de transacciones y ofertas especiales personalizadas para tu negocio."
+      },
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "entitlements": {
+        "aps-environment": "production",
+        "com.apple.developer.usernotifications.filtering": true
+      },
+      "usesAppleSignIn": false
     },
     "android": {
       "versionCode": 1,
@@ -53,10 +60,19 @@
         {
           "icon": "./assets/favicon.png",
           "color": "#fa7e17",
-          "sounds": []
+          "sounds": [],
+          "mode": "production",
+          "iosDisplayInForeground": true
         }
       ],
-      "@react-native-firebase/app",
+      [
+        "@react-native-firebase/app",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
       "expo-sqlite"
     ],
     "experiments": {

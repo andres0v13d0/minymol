@@ -26,11 +26,15 @@ import CodigoInput from '../CodigoInput';
 import CustomPicker from '../CustomPicker';
 import LogoMinymol from '../LogoMinymol';
 import ProgressBar from '../ProgressBar';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+
+    // Hook de notificaciones
+    const { enableNotifications, checkUserStatus } = useNotifications();
 
     // Animaciones
     const slideAnim = useRef(new Animated.Value(0)).current;
@@ -480,6 +484,9 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
             await AsyncStorage.setItem('usuario', JSON.stringify(backendResponse));
             await AsyncStorage.setItem('token', token);
 
+            // ✅ Actualizar estado del usuario en el hook de notificaciones
+            await checkUserStatus();
+
             // Mostrar éxito
             Alert.alert(
                 '¡Registro exitoso!',
@@ -487,7 +494,21 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
                 [
                     {
                         text: 'OK',
-                        onPress: () => {
+                        onPress: async () => {
+                            // 🔔 SOLICITAR PERMISOS DE NOTIFICACIÓN INMEDIATAMENTE DESPUÉS DEL REGISTRO
+                            try {
+                                console.log('🔔 Solicitando permisos de notificación después del registro...');
+                                const result = await enableNotifications(false); // isAutoInit = false
+                                if (result.success) {
+                                    console.log('✅ Notificaciones activadas después del registro');
+                                } else {
+                                    console.log('⚠️ No se pudieron activar notificaciones:', result.message);
+                                }
+                            } catch (notifError) {
+                                console.warn('⚠️ Error al solicitar notificaciones:', notifError);
+                                // No bloqueamos el registro si fallan las notificaciones
+                            }
+
                             // Llamar callback de éxito
                             if (onRegisterSuccess) {
                                 onRegisterSuccess(backendResponse, token);

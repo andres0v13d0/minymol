@@ -11,10 +11,10 @@
 
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, TouchableOpacity, View, Vibration } from 'react-native';
 import { useCartCounter } from '../../contexts/CartCounterContext';
 
-const FloatingCartButton = ({ onPress, bottom = 80, right = 20 }) => {
+const FloatingCartButton = ({ onPress, bottom = 180, right = 20 }) => {
   // 🚀 Hook ultrarrápido para el contador
   const { count } = useCartCounter();
   
@@ -92,6 +92,34 @@ const FloatingCartButton = ({ onPress, bottom = 80, right = 20 }) => {
     return null;
   }
 
+  // 🎯 Función para manejar el press con vibración
+  const handlePress = () => {
+    // Vibración suave
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+      Vibration.vibrate(50); // 50ms de vibración
+    }
+    
+    // Animación de press
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Llamar al onPress original
+    if (onPress) {
+      onPress();
+    }
+  };
+
   return (
     <Animated.View
       style={[
@@ -103,9 +131,21 @@ const FloatingCartButton = ({ onPress, bottom = 80, right = 20 }) => {
         },
       ]}
     >
+      {/* Badge con contador - Ahora fuera del botón */}
+      <Animated.View
+        style={[
+          styles.badge,
+          {
+            transform: [{ scale: badgeScaleAnim }],
+          },
+        ]}
+      >
+        <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+      </Animated.View>
+
       <TouchableOpacity
         style={styles.button}
-        onPress={onPress}
+        onPress={handlePress}
         activeOpacity={0.85}
       >
         {/* Efecto de pulso de fondo */}
@@ -122,25 +162,6 @@ const FloatingCartButton = ({ onPress, bottom = 80, right = 20 }) => {
         <View style={styles.buttonContent}>
           {/* Icono del carrito */}
           <MaterialIcons name="shopping-cart" size={28} color="#fff" />
-
-          {/* Badge con contador */}
-          <Animated.View
-            style={[
-              styles.badge,
-              {
-                transform: [{ scale: badgeScaleAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
-          </Animated.View>
-
-          {/* Indicador de items */}
-          <View style={styles.itemsIndicator}>
-            <Text style={styles.itemsText}>
-              {count === 1 ? '1 item' : `${count} items`}
-            </Text>
-          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -151,6 +172,17 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     zIndex: 9999,
+    width: 80, // Espacio para el badge
+    height: 80, // Ajustado para solo badge y botón
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  button: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: 'hidden',
+    position: 'relative',
     ...Platform.select({
       ios: {
         shadowColor: '#fa7e17',
@@ -165,13 +197,6 @@ const styles = StyleSheet.create({
         elevation: 12,
       },
     }),
-  },
-  button: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    overflow: 'hidden',
-    position: 'relative',
   },
   pulseBackground: {
     position: 'absolute',
@@ -190,12 +215,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#fff',
-    position: 'relative',
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: 0,
+    right: 0,
     backgroundColor: '#ff4444',
     borderRadius: 14,
     minWidth: 28,
@@ -205,6 +229,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     borderColor: '#fff',
     paddingHorizontal: 6,
+    zIndex: 10,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -216,7 +241,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
       },
       android: {
-        elevation: 6,
+        elevation: 8,
       },
     }),
   },
@@ -225,24 +250,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     letterSpacing: -0.5,
-  },
-  itemsIndicator: {
-    position: 'absolute',
-    bottom: -22,
-    backgroundColor: 'rgba(20, 20, 75, 0.95)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#fa7e17',
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  itemsText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
 });
 

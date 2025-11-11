@@ -42,13 +42,13 @@ const Header = ({
         </TouchableOpacity>
         {backOn && (
           <TouchableOpacity onPress={handleLogoPress}>
-            <Image source={require('../../assets/logo.png')} style={styles.logoMinymol} />
+            <Image source={require('../../assets/icon.png')} style={styles.logoMinymol} />
           </TouchableOpacity>
         )}
         {!backOn && (
           <View style={styles.logoProvider}>
             <Image 
-              source={providerBanner ? { uri: providerBanner } : require('../../assets/logo.png')} 
+              source={providerBanner ? { uri: providerBanner } : require('../../assets/icon.png')} 
               style={styles.providerBannerImage}
             />
           </View>
@@ -63,7 +63,7 @@ const Header = ({
       <View style={[styles.header, styles.headerMinimal]}>
         <View style={styles.buttons}>
           <TouchableOpacity onPress={handleLogoPress}>
-            <Image source={require('../../assets/logo.png')} style={styles.logoMinymol} />
+            <Image source={require('../../assets/icon.png')} style={styles.logoMinymol} />
           </TouchableOpacity>
         </View>
       </View>

@@ -334,22 +334,25 @@ const ContactsListModal = ({ visible, onClose, onSelectContact }) => {
                 return;
             }
             
-            // Usuario está en Minymol y SÍ se puede chatear - cerrar este modal
-            onClose();
-            
             // Logo por defecto para comerciantes
             const logoUrl = matched.minymolUser.rol === 'comerciante'
                 ? 'https://cdn-icons-png.flaticon.com/512/3106/3106773.png'
                 : matched.minymolUser.logo_url;
             
-            // Luego de un pequeño delay, abrir el chat modal con animación
+            console.log('💬 Abriendo chat con:', matched.minymolUser.nombre, matched.minymolUser.userId);
+            
+            // Cerrar este modal primero
+            onClose();
+            
+            // Luego ejecutar el callback para abrir el chat modal con el formato correcto
             setTimeout(() => {
-                onSelectContact(
-                    matched.minymolUser.userId,
-                    matched.minymolUser.nombre,
-                    logoUrl
-                );
-            }, 300); // Esperar a que termine la animación de cierre
+                onSelectContact({
+                    id: matched.minymolUser.userId,
+                    name: matched.minymolUser.nombre,
+                    logo_url: logoUrl,
+                    isProveedor: matched.minymolUser.rol === 'proveedor'
+                });
+            }, 250); // Esperar a que termine la animación de cierre
         } else {
             // Usuario NO está en Minymol - invitar
             handleInviteContact(matched.phoneContact);
@@ -360,26 +363,39 @@ const ContactsListModal = ({ visible, onClose, onSelectContact }) => {
     // INVITAR CONTACTO
     // ============================================================
     const handleInviteContact = (contact) => {
-        const message = `¡Hola ${contact.name}! Te invito a usar Minymol, la app para minoristas. Descárgala aquí: https://minymol.com/descargar`;
+        const message = `¡Hola ${contact.name}! 👋\n\nTe invito a unirte a *Minymol*, la mejor plataforma para proveedores y minoristas.\n\n🚀 *Beneficios:*\n• Conecta directamente con comercios\n• Gestiona pedidos fácilmente\n• Aumenta tus ventas\n• Chat integrado con clientes\n\n📲 Descarga la app aquí:\nhttps://minymol.com/descargar\n\n¡Te esperamos! 🛒`;
         
+        // Obtener el número normalizado (ya incluye código de país)
         const phoneNumber = contact.phoneNumbers[0];
-        const whatsappUrl = Platform.select({
-            ios: `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`,
-            android: `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`,
-        });
+        
+        // WhatsApp requiere el formato: +573001234567 (sin espacios ni caracteres especiales)
+        const whatsappNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+        
+        const whatsappUrl = `whatsapp://send?phone=${whatsappNumber}&text=${encodeURIComponent(message)}`;
+
+        console.log('📱 Intentando abrir WhatsApp:', whatsappNumber);
 
         Linking.canOpenURL(whatsappUrl)
             .then(supported => {
                 if (supported) {
-                    Linking.openURL(whatsappUrl);
+                    return Linking.openURL(whatsappUrl);
                 } else {
                     // Fallback a SMS
-                    const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
-                    Linking.openURL(smsUrl);
+                    const smsMessage = `¡Hola ${contact.name}! Te invito a usar Minymol, la app para minoristas y proveedores. Descárgala aquí: https://minymol.com/descargar`;
+                    const smsUrl = Platform.select({
+                        ios: `sms:${phoneNumber}&body=${encodeURIComponent(smsMessage)}`,
+                        android: `sms:${phoneNumber}?body=${encodeURIComponent(smsMessage)}`,
+                    });
+                    return Linking.openURL(smsUrl);
                 }
             })
-            .catch(() => {
-                Alert.alert('Error', 'No se pudo abrir WhatsApp o SMS.');
+            .catch((error) => {
+                console.error('Error abriendo WhatsApp:', error);
+                Alert.alert(
+                    'Error', 
+                    'No se pudo abrir WhatsApp. Asegúrate de tener la aplicación instalada.',
+                    [{ text: 'OK', style: 'cancel' }]
+                );
             });
     };
 

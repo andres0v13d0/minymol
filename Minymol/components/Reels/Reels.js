@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { File } from 'expo-file-system';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -19,7 +18,6 @@ import { apiCall } from '../../utils/apiUtils';
 import { CACHE_KEYS } from '../../utils/cache/StorageKeys';
 import { getUbuntuFont } from '../../utils/fonts';
 import ProviderStories from './ProviderStories';
-import UploadVideoModal from './UploadVideoModal';
 
 const { width: screenWidth } = Dimensions.get('window');
 const STORY_WIDTH = 100;
@@ -110,13 +108,8 @@ const fetchProvidersWithReels = async () => {
 const Reels = ({ onEmpty }) => {
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
     const [showStories, setShowStories] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState(null);
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [processingProgress, setProcessingProgress] = useState(0);
-    const [uploadStatus, setUploadStatus] = useState('idle'); // idle, uploading, processing, completed
     const [myStories, setMyStories] = useState([]);
     const [isProvider, setIsProvider] = useState(false);
 
@@ -198,127 +191,6 @@ const Reels = ({ onEmpty }) => {
     useEffect(() => {
         checkIsProvider().then(setIsProvider);
     }, [user]);
-
-    // Obtener duración del video (simplificado para React Native)
-    const getVideoDuration = async (fileUri) => {
-        // En React Native necesitaríamos una librería como react-native-video-info
-        // Por ahora retornamos un valor por defecto
-        return Promise.resolve(30); // 30 segundos por defecto
-    };
-
-    // Manejar upload de video
-    const handleVideoUpload = async (fileUri, fileName, fileSize) => {
-        if (!fileUri || !user) return;
-
-        setUploading(true);
-        setUploadStatus('uploading');
-        setUploadProgress(0);
-
-        try {
-            // Obtener duración del video
-            const duration = await getVideoDuration(fileUri);
-
-            if (duration > 60) {
-                Alert.alert('Video muy largo', 'El video no puede ser mayor a 60 segundos');
-                return;
-            }
-
-            setUploadProgress(10);
-
-            // 1. Solicitar presigned URL
-            const uploadRequest = await apiCall('https://api.minymol.com/reels/upload', {
-                method: 'POST',
-                body: JSON.stringify({
-                    filename: fileName,
-                    duration: Math.round(duration),
-                    contentType: 'video/mp4'
-                })
-            });
-
-            if (!uploadRequest.ok) {
-                const error = await uploadRequest.json();
-                throw new Error(error.message || 'Error al solicitar upload');
-            }
-
-            const { presignedUrl, uploadKey } = await uploadRequest.json();
-            setUploadProgress(30);
-
-            // 2. Subir a S3 usando presigned URL
-            setUploadProgress(30);
-
-            try {
-                // Crear una instancia de File con la nueva API
-                const file = new File(fileUri);
-
-                // Realizar el upload usando fetch con el file object de React Native
-                const uploadResponse = await fetch(presignedUrl, {
-                    method: 'PUT',
-                    body: {
-                        uri: file.uri,
-                        type: 'video/mp4',
-                        name: fileName
-                    },
-                    headers: {
-                        'Content-Type': 'video/mp4'
-                    }
-                });
-
-                if (!uploadResponse.ok) {
-                    const errorText = await uploadResponse.text();
-                    throw new Error(`S3 Upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
-                }
-
-            } catch (uploadError) {
-                console.error('Error uploading to S3:', uploadError);
-                throw new Error('Error al subir video a S3: ' + uploadError.message);
-            }
-
-            setUploadProgress(80);
-
-            // 3. Notificar completado
-            await apiCall('https://api.minymol.com/reels/upload-complete', {
-                method: 'POST',
-                body: JSON.stringify({ uploadKey })
-            });
-
-            setUploadProgress(100);
-            setUploadStatus('processing');
-
-            // Simular progreso de procesamiento
-            let processing = 0;
-            const processingInterval = setInterval(() => {
-                processing += Math.random() * 15;
-                if (processing >= 100) {
-                    processing = 100;
-                    clearInterval(processingInterval);
-                    setUploadStatus('completed');
-
-                    // Refrescar datos del caché después del procesamiento
-                    setTimeout(() => {
-                        refreshProviders(); // Refrescar providers
-                        if (myReelsCacheKey) {
-                            // Refrescar mis reels con la nueva función
-                            fetchMyReels(user.uid).then(newMyReels => {
-                                if (newMyReels) {
-                                    mutateMyReels(newMyReels, false);
-                                    setMyStories(newMyReels);
-                                }
-                            });
-                        }
-                        setShowUploadModal(false);
-                    }, 2000);
-                }
-                setProcessingProgress(processing);
-            }, 500);
-
-        } catch (error) {
-            console.error('Error uploading video:', error);
-            Alert.alert('Error', 'Error: ' + error.message);
-            setUploadStatus('error');
-        } finally {
-            setUploading(false);
-        }
-    };
 
     // Eliminar un reel
     const handleDeleteReel = async (reelId) => {
@@ -555,24 +427,6 @@ const Reels = ({ onEmpty }) => {
                     </View>
                 )}
             </ScrollView>
-
-            {/* Modal de upload */}
-            {showUploadModal && (
-                <UploadVideoModal
-                    visible={showUploadModal}
-                    onClose={() => {
-                        setShowUploadModal(false);
-                        setUploadStatus('idle');
-                        setUploadProgress(0);
-                        setProcessingProgress(0);
-                    }}
-                    onUpload={handleVideoUpload}
-                    uploading={uploading}
-                    uploadProgress={uploadProgress}
-                    processingProgress={processingProgress}
-                    uploadStatus={uploadStatus}
-                />
-            )}
 
             {/* Modal de historias */}
             {showStories && selectedProvider && (

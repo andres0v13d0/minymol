@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
-import React, { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { Dimensions, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View, Animated } from 'react-native';
 import { useFavorites } from '../../hooks/useFavorites';
 import { getUbuntuFont } from '../../utils/fonts';
 import {
@@ -13,6 +13,55 @@ import {
 
 const { width: screenWidth } = Dimensions.get('window');
 
+// ✅ Componente Skeleton animado para imágenes
+const SkeletonImage = ({ height }) => {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  const translateX = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-screenWidth, screenWidth],
+  });
+
+  return (
+    <View style={[styles.skeletonContainer, { height }]}>
+      <View style={styles.skeletonBase} />
+      <Animated.View 
+        style={[
+          styles.skeletonShimmer,
+          {
+            opacity,
+            transform: [{ translateX }],
+          }
+        ]} 
+      />
+    </View>
+  );
+};
+
 const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, showProvider = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -21,6 +70,8 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userEmpresa, setUserEmpresa] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+  const loadTimeoutRef = React.useRef(null);
 
   // Usar el hook centralizado de favoritos
   const { isFavorite: isFavoriteGlobal, toggleFavorite: toggleFavoriteGlobal } = useFavorites();
@@ -43,6 +94,33 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
       quality: imageConfig.quality,
     });
   }, [product.image, imageConfig.quality]);
+
+  // ✅ CRÍTICO: Timeout de 8 segundos para gama baja
+  useEffect(() => {
+    if (imageLoaded || imageError) {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    // Si después de 8 segundos no ha cargado, mostrar error
+    loadTimeoutRef.current = setTimeout(() => {
+      if (!imageLoaded && !imageError) {
+        console.warn('⏰ Timeout cargando imagen:', product?.name);
+        setImageError(true);
+        setImageLoaded(true);
+        setLoadTimeout(true);
+      }
+    }, 8000);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
+  }, [imageLoaded, imageError, product?.name]);
 
   // Obtener el precio principal (primer precio)
   const mainPrice = product.prices && product.prices.length > 0 ? product.prices[0] : null;
@@ -116,6 +194,12 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
 
   const handleImageLoad = (event) => {
     try {
+      // Limpiar timeout si existe
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
       const { width, height } = event.source;
       if (!width || !height) {
         setImageLoaded(true);
@@ -139,8 +223,13 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
     }
   };
 
-  const handleImageError = () => {
-    console.warn('Error cargando imagen del producto:', product?.name);
+  const handleImageError = (error) => {
+    console.warn('❌ Error cargando imagen del producto:', product?.name, error);
+    // Limpiar timeout si existe
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
     setImageError(true);
     setImageLoaded(true);
   };
@@ -177,7 +266,9 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
         {imageError ? (
           <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
             <Ionicons name="image-outline" size={40} color="#ccc" />
-            <Text style={styles.errorText}>Error al cargar</Text>
+            <Text style={styles.errorText}>
+              {loadTimeout ? 'Conexión lenta' : 'Error al cargar'}
+            </Text>
           </View>
         ) : (
           <>
@@ -186,18 +277,18 @@ const Product = ({ product, onAddToCart, onProductPress, isOwnProduct = false, s
               style={[styles.image, { height: imageHeight }, !imageLoaded && styles.imageHidden]}
               onLoad={handleImageLoad}
               onError={handleImageError}
-              // ✅ MEGA OPTIMIZACIONES para carga rápida
+              // ✅ MEGA OPTIMIZACIONES para carga rápida en gama baja
               cachePolicy="memory-disk" // Caché agresiva
-              priority="normal" // Prioridad normal (no alta para no bloquear)
-              transition={100} // Transición muy rápida
-              placeholder={{ blurhash: 'LGF5?xYk^6#M@-5c,1J5@[or[Q6.' }} // Placeholder mientras carga
-              placeholderContentFit="cover"
+              priority="normal" // Prioridad normal
+              transition={imageConfig.transition} // Transición adaptativa
               contentFit="cover"
-              recyclingKey={`${product.uuid || product.id}`} // Key para reciclaje de memoria
+              recyclingKey={`${product.uuid || product.id}`}
+              // ✅ CRÍTICO: Sin blurhash problemático, usar placeholder simple
+              // El blurhash puede causar errores en gama baja
             />
             {!imageLoaded && (
               <View style={[styles.imagePlaceholder, { height: imageHeight }]}>
-                <View style={styles.skeletonBox} />
+                <SkeletonImage height={imageHeight} />
               </View>
             )}
           </>
@@ -349,16 +440,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
   },
+  // ✅ NUEVO: Skeleton animado moderno
+  skeletonContainer: {
+    width: '100%',
+    backgroundColor: '#e0e0e0',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  skeletonBase: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#e0e0e0',
+  },
+  skeletonShimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#f5f5f5',
+  },
   skeletonBox: {
     width: '100%',
     height: '100%',
     backgroundColor: '#e0e0e0',
   },
   loadingText: {
+    position: 'absolute',
     fontSize: 11,
     fontFamily: getUbuntuFont('regular'),
     color: '#999',
     marginTop: 8,
+    display: 'none', // Oculto porque ya no se usa
   },
   errorText: {
     fontSize: 11,

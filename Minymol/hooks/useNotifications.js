@@ -26,15 +26,15 @@ export const useNotifications = () => {
     const isExpoGo = Constants.appOwnership === 'expo';
 
     useEffect(() => {
-        // Verificar si el usuario está logueado antes de inicializar
+        // Verificar si el usuario está logueado al inicializar
         checkUserStatus();
+        // También verificar el estado de las notificaciones
+        checkNotificationStatus();
     }, []);
 
     useEffect(() => {
-        // Solo inicializar notificaciones si el usuario está logueado
-        if (isUserLoggedIn) {
-            initializeNotifications();
-        }
+        // NO inicializar automáticamente - esperar a que el usuario haga login
+        // Las notificaciones se activarán después del login/registro desde LoginModal/RegisterModal
 
         // Solo agregar listeners si NO está en Expo Go y el usuario está logueado
         if (isExpoGo || !isUserLoggedIn) {
@@ -118,43 +118,10 @@ export const useNotifications = () => {
     const checkNotificationStatus = async () => {
         try {
             const enabled = await AsyncStorage.getItem('notificaciones-activadas');
-            // Por defecto están activadas, solo se desactivan si explícitamente se guardó 'false'
-            setNotificationsEnabled(enabled !== 'false');
+            // Por defecto están desactivadas hasta que el usuario haga login
+            setNotificationsEnabled(enabled === 'true');
         } catch (error) {
             console.error('Error verificando estado de notificaciones:', error);
-        }
-    };
-
-    const initializeNotifications = async () => {
-        try {
-            // Verificar que el usuario esté logueado primero
-            const userData = await getUserData();
-            if (!userData) {
-                console.log('⚠️ Usuario no logueado - No se pueden inicializar notificaciones');
-                setNotificationsEnabled(false);
-                return;
-            }
-
-            // Verificar el estado actual
-            const disabled = await AsyncStorage.getItem('notificaciones-activadas');
-            
-            // Si NO están explícitamente desactivadas, activarlas automáticamente
-            if (disabled !== 'false') {
-                console.log('🔔 Inicializando notificaciones automáticamente...');
-                const result = await enableNotifications(true); // isAutoInit = true
-                if (result.success) {
-                    console.log('✅ Notificaciones inicializadas correctamente');
-                } else if (!isExpoGo) {
-                    console.warn('⚠️ No se pudieron inicializar las notificaciones:', result.message);
-                }
-            } else {
-                // Solo verificar el estado si están explícitamente desactivadas
-                await checkNotificationStatus();
-            }
-        } catch (error) {
-            console.error('Error inicializando notificaciones:', error);
-            // En caso de error, solo verificar el estado
-            await checkNotificationStatus();
         }
     };
 
@@ -289,8 +256,8 @@ export const useNotifications = () => {
                     throw new Error(`Error ${response.status}: ${response.statusText}`);
                 }
 
-                // Marcar como activadas (o remover la clave de desactivación)
-                await AsyncStorage.removeItem('notificaciones-activadas'); // Por defecto están activadas
+                // Marcar como activadas explícitamente
+                await AsyncStorage.setItem('notificaciones-activadas', 'true');
                 await AsyncStorage.setItem('push-token', token);
                 setNotificationsEnabled(true);
                 setIsUserLoggedIn(true);

@@ -61,7 +61,7 @@ const COLORS = {
     loadingText: '#64748b',
 };
 
-const ChatModal = ({ visible, otherUser, onClose }) => {
+const ChatModal = ({ visible, otherUser, onClose, initialMessage = '' }) => {
     const insets = useSafeAreaInsets();
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
@@ -84,6 +84,17 @@ const ChatModal = ({ visible, otherUser, onClose }) => {
     const userConnectedListenerRef = useRef(null);
     const userDisconnectedListenerRef = useRef(null);
     const onlineIntervalRef = useRef(null);
+
+    // 💬 NUEVO: Establecer mensaje inicial cuando se abre el modal
+    useEffect(() => {
+        if (visible && initialMessage) {
+            console.log('💬 Estableciendo mensaje inicial:', initialMessage);
+            setInputText(initialMessage);
+        } else if (!visible) {
+            // Limpiar cuando se cierra
+            setInputText('');
+        }
+    }, [visible, initialMessage]);
 
     // ============================================================
     // ANIMACIÓN DE ENTRADA/SALIDA

@@ -20,6 +20,7 @@ import {
 import { auth } from '../../config/firebase';
 import { getUbuntuFont } from '../../utils/fonts';
 import LogoMinymol from '../LogoMinymol';
+import { useNotifications } from '../../hooks/useNotifications';
 
 const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister, onOpenForgotPassword }) => {
     const [phone, setPhone] = useState('');
@@ -34,6 +35,9 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister, onOpenFo
         placeholder: '310 123 4567',
         validation: /^3[0-9]{9}$/
     });
+
+    // Hook de notificaciones
+    const { enableNotifications, checkUserStatus } = useNotifications();
 
     // Configuración de países soportados
     const countriesConfig = {
@@ -117,6 +121,25 @@ const LoginModal = ({ visible, onClose, onLoginSuccess, onOpenRegister, onOpenFo
             // Guardar datos en AsyncStorage
             await AsyncStorage.setItem('usuario', JSON.stringify(userData));
             await AsyncStorage.setItem('token', token);
+
+            // ✅ Actualizar estado del usuario en el hook de notificaciones
+            await checkUserStatus();
+
+            // 🔔 SOLICITAR PERMISOS DE NOTIFICACIÓN INMEDIATAMENTE DESPUÉS DEL LOGIN
+            setTimeout(async () => {
+                try {
+                    console.log('🔔 Solicitando permisos de notificación después del login...');
+                    const result = await enableNotifications(false); // isAutoInit = false
+                    if (result.success) {
+                        console.log('✅ Notificaciones activadas después del login');
+                    } else {
+                        console.log('⚠️ No se pudieron activar notificaciones:', result.message);
+                    }
+                } catch (notifError) {
+                    console.warn('⚠️ Error al solicitar notificaciones:', notifError);
+                    // No bloqueamos el login si fallan las notificaciones
+                }
+            }, 500); // Pequeño delay para que el modal se cierre primero
 
             // Llamar callback de éxito
             if (onLoginSuccess) {
