@@ -18,8 +18,7 @@
       },
       "googleServicesFile": "./GoogleService-Info.plist",
       "entitlements": {
-        "aps-environment": "production",
-        "com.apple.developer.usernotifications.filtering": true
+        "aps-environment": "production"
       },
       "usesAppleSignIn": false
     },
@@ -66,14 +65,16 @@
         }
       ],
       [
-        "@react-native-firebase/app",
+        "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static"
+            "deploymentTarget": "15.1",
+            "useModularHeaders": true
           }
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

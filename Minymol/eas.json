@@ -42,9 +42,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "tu-apple-id@example.com",
-        "ascAppId": "TU_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "TU_APPLE_TEAM_ID"
+        "appleId": "notificaciones@minymol.com",
+        "ascAppId": "6755150521",
+        "appleTeamId": "649P3N4KW6"
       },
       "android": {
         "serviceAccountKeyPath": "./ruta/al/service-account-key.json"
