@@ -69,10 +69,21 @@
         {
           "ios": {
             "deploymentTarget": "15.1",
-            "useFrameworks": "static", 
-            "useModularHeaders": true,
-            "buildSettings": {
-              "CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE": "NO"
+            
+            // --- INICIO DE LA NUEVA SOLUCIÓN ---
+            // Habilitar modular headers SÓLO para los pods de Firebase/Google
+            // que los necesitan, sin afectar a React-Core.
+            "modularHeaders": {
+              "enabledPods": [
+                "FirebaseCore",
+                "FirebaseCoreInternal",
+                "FirebaseAnalytics",
+                "FirebaseInstallations",
+                "FirebaseMessaging",
+                "FirebaseAuth",
+                "GoogleUtilities",
+                "RNFBApp" 
+              ]
             }
           }
         }
