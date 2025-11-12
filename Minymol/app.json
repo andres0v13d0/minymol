@@ -71,15 +71,8 @@
             "deploymentTarget": "15.1",
             "useFrameworks": "static", 
             "useModularHeaders": true,
-            "modularHeaders": {
-              "disabledPods": [
-                "React-Core",
-                "React-cxxreact",
-                "React-jsi",
-                "React-jsiexecutor",
-                "React-hermes",
-                "ReactCommon"
-              ]
+            "buildSettings": {
+              "CLANG_WARN_NON_MODULAR_INCLUDE_IN_FRAMEWORK_MODULE": "NO"
             }
           }
         }
