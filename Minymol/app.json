@@ -69,8 +69,18 @@
         {
           "ios": {
             "deploymentTarget": "15.1",
+            "useFrameworks": "static", 
             "useModularHeaders": true,
-            "useFrameworks": "static"
+            "modularHeaders": {
+              "disabledPods": [
+                "React-Core",
+                "React-cxxreact",
+                "React-jsi",
+                "React-jsiexecutor",
+                "React-hermes",
+                "ReactCommon"
+              ]
+            }
           }
         }
       ],
