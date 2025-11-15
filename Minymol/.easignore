@@ -7,7 +7,7 @@
 .gitignore
 .gitattributes
 
-# NPM/Yarn - EAS instalará las dependencias
+# NPM/Yarn - EAS instalará las dependencias automáticamente
 node_modules/
 
 # Archivos de documentación
@@ -60,10 +60,6 @@ jest.config.js
 web-build/
 dist/
 
-# CARPETAS NATIVAS COMPLETAS (EAS las regenera)
-ios/
-android/
-
 # Android builds (CRÍTICO - reduce mucho el tamaño)
 android/build/
 android/app/build/
@@ -75,16 +71,10 @@ android/**/.cxx/
 android/**/.gradle/
 android/**/build/
 
-# Android builds en node_modules (muy pesados)
-node_modules/**/android/build/
-node_modules/**/android/.cxx/
-node_modules/**/.gradle/
-node_modules/**/build/
-
 # iOS builds
 ios/build/
 ios/Pods/
-ios/*.xcworkspace
+ios/*.xcworkspace/xcuserdata/
 ios/*.xcodeproj/xcuserdata/
 ios/*.xcodeproj/project.xcworkspace/xcuserdata/
 ios/DerivedData/
