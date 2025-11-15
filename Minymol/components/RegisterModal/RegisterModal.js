@@ -22,6 +22,7 @@ import { auth } from '../../config/firebase';
 import { apiCall } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
 import latinCountries from '../../utils/latinCountries';
+import { loadDepartments, getCitiesByDepartment } from '../../services/colombiaData';
 import CodigoInput from '../CodigoInput';
 import CustomPicker from '../CustomPicker';
 import LogoMinymol from '../LogoMinymol';
@@ -124,20 +125,18 @@ const RegisterModal = ({ visible, onClose, onRegisterSuccess, onOpenLogin }) => 
 
     // Cargar departamentos de Colombia cuando llegue al paso 4
     useEffect(() => {
-        const loadDepartments = async () => {
+        const loadDepartmentsData = async () => {
             if (step === 4 && departments.length === 0) {
                 try {
-                    const response = await axios.get(
-                        'https://raw.githubusercontent.com/marcovega/colombia-json/master/colombia.json'
-                    );
-                    setDepartments(response.data || []);
+                    const data = await loadDepartments();
+                    setDepartments(data || []);
                 } catch (error) {
                     console.error('Error cargando departamentos:', error);
                     Alert.alert('Error', 'No se pudieron cargar los departamentos');
                 }
             }
         };
-        loadDepartments();
+        loadDepartmentsData();
     }, [step, departments.length]);
 
     // Animación de transición entre pasos

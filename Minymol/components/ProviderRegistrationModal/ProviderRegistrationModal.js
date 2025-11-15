@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUbuntuFont } from '../../utils/fonts';
+import { loadDepartments, getCitiesByDepartment } from '../../services/colombiaData';
+import CustomPicker from '../CustomPicker';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -42,6 +44,42 @@ const ProviderRegistrationModal = ({ visible, onClose }) => {
     });
 
     const [loading, setLoading] = useState(false);
+    const [departments, setDepartments] = useState([]);
+    const [cities, setCities] = useState([]);
+
+    // Cargar departamentos cuando el modal se abre
+    useEffect(() => {
+        const loadDepartmentsData = async () => {
+            if (visible && departments.length === 0) {
+                try {
+                    const data = await loadDepartments();
+                    setDepartments(data || []);
+                } catch (error) {
+                    console.error('Error cargando departamentos:', error);
+                    Alert.alert('Error', 'No se pudieron cargar los departamentos');
+                }
+            }
+        };
+        loadDepartmentsData();
+    }, [visible]);
+
+    // Actualizar ciudades cuando cambia el departamento
+    useEffect(() => {
+        const loadCities = async () => {
+            if (formData.departamento) {
+                try {
+                    const citiesData = await getCitiesByDepartment(formData.departamento);
+                    setCities(citiesData || []);
+                } catch (error) {
+                    console.error('Error cargando ciudades:', error);
+                    setCities([]);
+                }
+            } else {
+                setCities([]);
+            }
+        };
+        loadCities();
+    }, [formData.departamento]);
 
     // Calcular el padding superior
     const getTopPadding = () => {
@@ -104,6 +142,11 @@ const ProviderRegistrationModal = ({ visible, onClose }) => {
     // Manejar cambios en los inputs
     const handleChange = (name, value) => {
         setFormData({ ...formData, [name]: value });
+        
+        // Si cambia el departamento, limpiar la ciudad
+        if (name === 'departamento') {
+            setFormData({ ...formData, [name]: value, ciudad: '' });
+        }
     };
 
     // Validar formulario
@@ -295,29 +338,32 @@ const ProviderRegistrationModal = ({ visible, onClose }) => {
                                         />
                                     </View>
 
-                                    {/* Ciudad */}
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.label}>Ciudad *</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Ej: Cali"
-                                            value={formData.ciudad}
-                                            onChangeText={(value) => handleChange('ciudad', value)}
-                                            placeholderTextColor="#9ca3af"
-                                        />
-                                    </View>
-
                                     {/* Departamento */}
                                     <View style={styles.inputGroup}>
                                         <Text style={styles.label}>Departamento *</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Ej: Valle del Cauca"
-                                            value={formData.departamento}
-                                            onChangeText={(value) =>
-                                                handleChange('departamento', value)
-                                            }
-                                            placeholderTextColor="#9ca3af"
+                                        <CustomPicker
+                                            selectedValue={formData.departamento}
+                                            onValueChange={(value) => handleChange('departamento', value)}
+                                            items={departments.map(dept => ({
+                                                label: dept.departamento,
+                                                value: dept.departamento
+                                            }))}
+                                            placeholder="Selecciona tu departamento"
+                                        />
+                                    </View>
+
+                                    {/* Ciudad */}
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>Ciudad *</Text>
+                                        <CustomPicker
+                                            selectedValue={formData.ciudad}
+                                            onValueChange={(value) => handleChange('ciudad', value)}
+                                            items={cities.map(city => ({
+                                                label: city,
+                                                value: city
+                                            }))}
+                                            placeholder="Selecciona tu ciudad"
+                                            disabled={!formData.departamento}
                                         />
                                     </View>
 

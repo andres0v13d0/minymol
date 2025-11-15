@@ -2,13 +2,13 @@
   "expo": {
     "name": "Minymol",
     "slug": "minymol",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/favicon.png",
     "scheme": "minymol",
     "userInterfaceStyle": "light",
     "ios": {
-      "buildNumber": "1",
+      "buildNumber": "3",
       "supportsTablet": true,
       "bundleIdentifier": "com.minymol.app",
       "infoPlist": {
@@ -23,7 +23,7 @@
       "usesAppleSignIn": false
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/favicon.png",
         "backgroundColor": "#16164C"
@@ -100,7 +100,7 @@
         "projectId": "fa331260-c87d-4a77-b708-31b53a5f11d3"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.2.0",
     "updates": {
       "url": "https://u.expo.dev/fa331260-c87d-4a77-b708-31b53a5f11d3"
     }

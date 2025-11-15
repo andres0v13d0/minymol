@@ -18,35 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiCall, getUserData } from '../../utils/apiUtils';
 import { getUbuntuFont } from '../../utils/fonts';
+import { loadDepartments, getCitiesByDepartment } from '../../services/colombiaData';
 
 const { height: screenHeight } = Dimensions.get('window');
-
-// Departamentos y ciudades de Colombia
-const DEPARTAMENTOS_CIUDADES = {
-    'Antioquia': ['Medellín', 'Bello', 'Itagüí', 'Envigado', 'Apartadó', 'Turbo', 'Rionegro'],
-    'Atlántico': ['Barranquilla', 'Soledad', 'Malambo', 'Sabanagrande', 'Puerto Colombia'],
-    'Bogotá D.C.': ['Bogotá'],
-    'Bolívar': ['Cartagena', 'Magangué', 'Turbaco', 'Arjona'],
-    'Boyacá': ['Tunja', 'Duitama', 'Sogamoso', 'Chiquinquirá'],
-    'Caldas': ['Manizales', 'Villamaría', 'Chinchiná'],
-    'Caquetá': ['Florencia', 'San Vicente del Caguán'],
-    'Cauca': ['Popayán', 'Santander de Quilichao'],
-    'Cesar': ['Valledupar', 'Aguachica'],
-    'Córdoba': ['Montería', 'Cereté', 'Lorica'],
-    'Cundinamarca': ['Soacha', 'Girardot', 'Zipaquirá', 'Facatativá', 'Chía', 'Mosquera', 'Fusagasugá'],
-    'Huila': ['Neiva', 'Pitalito', 'Garzón'],
-    'La Guajira': ['Riohacha', 'Maicao'],
-    'Magdalena': ['Santa Marta', 'Ciénaga'],
-    'Meta': ['Villavicencio', 'Acacías'],
-    'Nariño': ['Pasto', 'Tumaco', 'Ipiales'],
-    'Norte de Santander': ['Cúcuta', 'Ocaña', 'Villa del Rosario'],
-    'Quindío': ['Armenia', 'Calarcá', 'La Tebaida'],
-    'Risaralda': ['Pereira', 'Dosquebradas', 'Santa Rosa de Cabal'],
-    'Santander': ['Bucaramanga', 'Floridablanca', 'Girón', 'Piedecuesta', 'Barrancabermeja'],
-    'Sucre': ['Sincelejo', 'Corozal'],
-    'Tolima': ['Ibagué', 'Espinal', 'Melgar'],
-    'Valle del Cauca': ['Cali', 'Palmira', 'Buenaventura', 'Tulúa', 'Cartago', 'Buga'],
-};
 
 const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userData = null, providerId = null }) => {
     const scrollViewRef = useRef(null);
@@ -64,7 +38,23 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userD
     const [showDepartmentPicker, setShowDepartmentPicker] = useState(false);
     const [showCityPicker, setShowCityPicker] = useState(false);
     const [availableCities, setAvailableCities] = useState([]);
+    const [availableDepartments, setAvailableDepartments] = useState([]);
     const [isCelularReadOnly, setIsCelularReadOnly] = useState(false);
+
+    // Cargar departamentos cuando el modal se abre
+    useEffect(() => {
+        const loadDepartmentsData = async () => {
+            if (visible && availableDepartments.length === 0) {
+                try {
+                    const data = await loadDepartments();
+                    setAvailableDepartments(data || []);
+                } catch (error) {
+                    console.error('Error cargando departamentos:', error);
+                }
+            }
+        };
+        loadDepartmentsData();
+    }, [visible]);
 
     useEffect(() => {
         if (visible) {
@@ -93,7 +83,7 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userD
         onClose();
     };
 
-    const handleInputChange = (field, value) => {
+    const handleInputChange = async (field, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
@@ -101,13 +91,19 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userD
 
         // Si cambia el departamento, actualizar ciudades disponibles
         if (field === 'departamento') {
-            setAvailableCities(DEPARTAMENTOS_CIUDADES[value] || []);
-            // Limpiar ciudad seleccionada si el departamento cambia
-            setFormData(prev => ({
-                ...prev,
-                [field]: value,
-                ciudad: ''
-            }));
+            try {
+                const cities = await getCitiesByDepartment(value);
+                setAvailableCities(cities || []);
+                // Limpiar ciudad seleccionada si el departamento cambia
+                setFormData(prev => ({
+                    ...prev,
+                    [field]: value,
+                    ciudad: ''
+                }));
+            } catch (error) {
+                console.error('Error cargando ciudades:', error);
+                setAvailableCities([]);
+            }
         }
     };
 
@@ -372,16 +368,16 @@ const CustomerModal = ({ visible, onClose, onContinue, initialData = null, userD
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.pickerList}>
-                            {Object.keys(DEPARTAMENTOS_CIUDADES).map((dept) => (
+                            {availableDepartments.map((dept) => (
                                 <TouchableOpacity
-                                    key={dept}
+                                    key={dept.id}
                                     style={styles.pickerItem}
                                     onPress={() => {
-                                        handleInputChange('departamento', dept);
+                                        handleInputChange('departamento', dept.departamento);
                                         setShowDepartmentPicker(false);
                                     }}
                                 >
-                                    <Text style={styles.pickerItemText}>{dept}</Text>
+                                    <Text style={styles.pickerItemText}>{dept.departamento}</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
